@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CMakeWorkspace" PROJECT_DIR="$PROJECT_DIR$" />
+  <component name="CidrRootsConfiguration">
+    <libraryRoots>
+      <file path="$PROJECT_DIR$/third-party/asio" />
+      <file path="$PROJECT_DIR$/third-party/fmt" />
+      <file path="$PROJECT_DIR$/third-party/rapidjson" />
+      <file path="$PROJECT_DIR$/third-party/zstd" />
+    </libraryRoots>
+    <excludeRoots>
+      <file path="$PROJECT_DIR$/cmake-build-debug" />
+      <file path="$PROJECT_DIR$/cmake-build-debug-editor" />
+      <file path="$PROJECT_DIR$/cmake-build-release" />
+      <file path="$PROJECT_DIR$/cmake-build-release-editor" />
+      <file path="$PROJECT_DIR$/cmake-build-relwithdebinfo" />
+      <file path="$PROJECT_DIR$/cmake-build-relwithdebinfo-editor" />
+      <file path="$PROJECT_DIR$/docs" />
+    </excludeRoots>
+  </component>
+</project>
