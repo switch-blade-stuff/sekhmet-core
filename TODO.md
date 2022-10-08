@@ -7,3 +7,4 @@
    dependency metadata.
 4. Make the top-level CMakeLists suitable for including as a library
 5. Rewrite tests
+6. Make math structures use packed format by default, for ABI compatibility.
