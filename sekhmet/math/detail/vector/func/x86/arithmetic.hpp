@@ -11,40 +11,34 @@ namespace sek::detail
 {
 	template<std::size_t N, policy_t P>
 	inline void vector_add(vector_data<float, N, P> &out, const vector_data<float, N, P> &l, const vector_data<float, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_add_ps(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_add_ps);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_sub(vector_data<float, N, P> &out, const vector_data<float, N, P> &l, const vector_data<float, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_sub_ps(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_sub_ps);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_mul(vector_data<float, N, P> &out, const vector_data<float, N, P> &l, const vector_data<float, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_mul_ps(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_mul_ps);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_div(vector_data<float, N, P> &out, const vector_data<float, N, P> &l, const vector_data<float, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_div_ps(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_div_ps);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_neg(vector_data<float, N, P> &out, const vector_data<float, N, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_sub_ps(_mm_setzero_ps(), v.simd);
+		x86_vector_apply(out, v, [](auto v) { return _mm_sub_ps(_mm_setzero_ps(), v); });
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_abs(vector_data<float, N, P> &out, const vector_data<float, N, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
 		constexpr auto mask = std::bit_cast<float>(0x7fff'ffff);
-		out.simd = _mm_and_ps(_mm_set1_ps(mask), v.simd);
+		x86_vector_apply(out, v, [&](auto v) { return _mm_and_ps(_mm_set1_ps(mask), v); });
 	}
 
 	SEK_FORCE_INLINE __m128 x86_fmadd_ps(__m128 a, __m128 b, __m128 c) noexcept

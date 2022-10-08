@@ -51,6 +51,7 @@ namespace sek::detail
 		return x86_128_shuffle2_unwrap<0>(s);
 	}
 
+	// clang-format off
 #ifdef SEK_USE_SSE
 	template<>
 	struct mask_set<std::uint32_t>
@@ -67,8 +68,7 @@ namespace sek::detail
 		constexpr bool operator()(auto &v) const noexcept { return v; }
 	};
 
-	template<std::size_t N, policy_t P>
-		requires(N > 2 && check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+	template<std::size_t N, policy_t P> requires(N > 2 && check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
 	union mask_data<float, N, P>
 	{
 		using element_t = mask_element<std::uint32_t>;
@@ -88,8 +88,7 @@ namespace sek::detail
 		std::uint32_t values[N];
 		__m128 simd;
 	};
-	template<std::size_t N, policy_t P>
-		requires(N > 2 && check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+	template<std::size_t N, policy_t P> requires(N > 2 && check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
 	union vector_data<float, N, P>
 	{
 		constexpr vector_data() noexcept : values{} {}
@@ -110,56 +109,54 @@ namespace sek::detail
 	};
 
 	template<std::size_t N, policy_t P>
-	inline __m128 x86_pack_epi32(const vector_data<float, N, P> &v) noexcept
-		requires(N <= 4)
+	inline __m128 x86_pack(const vector_data<float, N, P> &v) noexcept requires(N <= 4)
 	{
 		if constexpr (N == 2)
-			return _mm_set_ps(0, v[1], 0, v[0]);
+		{
+			const auto v64 = reinterpret_cast<const __m64 *>(v.data());
+			return _mm_loadl_pi(_mm_setzero_ps(), v64);
+		}
 		else if constexpr (N == 3)
-			return _mm_set_ps(0, v[2], v[1], v[0]);
+		{
+			const auto v64 = reinterpret_cast<const __m64 *>(v.data());
+			return _mm_loadh_pi(_mm_set_ss(v.data()[2]), v64);
+		}
 		else
-			return _mm_set_ps(v[3], v[2], v[1], v[0]);
+			return _mm_loadu_ps(v.data());
 	}
 	template<std::size_t N, policy_t P>
-	inline void x86_unpack_ps(vector_data<float, N, P> &out, __m128 v) noexcept
-		requires(N <= 4)
+	inline void x86_unpack(vector_data<float, N, P> &out, __m128 v) noexcept requires(N <= 4)
 	{
 		if constexpr (N == 2)
-		{
-			out[1] = _mm_cvtss_f32(_mm_unpackhi_ps(v, v));
-			out[0] = _mm_cvtss_f32(v);
-		}
+			_mm_storel_pi(reinterpret_cast<__m64 *>(out.data()), v);
 		else if constexpr (N == 3)
 		{
-			const auto h = _mm_unpackhi_ps(v, v);
-			const auto l = _mm_unpacklo_ps(v, v);
-			out[2] = _mm_cvtss_f32(h);
-			out[1] = _mm_cvtss_f32(_mm_unpackhi_ps(l, l));
-			out[0] = _mm_cvtss_f32(l);
+			_mm_storeh_pi(reinterpret_cast<__m64 *>(out.data()), v);
+			_mm_store_ss(out.data() + 2, v);
 		}
 		else
-		{
-			const auto h = _mm_unpackhi_ps(v, v);
-			const auto l = _mm_unpacklo_ps(v, v);
-			out[3] = _mm_cvtss_f32(_mm_unpackhi_ps(h, h));
-			out[2] = _mm_cvtss_f32(h);
-			out[1] = _mm_cvtss_f32(_mm_unpackhi_ps(l, l));
-			out[0] = _mm_cvtss_f32(l);
-		}
+			_mm_storeu_ps(v, out.data());
 	}
 
 	template<std::size_t N, policy_t P, typename F>
 	constexpr void x86_vector_apply(vector_data<float, N, P> &out, const vector_data<float, N, P> &v, F &&f)
 	{
-		if constexpr (check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
-			out.simd = f(v.simd);
+		if constexpr (!check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+			x86_unpack(out, f(x86_pack(v)));
 		else
-			x86_unpack_ps(out, f(x86_pack_epi32(v)));
+			out.simd = f(v.simd);
+	}
+	template<std::size_t N, policy_t P, typename F>
+	constexpr void x86_vector_apply(vector_data<float, N, P> &out, const vector_data<float, N, P> &a, const vector_data<float, N, P> &b, F &&f)
+	{
+		if constexpr (!check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+			x86_unpack(out, f(x86_pack(a), x86_pack(b)));
+		else
+			out.simd = f(a.simd, b.simd);
 	}
 
 #ifdef SEK_USE_SSE2
-	template<integral_of_size<4> T, std::size_t N, policy_t P>
-		requires(N > 2 && check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+	template<integral_of_size<4> T, std::size_t N, policy_t P> requires(N > 2 && check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
 	union mask_data<T, N, P>
 	{
 		using element_t = mask_element<std::uint32_t>;
@@ -179,8 +176,7 @@ namespace sek::detail
 		std::uint32_t values[N];
 		__m128i simd;
 	};
-	template<integral_of_size<4> T, std::size_t N, policy_t P>
-		requires(N > 2 && check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+	template<integral_of_size<4> T, std::size_t N, policy_t P> requires(N > 2 && check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
 	union vector_data<T, N, P>
 	{
 		constexpr vector_data() noexcept : values{} {}
@@ -201,59 +197,50 @@ namespace sek::detail
 	};
 
 	template<integral_of_size<4> T, std::size_t N, policy_t P>
-	inline __m128i x86_pack_epi32(const vector_data<T, N, P> &v) noexcept
-		requires(N <= 4)
+	inline __m128i x86_pack(const vector_data<T, N, P> &v) noexcept requires(N <= 4)
 	{
-		// clang-format off
 		if constexpr (N == 2)
-			return _mm_set_epi32(0, static_cast<std::int32_t>(v[1]),
-								 0, static_cast<std::int32_t>(v[0]));
+			return _mm_loadu_si64(v.data());
 		else if constexpr (N == 3)
-			return _mm_set_epi32(0, static_cast<std::int32_t>(v[2]),
-								 static_cast<std::int32_t>(v[1]),
-								 static_cast<std::int32_t>(v[0]));
+		{
+			const auto vs = _mm_castsi128_ps(_mm_loadu_si32(v.data() + 2));
+			const auto v64 = reinterpret_cast<const __m64 *>(v.data());
+			return _mm_castps_si128(_mm_loadh_pi(vs, v64));
+		}
 		else
-			return _mm_set_epi32(static_cast<std::int32_t>(v[3]),
-								 static_cast<std::int32_t>(v[2]),
-								 static_cast<std::int32_t>(v[1]),
-								 static_cast<std::int32_t>(v[0]));
-		// clang-format on
+			return _mm_loadu_si128(reinterpret_cast<const __m128i *>(v.data()));
 	}
 	template<integral_of_size<4> T, std::size_t N, policy_t P>
-	inline void x86_unpack_epi32(vector_data<T, N, P> &out, __m128i v) noexcept
+	inline void x86_unpack(vector_data<T, N, P> &out, __m128i v) noexcept
 		requires(N <= 4)
 	{
 		if constexpr (N == 2)
-		{
-			out[1] = static_cast<T>(_mm_cvtsi128_si32(_mm_unpackhi_epi32(v, v)));
-			out[0] = static_cast<T>(_mm_cvtsi128_si32(v));
-		}
+			_mm_storeu_si64(v.data(), v);
 		else if constexpr (N == 3)
 		{
-			const auto h = _mm_unpackhi_epi32(v, v);
-			const auto l = _mm_unpacklo_epi32(v, v);
-			out[2] = static_cast<T>(_mm_cvtsi128_si32(h));
-			out[1] = static_cast<T>(_mm_cvtsi128_si32(_mm_unpackhi_epi32(l, l)));
-			out[0] = static_cast<T>(_mm_cvtsi128_si32(l));
+			const auto v64 = reinterpret_cast<__m64 *>(out.data());
+			_mm_storeh_pi(v64, _mm_castsi128_ps(v));
+			_mm_storeu_si32(out.data() + 2, v);
 		}
 		else
-		{
-			const auto h = _mm_unpackhi_epi32(v, v);
-			const auto l = _mm_unpacklo_epi32(v, v);
-			out[3] = static_cast<T>(_mm_cvtsi128_si32(_mm_unpackhi_epi32(h, h)));
-			out[2] = static_cast<T>(_mm_cvtsi128_si32(h));
-			out[1] = static_cast<T>(_mm_cvtsi128_si32(_mm_unpackhi_epi32(l, l)));
-			out[0] = static_cast<T>(_mm_cvtsi128_si32(l));
-		}
+			_mm_storeu_si128(reinterpret_cast<__m128i *>(v.data()), v);
 	}
 
 	template<integral_of_size<4> T, std::size_t N, policy_t P, typename F>
 	constexpr void x86_vector_apply(vector_data<T, N, P> &out, const vector_data<T, N, P> &v, F &&f)
 	{
-		if constexpr (check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
-			out.simd = f(v.simd);
+		if constexpr (!check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+			x86_unpack(out, f(x86_pack(v)));
 		else
-			x86_unpack_epi32(out, f(x86_pack_epi32(v)));
+			out.simd = f(v.simd);
+	}
+	template<integral_of_size<4> T, std::size_t N, policy_t P, typename F>
+	constexpr void x86_vector_apply(vector_data<T, N, P> &out, const vector_data<T, N, P> &a, const vector_data<T, N, P> &b, F &&f)
+	{
+		if constexpr (!check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+			x86_unpack(out, f(x86_pack(a), x86_pack(b)));
+		else
+			out.simd = f(a.simd, b.simd);
 	}
 
 	template<>
@@ -271,8 +258,7 @@ namespace sek::detail
 		constexpr bool operator()(auto &v) const noexcept { return v; }
 	};
 
-	template<policy_t P>
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
+	template<policy_t P> requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	union mask_data<double, 2, P>
 	{
 		using element_t = mask_element<std::uint64_t>;
@@ -291,8 +277,7 @@ namespace sek::detail
 		std::uint64_t values[2];
 		__m128d simd;
 	};
-	template<policy_t P>
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
+	template<policy_t P> requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	union vector_data<double, 2, P>
 	{
 		constexpr vector_data() noexcept : values{} {}
@@ -313,28 +298,34 @@ namespace sek::detail
 	};
 
 	template<std::size_t N, policy_t P>
-	inline __m128d x86_pack_pd(const vector_data<double, 2, P> &v) noexcept
+	inline __m128d x86_pack(const vector_data<double, 2, P> &v) noexcept
 	{
-		return _mm_set_pd(v[1], v[0]);
+		return _mm_loadu_pd(v.data());
 	}
 	template<std::size_t N, policy_t P>
-	inline void x86_unpack_pd(vector_data<double, 2, P> &out, __m128d v) noexcept
+	inline void x86_unpack(vector_data<double, 2, P> &out, __m128d v) noexcept
 	{
-		out[1] = _mm_cvtsd_f64(_mm_unpackhi_pd(v, v));
-		out[0] = _mm_cvtsd_f64(v);
+		_mm_storeu_pd(out.data(), v);
 	}
 
 	template<policy_t P, typename F>
 	constexpr void x86_vector_apply(vector_data<double, 2, P> &out, const vector_data<double, 2, P> &v, F &&f)
 	{
-		if constexpr (check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
-			out.simd = f(v.simd);
+		if constexpr (!check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+			x86_unpack(out, f(x86_pack(v)));
 		else
-			x86_unpack_pd(out, f(x86_pack_pd(v)));
+			out.simd = f(v.simd);
+	}
+	template<policy_t P, typename F>
+	constexpr void x86_vector_apply(vector_data<double, 2, P> &out, const vector_data<double, 2, P> &a, const vector_data<double, 2, P> &b, F &&f)
+	{
+		if constexpr (!check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+			x86_unpack(out, f(x86_pack(a), x86_pack(b)));
+		else
+			out.simd = f(a.simd, b.simd);
 	}
 
-	template<integral_of_size<8> T, policy_t P>
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
+	template<integral_of_size<8> T, policy_t P> requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	union mask_data<T, 2, P>
 	{
 		using element_t = mask_element<std::uint64_t>;
@@ -353,8 +344,7 @@ namespace sek::detail
 		std::uint64_t values[2];
 		__m128i simd;
 	};
-	template<integral_of_size<8> T, policy_t P>
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
+	template<integral_of_size<8> T, policy_t P> requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	union vector_data<T, 2, P>
 	{
 		constexpr vector_data() noexcept : values{} {}
@@ -375,29 +365,35 @@ namespace sek::detail
 	};
 
 	template<integral_of_size<8> T, std::size_t N, policy_t P>
-	inline __m128i x86_pack_pd(const vector_data<T, 2, P> &v) noexcept
+	inline __m128i x86_pack(const vector_data<T, 2, P> &v) noexcept
 	{
-		return _mm_set_epi64x(static_cast<std::int64_t>(v[1]), static_cast<std::int64_t>(v[0]));
+		return _mm_loadu_si128(reinterpret_cast<const __m128i *>(out.data()));
 	}
 	template<integral_of_size<8> T, std::size_t N, policy_t P>
-	inline void x86_unpack_pd(vector_data<T, 2, P> &out, __m128i v) noexcept
+	inline void x86_unpack(vector_data<T, 2, P> &out, __m128i v) noexcept
 	{
-		out[1] = static_cast<T>(_mm_cvtsi128_si64x(_mm_unpackhi_epi64(v, v)));
-		out[0] = static_cast<T>(_mm_cvtsi128_si64x(v));
+		_mm_storeu_si128(reinterpret_cast<__m128i *>(out.data()), v);
 	}
 
 	template<integral_of_size<8> T, policy_t P, typename F>
 	constexpr void x86_vector_apply(vector_data<T, 2, P> &out, const vector_data<T, 2, P> &v, F &&f)
 	{
-		if constexpr (check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
-			out.simd = f(v.simd);
+		if constexpr (!check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+			x86_unpack(out, f(x86_pack(v)));
 		else
-			x86_unpack_pd(out, f(x86_pack_pd(v)));
+			out.simd = f(v.simd);
+	}
+	template<integral_of_size<8> T, policy_t P, typename F>
+	constexpr void x86_vector_apply(vector_data<T, 2, P> &out, const vector_data<T, 2, P> &a, const vector_data<T, 2, P> &b, F &&f)
+	{
+		if constexpr (!check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+			x86_unpack(out, f(x86_pack(a), x86_pack(b)));
+		else
+			out.simd = f(a.simd, b.simd);
 	}
 
 #ifndef SEK_USE_AVX
-	template<std::size_t N, policy_t P>
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
+	template<std::size_t N, policy_t P> requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	union mask_data<double, N, P>
 	{
 		using element_t = mask_element<std::uint64_t>;
@@ -417,8 +413,7 @@ namespace sek::detail
 		std::uint64_t values[3];
 		__m128d simd[2];
 	};
-	template<std::size_t N, policy_t P>
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
+	template<std::size_t N, policy_t P> requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	union vector_data<double, N, P>
 	{
 		constexpr vector_data() noexcept : values{} {}
@@ -448,32 +443,52 @@ namespace sek::detail
 		}
 		else
 		{
-			vector_data<double, 2, policy_t::FAST_SIMD> tmp;
-
-			tmp = {v[0], v[1]};
-			tmp.simd = f(tmp.simd);
-			out[0] = tmp[0];
-			out[1] = tmp[1];
+			auto v_simd = _mm_loadu_pd(v.data());
+			_mm_storeu_pd(out.data(), f(v_simd));
 
 			if constexpr (N > 3)
 			{
-				tmp = {v[2], v[3]};
-				tmp.simd = f(tmp.simd);
-				out[2] = tmp[0];
-				out[3] = tmp[1];
+				v_simd = _mm_set_sd(v.data()[2]);
+				_mm_store_sd(out.data() + 2, f(v_simd));
 			}
 			else
 			{
-				tmp = {v[2], double{}};
-				tmp.simd = f(tmp.simd);
-				out[2] = tmp[0];
+				v_simd = _mm_loadu_pd(v.data() + 2);
+				_mm_storeu_pd(out.data() + 2, f(v_simd));
+			}
+		}
+	}
+	template<std::size_t N, policy_t P, typename F>
+	constexpr void x86_vector_apply(vector_data<double, N, P> &out, const vector_data<double, N, P> &a, const vector_data<double, N, P> &b, F &&f)
+	{
+		if constexpr (check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
+		{
+			out.simd[0] = f(a.simd[0], b.simd[0]);
+			out.simd[1] = f(a.simd[1], b.simd[1]);
+		}
+		else
+		{
+			auto a_simd = _mm_loadu_pd(a.data());
+			auto b_simd = _mm_loadu_pd(b.data());
+			_mm_storeu_pd(out.data(), f(a_simd, b_simd));
+
+			if constexpr (N > 3)
+			{
+				a_simd = _mm_set_sd(a.data()[2]);
+				b_simd = _mm_set_sd(a.data()[2]);
+				_mm_store_sd(out.data() + 2, f(a_simd, b_simd));
+			}
+			else
+			{
+				a_simd = _mm_loadu_pd(a.data() + 2);
+				b_simd = _mm_loadu_pd(b.data() + 2);
+				_mm_storeu_pd(out.data() + 2, f(a_simd, b_simd));
 			}
 		}
 	}
 
 #ifndef SEK_USE_AVX2
-	template<integral_of_size<8> T, std::size_t N, policy_t P>
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
+	template<integral_of_size<8> T, std::size_t N, policy_t P> requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	union mask_data<T, N, P>
 	{
 		using element_t = mask_element<std::uint64_t>;
@@ -493,8 +508,7 @@ namespace sek::detail
 		std::uint64_t values[3];
 		__m128i simd[2];
 	};
-	template<integral_of_size<8> T, std::size_t N, policy_t P>
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
+	template<integral_of_size<8> T, std::size_t N, policy_t P> requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	union vector_data<T, N, P>
 	{
 		constexpr vector_data() noexcept : values{} {}
@@ -517,6 +531,7 @@ namespace sek::detail
 #endif
 #endif
 #endif
+	// clang-format on
 }	 // namespace sek::detail
 
 #endif
