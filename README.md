@@ -1,6 +1,6 @@
 # sekhmet-core
 
-Core application framework of the [sekhmet](https://github.com/switch-blade-stuff/sekhmet-core) game engine project.
+Core application framework of the [sekhmet](https://github.com/switch-blade-stuff/sekhmet) game engine project.
 
 ### Goals
 
