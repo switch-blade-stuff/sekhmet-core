@@ -45,17 +45,15 @@ namespace sek::detail
 	inline void vector_max(vector_data<double, 2, P> &out,
 						   const vector_data<double, 2, P> &l,
 						   const vector_data<double, 2, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_max_pd(l.simd, r.simd);
+		x86_vector_apply(put, l, r, _mm_max_pd);
 	}
 	template<policy_t P>
 	inline void vector_min(vector_data<double, 2, P> &out,
 						   const vector_data<double, 2, P> &l,
 						   const vector_data<double, 2, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_min_pd(l.simd, r.simd);
+		x86_vector_apply(put, l, r, _mm_min_pd);
 	}
 	template<policy_t P>
 	inline void vector_eq(mask_data<double, 2, P> &out, const vector_data<double, 2, P> &l, const vector_data<double, 2, P> &r) noexcept
@@ -138,8 +136,7 @@ namespace sek::detail
 						   const vector_data<double, N, P> &r) noexcept
 		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd[0] = _mm_max_pd(l.simd[0], r.simd[0]);
-		out.simd[1] = _mm_max_pd(l.simd[1], r.simd[1]);
+		x86_vector_apply(put, l, r, _mm_max_pd);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_min(vector_data<double, N, P> &out,
@@ -147,8 +144,7 @@ namespace sek::detail
 						   const vector_data<double, N, P> &r) noexcept
 		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd[0] = _mm_min_pd(l.simd[0], r.simd[0]);
-		out.simd[1] = _mm_min_pd(l.simd[1], r.simd[1]);
+		x86_vector_apply(put, l, r, _mm_min_pd);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_eq(mask_data<double, N, P> &out, const vector_data<double, N, P> &l, const vector_data<double, N, P> &r) noexcept

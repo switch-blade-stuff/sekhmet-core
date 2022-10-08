@@ -81,18 +81,16 @@ namespace sek::detail
 							 const vector_data<float, N, P> &a,
 							 const vector_data<float, N, P> &b,
 							 const vector_data<float, N, P> &c) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = x86_fmadd_ps(a.simd, b.simd, c.simd);
+		x86_vector_apply(out, a, b, c, x86_fmadd_ps);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_fmsub(vector_data<float, N, P> &out,
 							 const vector_data<float, N, P> &a,
 							 const vector_data<float, N, P> &b,
 							 const vector_data<float, N, P> &c) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = x86_fmsub_ps(a.simd, b.simd, c.simd);
+		x86_vector_apply(out, a, b, c, x86_fmsub_ps);
 	}
 
 #ifdef SEK_USE_SSE2
@@ -100,46 +98,41 @@ namespace sek::detail
 	inline void vector_add(vector_data<double, 2, P> &out,
 						   const vector_data<double, 2, P> &l,
 						   const vector_data<double, 2, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_add_pd(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_add_pd);
 	}
 	template<policy_t P>
 	inline void vector_sub(vector_data<double, 2, P> &out,
 						   const vector_data<double, 2, P> &l,
 						   const vector_data<double, 2, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_sub_pd(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_sub_pd);
 	}
 	template<policy_t P>
 	inline void vector_mul(vector_data<double, 2, P> &out,
 						   const vector_data<double, 2, P> &l,
 						   const vector_data<double, 2, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_mul_pd(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_mul_pd);
 	}
 	template<policy_t P>
 	inline void vector_div(vector_data<double, 2, P> &out,
 						   const vector_data<double, 2, P> &l,
 						   const vector_data<double, 2, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_div_pd(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_div_pd);
 	}
 	template<policy_t P>
 	inline void vector_neg(vector_data<double, 2, P> &out, const vector_data<double, 2, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_sub_pd(_mm_setzero_pd(), v.simd);
+		x86_vector_apply(out, v, [](auto v) { return _mm_sub_pd(_mm_setzero_pd(), v); });
 	}
 	template<policy_t P>
 	inline void vector_abs(vector_data<double, 2, P> &out, const vector_data<double, 2, P> &v) noexcept
 		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
 		constexpr auto mask = std::bit_cast<double>(0x7fff'ffff'ffff'ffff);
-		out.simd = _mm_and_pd(_mm_set1_pd(mask), v.simd);
+		x86_vector_apply(out, v, [&](auto v) { return _mm_and_pd(_mm_set1_pd(mask), v); });
 	}
 
 	SEK_FORCE_INLINE __m128d x86_fmadd_pd(__m128d a, __m128d b, __m128d c) noexcept
@@ -184,7 +177,7 @@ namespace sek::detail
 							 const vector_data<double, 2, P> &c) noexcept
 		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = x86_fmadd_pd(a.simd, b.simd, c.simd);
+		x86_vector_apply(out, a, b, c, x86_fmadd_pd);
 	}
 	template<policy_t P>
 	inline void vector_fmsub(vector_data<double, 2, P> &out,
@@ -193,53 +186,47 @@ namespace sek::detail
 							 const vector_data<double, 2, P> &c) noexcept
 		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = x86_fmsub_pd(a.simd, b.simd, c.simd);
+		x86_vector_apply(out, a, b, c, x86_fmsub_pd);
 	}
 
 	template<integral_of_size<4> T, std::size_t N, policy_t P>
 	inline void vector_add(vector_data<T, N, P> &out, const vector_data<T, N, P> &l, const vector_data<T, N, P> &r) noexcept
 		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_add_epi32(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_add_epi32);
 	}
 	template<integral_of_size<4> T, std::size_t N, policy_t P>
 	inline void vector_sub(vector_data<T, N, P> &out, const vector_data<T, N, P> &l, const vector_data<T, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_sub_epi32(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_sub_epi32);
 	}
 	template<integral_of_size<4> T, std::size_t N, policy_t P>
 	inline void vector_neg(vector_data<T, N, P> &out, const vector_data<T, N, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_sub_epi32(_mm_setzero_si128(), v.simd);
+		x86_vector_apply(out, v, [](auto v) { return _mm_sub_epi32(_mm_setzero_si128(), v); });
 	}
 #ifdef SEK_USE_SSSE3
 	template<integral_of_size<4> T, std::size_t N, policy_t P>
 	inline void vector_abs(vector_data<T, N, P> &out, const vector_data<T, N, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_abs_epi32(v.simd);
+		x86_vector_apply(out, v, _mm_abs_epi32);
 	}
 #endif
 
 	template<integral_of_size<8> T, policy_t P>
 	inline void vector_add(vector_data<T, 2, P> &out, const vector_data<T, 2, P> &l, const vector_data<T, 2, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_add_epi64(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_add_epi64);
 	}
 	template<integral_of_size<8> T, policy_t P>
 	inline void vector_sub(vector_data<T, 2, P> &out, const vector_data<T, 2, P> &l, const vector_data<T, 2, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_sub_epi64(l.simd, r.simd);
+		x86_vector_apply(out, l, r, _mm_sub_epi64);
 	}
 	template<integral_of_size<8> T, policy_t P>
 	inline void vector_neg(vector_data<T, 2, P> &out, const vector_data<T, 2, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_sub_epi64(_mm_setzero_si128(), v.simd);
+		x86_vector_apply(out, v, [](auto v) { return _mm_sub_epi64(_mm_setzero_si128(), v); });
 	}
 
 #ifndef SEK_USE_AVX
@@ -247,54 +234,41 @@ namespace sek::detail
 	inline void vector_add(vector_data<double, N, P> &out,
 						   const vector_data<double, N, P> &l,
 						   const vector_data<double, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd[0] = _mm_add_pd(l.simd[0], r.simd[0]);
-		out.simd[1] = _mm_add_pd(l.simd[1], r.simd[1]);
+		x86_vector_apply(out, l, r, _mm_add_pd);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_sub(vector_data<double, N, P> &out,
 						   const vector_data<double, N, P> &l,
 						   const vector_data<double, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd[0] = _mm_sub_pd(l.simd[0], r.simd[0]);
-		out.simd[1] = _mm_sub_pd(l.simd[1], r.simd[1]);
+		x86_vector_apply(out, l, r, _mm_sub_pd);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_mul(vector_data<double, N, P> &out,
 						   const vector_data<double, N, P> &l,
 						   const vector_data<double, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd[0] = _mm_mul_pd(l.simd[0], r.simd[0]);
-		out.simd[1] = _mm_mul_pd(l.simd[1], r.simd[1]);
+		x86_vector_apply(out, l, r, _mm_mul_pd);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_div(vector_data<double, N, P> &out,
 						   const vector_data<double, N, P> &l,
 						   const vector_data<double, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd[0] = _mm_div_pd(l.simd[0], r.simd[0]);
-		out.simd[1] = _mm_div_pd(l.simd[1], r.simd[1]);
+		x86_vector_apply(out, l, r, _mm_div_pd);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_neg(vector_data<double, N, P> &out, const vector_data<double, N, P> &v) noexcept
 		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		const auto z = _mm_setzero_pd();
-		out.simd[0] = _mm_sub_pd(z, v.simd[0]);
-		out.simd[1] = _mm_sub_pd(z, v.simd[1]);
+		x86_vector_apply(out, v, [z = _mm_setzero_pd()](auto v) { return _mm_sub_pd(z, v); });
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_abs(vector_data<double, N, P> &out, const vector_data<double, N, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
 		constexpr auto mask = std::bit_cast<double>(0x7fff'ffff'ffff'ffff);
-		const auto m = _mm_set1_pd(mask);
-		out.simd[0] = _mm_and_pd(m, v.simd[0]);
-		out.simd[1] = _mm_and_pd(m, v.simd[1]);
+		x86_vector_apply(out, v, [m = _mm_set1_pd(mask)](auto v) { return _mm_and_pd(m, v); });
 	}
 
 	template<std::size_t N, policy_t P>
@@ -302,44 +276,33 @@ namespace sek::detail
 							 const vector_data<double, N, P> &a,
 							 const vector_data<double, N, P> &b,
 							 const vector_data<double, N, P> &c) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd[0] = x86_fmadd_pd(a.simd[0], b.simd[0], c.simd[0]);
-		out.simd[1] = x86_fmadd_pd(a.simd[1], b.simd[1], c.simd[1]);
+		x86_vector_apply(out, a, b, c, x86_fmadd_pd);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_fmsub(vector_data<double, N, P> &out,
 							 const vector_data<double, N, P> &a,
 							 const vector_data<double, N, P> &b,
 							 const vector_data<double, N, P> &c) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd[0] = x86_fmsub_pd(a.simd[0], b.simd[0], c.simd[0]);
-		out.simd[1] = x86_fmsub_pd(a.simd[1], b.simd[1], c.simd[1]);
+		x86_vector_apply(out, a, b, c, x86_fmsub_pd);
 	}
 
 #ifndef SEK_USE_AVX2
 	template<integral_of_size<8> T, std::size_t N, policy_t P>
 	inline void vector_add(vector_data<T, N, P> &out, const vector_data<T, N, P> &l, const vector_data<T, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd[0] = _mm_add_epi64(l.simd[0], r.simd[0]);
-		out.simd[1] = _mm_add_epi64(l.simd[1], r.simd[1]);
+		x86_vector_apply(out, l, r, _mm_add_epi64);
 	}
 	template<integral_of_size<8> T, std::size_t N, policy_t P>
 	inline void vector_sub(vector_data<T, N, P> &out, const vector_data<T, N, P> &l, const vector_data<T, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd[0] = _mm_sub_epi64(l.simd[0], r.simd[0]);
-		out.simd[1] = _mm_sub_epi64(l.simd[1], r.simd[1]);
+		x86_vector_apply(out, l, r, _mm_sub_epi64);
 	}
 	template<integral_of_size<8> T, std::size_t N, policy_t P>
 	inline void vector_neg(vector_data<T, N, P> &out, const vector_data<T, N, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		const auto z = _mm_setzero_si128();
-		out.simd[0] = _mm_sub_epi64(z, v.simd[0]);
-		out.simd[1] = _mm_sub_epi64(z, v.simd[1]);
+		x86_vector_apply(out, v, [z = _mm_setzero_si128()](auto v) { return _mm_sub_epi64(z, v); });
 	}
 #endif
 #endif

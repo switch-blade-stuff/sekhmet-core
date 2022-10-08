@@ -27,7 +27,7 @@ namespace sek
 		/** Simd-enabled policy with priority for speed. Equivalent to `ALIGNED | FAST`. */
 		FAST_SIMD = FAST | ALIGNED,
 		/** Packed (non-SIMD) policy with priority for speed. Equivalent to `PACKED | FAST`. */
-		FAST_PACKED = FAST | ALIGNED,
+		FAST_PACKED = FAST | PACKED,
 
 		/** Default SIMD-enabled policy. Equivalent to `FAST_SIMD`. */
 		DEFAULT_SIMD = FAST_SIMD,
