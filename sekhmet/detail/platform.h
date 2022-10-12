@@ -75,6 +75,8 @@
 
 #ifdef SEK_OS_WIN
 
+#define SEK_API_HIDDEN
+
 #if defined(_MSC_VER)
 #define SEK_API_EXPORT __declspec(dllexport)
 #define SEK_API_IMPORT __declspec(dllimport)
@@ -83,31 +85,26 @@
 #define SEK_API_IMPORT __attribute__((dllimport))
 #endif
 
-#ifndef SEK_CORE_EXPORT
-#define SEK_CORE_PUBLIC SEK_API_IMPORT
-#else
-#define SEK_CORE_PUBLIC SEK_API_EXPORT
-#endif
-
-#define SEK_API_HIDDEN
-#define SEK_CORE_PRIVATE
-
 #elif __GNUC__ >= 4
 
-#define SEK_API_EXPORT
-#define SEK_API_IMPORT
 #define SEK_API_HIDDEN __attribute__((visibility("hidden")))
-#define SEK_CORE_PUBLIC __attribute__((visibility("default")))
-#define SEK_CORE_PRIVATE SEK_API_HIDDEN
+#define SEK_API_EXPORT __attribute__((visibility("default")))
+#define SEK_API_IMPORT __attribute__((visibility("default")))
 
 #else
 
+#define SEK_API_HIDDEN
 #define SEK_API_EXPORT
 #define SEK_API_IMPORT
-#define SEK_API_HIDDEN
-#define SEK_CORE_PUBLIC
-#define SEK_CORE_PRIVATE
 
+#endif
+
+#ifndef SEK_CORE_EXPORT
+#define SEK_CORE_PUBLIC SEK_API_IMPORT
+#define SEK_CORE_PRIVATE SEK_API_HIDDEN
+#else
+#define SEK_CORE_PUBLIC SEK_API_EXPORT
+#define SEK_CORE_PRIVATE SEK_API_HIDDEN
 #endif
 
 #ifdef SEK_OS_UNIX
