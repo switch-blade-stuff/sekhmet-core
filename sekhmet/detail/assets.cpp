@@ -100,7 +100,7 @@ namespace sek
 		using binary_input = binary::input_archive;
 		using flags_t = package_info::flags_t;
 
-		inline auto open_manifest(const std::filepath &path)
+		inline auto open_manifest(const std::filesystem::path &path)
 		{
 			const auto manifest_path = path / MANIFEST_FILE_NAME;
 			if (!exists(manifest_path) && !is_regular_file(manifest_path)) [[unlikely]]
@@ -116,7 +116,7 @@ namespace sek
 		invalid_manifest:
 			throw asset_error(fmt::format("Failed to open package manifest at \"{}\"", manifest_path.string()));
 		}
-		inline auto open_header(const std::filepath &path)
+		inline auto open_header(const std::filesystem::path &path)
 		{
 			if (!exists(path) && !is_regular_file(path)) [[unlikely]]
 				goto invalid_header;
@@ -343,7 +343,7 @@ namespace sek
 
 	asset_package::asset_package(detail::package_info *pkg) : m_ptr(pkg) { m_ptr.acquire(); }
 
-	std::vector<asset_package> asset_package::load_all(const std::filepath &path)
+	std::vector<asset_package> asset_package::load_all(const std::filesystem::path &path)
 	{
 		if (!exists(path) && !is_directory(path)) [[unlikely]]
 			throw asset_error(fmt::format("\"{}\" is not a valid directory", path.string()));
@@ -366,7 +366,7 @@ namespace sek
 		}
 		return result;
 	}
-	asset_package asset_package::load(const std::filepath &path)
+	asset_package asset_package::load(const std::filesystem::path &path)
 	{
 		if (!exists(path)) [[unlikely]]
 			throw asset_error(fmt::format("\"{}\" is not a valid package path", path.string()));

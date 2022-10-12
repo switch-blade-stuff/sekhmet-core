@@ -592,7 +592,7 @@ namespace sek
 		 * @param cache If set to true, the data will be cached and re-used for de-serialization of new entries.
 		 * @return Entry pointer to the loaded entry.
 		 * @throw config_error If the file fails to open or any entry within the resulting branch fails to initialize. */
-		SEK_CORE_PUBLIC entry_ptr<false> load(cfg_path entry, const std::filepath &path, bool cache = true);
+		SEK_CORE_PUBLIC entry_ptr<false> load(cfg_path entry, const std::filesystem::path &path, bool cache = true);
 		/** Loads an entry and all it's children from a Json file pointed to by a URI.
 		 * @param entry Full path of the entry.
 		 * @param location URI pointing to a Json file containing source data.
@@ -611,7 +611,7 @@ namespace sek
 		 * @param path Path to a the file to write Json data to.
 		 * @return `true` on success, `false` on failure (entry does not exist).
 		 * @throw config_error If the file fails to open. */
-		SEK_CORE_PUBLIC bool save(entry_ptr<true> which, const std::filepath &path) const;
+		SEK_CORE_PUBLIC bool save(entry_ptr<true> which, const std::filesystem::path &path) const;
 		/** @copybrief save
 		 * @param which Pointer to the entry to be saved.
 		 * @param location URI pointing to the file write Json data to.
@@ -632,7 +632,7 @@ namespace sek
 		 * @param path Path to a the file to write Json data to.
 		 * @return `true` on success, `false` on failure (entry does not exist).
 		 * @throw config_error If the file fails to open. */
-		inline bool save(const cfg_path &entry, const std::filepath &path) const
+		inline bool save(const cfg_path &entry, const std::filesystem::path &path) const
 		{
 			return save(find(entry), path);
 		}

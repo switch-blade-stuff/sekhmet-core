@@ -47,10 +47,10 @@ namespace sek
 		/** Loads a package at the specified path.
 		 * @throw asset_error If the path does not contain a valid package or
 		 * an implementation-defined error occurred during loading of package metadata. */
-		[[nodiscard]] static SEK_CORE_PUBLIC asset_package load(const std::filepath &path);
+		[[nodiscard]] static SEK_CORE_PUBLIC asset_package load(const std::filesystem::path &path);
 		/** Load all packages in the specified directory.
 		 * @throw asset_error If the path is not a valid directory. */
-		[[nodiscard]] static SEK_CORE_PUBLIC std::vector<asset_package> load_all(const std::filepath &path);
+		[[nodiscard]] static SEK_CORE_PUBLIC std::vector<asset_package> load_all(const std::filesystem::path &path);
 
 	private:
 		constexpr explicit asset_package(detail::package_info_ptr &&ptr) noexcept : m_ptr(std::move(ptr)) {}
@@ -69,7 +69,7 @@ namespace sek
 		asset_package &operator=(const asset_package &) = default;
 
 		/** Returns path of the asset package. */
-		[[nodiscard]] constexpr const std::filepath &path() const noexcept { return m_ptr->path; }
+		[[nodiscard]] constexpr const std::filesystem::path &path() const noexcept { return m_ptr->path; }
 
 		/** Checks if the asset package is empty (does not contain any assets). */
 		[[nodiscard]] constexpr bool empty() const noexcept { return m_ptr->empty(); }

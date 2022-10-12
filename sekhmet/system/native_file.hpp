@@ -96,7 +96,7 @@ namespace sek
 		constexpr static seek_basis seek_set = seek_set;
 
 	protected:
-		using path_char = typename std::filepath::value_type;
+		using path_char = typename std::filesystem::path::value_type;
 
 		template<typename T>
 		inline static T return_if(expected<T, std::error_code> &&exp)
@@ -130,7 +130,7 @@ namespace sek
 		 * @throw std::system_error On implementation-defined system errors. */
 		native_file(const path_char *path, openmode mode) { open(path, mode); }
 		/** @copydoc native_file */
-		native_file(const std::filepath &path, openmode mode) : native_file(path.c_str(), mode) {}
+		native_file(const std::filesystem::path &path, openmode mode) : native_file(path.c_str(), mode) {}
 
 		/** Opens an existing native file handle.
 		 * @param handle Native handle to open. */
@@ -140,7 +140,7 @@ namespace sek
 		 * @param path Path to the file.
 		 * @param mode Mode to open the file with.
 		 * @throw std::system_error On implementation-defined system errors. */
-		void open(const std::filepath &path, openmode mode) { open(path.c_str(), mode); }
+		void open(const std::filesystem::path &path, openmode mode) { open(path.c_str(), mode); }
 		/** @copydoc open */
 		SEK_CORE_PUBLIC void open(const path_char *path, openmode mode);
 
@@ -148,7 +148,7 @@ namespace sek
 		 * @param path Path to the file.
 		 * @param mode Mode to open the file with.
 		 * @return `void` or an error code. */
-		expected<void, std::error_code> open(std::nothrow_t, const std::filepath &path, openmode mode) noexcept
+		expected<void, std::error_code> open(std::nothrow_t, const std::filesystem::path &path, openmode mode) noexcept
 		{
 			return open(std::nothrow, path.c_str(), mode);
 		}

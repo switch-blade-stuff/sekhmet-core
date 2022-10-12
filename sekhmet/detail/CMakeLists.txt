@@ -34,7 +34,6 @@ target_sources(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/intern.cpp
         ${CMAKE_CURRENT_LIST_DIR}/object.cpp
         ${CMAKE_CURRENT_LIST_DIR}/plugin.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/profiler.cpp
         ${CMAKE_CURRENT_LIST_DIR}/resources.cpp
         ${CMAKE_CURRENT_LIST_DIR}/service.cpp
         ${CMAKE_CURRENT_LIST_DIR}/thread_pool.cpp

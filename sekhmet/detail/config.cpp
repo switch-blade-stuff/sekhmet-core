@@ -314,7 +314,7 @@ namespace sek
 		}
 	}
 
-	config_registry::entry_ptr<false> config_registry::load(cfg_path entry, const std::filepath &path, bool cache)
+	config_registry::entry_ptr<false> config_registry::load(cfg_path entry, const std::filesystem::path &path, bool cache)
 	{
 		auto cfg_file = std::ifstream{path};
 		if (!cfg_file.is_open()) [[unlikely]]
@@ -326,7 +326,7 @@ namespace sek
 	config_registry::entry_ptr<false> config_registry::load(cfg_path entry, const uri &location, bool cache)
 	{
 		if (location.is_local()) [[likely]]
-			return load(std::move(entry), std::filepath{location.path(uri_format::DECODE_ALL)}, cache);
+			return load(std::move(entry), std::filesystem::path{location.path(uri_format::DECODE_ALL)}, cache);
 		else /* TODO: Implement non-local config loading. */
 			throw config_error("Loading configuration from a non-local file is not supported yet");
 	}
@@ -357,7 +357,7 @@ namespace sek
 		return entry_ptr<false>{init_branch(node, data)};
 	}
 
-	bool config_registry::save(entry_ptr<true> which, const std::filepath &path) const
+	bool config_registry::save(entry_ptr<true> which, const std::filesystem::path &path) const
 	{
 		auto file = std::ofstream{path, std::ios::trunc | std::ios::out};
 		if (!file.is_open()) [[unlikely]]
@@ -369,7 +369,7 @@ namespace sek
 	bool config_registry::save(entry_ptr<true> which, const uri &location) const
 	{
 		if (location.is_local()) [[likely]]
-			return save(which, std::filepath{location.path(uri_format::DECODE_ALL)});
+			return save(which, std::filesystem::path{location.path(uri_format::DECODE_ALL)});
 		else /* TODO: Implement non-local config saving. */
 			throw config_error("Saving configuration to a non-local file is not supported yet");
 	}

@@ -89,6 +89,11 @@ if (SEK_ENABLE_IPO)
     endif ()
 endif ()
 
+# Set symbol visibility
+set_target_properties(${SEK_CORE_PROJECT} PROPERTIES C_VISIBILITY_PRESET hidden)
+set_target_properties(${SEK_CORE_PROJECT} PROPERTIES CXX_VISIBILITY_PRESET hidden)
+set_target_properties(${SEK_CORE_PROJECT} PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
+
 # Set compilation variables & definitions
 add_compile_definitions(SEK_CORE_VERSION="${SEK_CORE_VERSION}")
 add_compile_definitions(SEK_CORE_VERSION="${SEK_CORE_PROJECT}")

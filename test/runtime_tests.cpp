@@ -450,10 +450,10 @@ TEST(runtime_tests, asset_test)
 	using db_guard_t = std::remove_pointer_t<decltype(sek::asset_database::instance())>;
 	db_guard_t db_guard;
 
-	auto archive_path = std::filepath(TEST_DIR) / "test_archive.sekpak";
+	auto archive_path = std::filesystem::path(TEST_DIR) / "test_archive.sekpak";
 	auto archive_pkg = sek::asset_package::load(archive_path);
 	EXPECT_EQ(archive_pkg.path(), archive_path);
-	auto loose_path = std::filepath(TEST_DIR) / "test_package";
+	auto loose_path = std::filesystem::path(TEST_DIR) / "test_package";
 	auto loose_pkg = sek::asset_package::load(loose_path);
 	EXPECT_EQ(loose_pkg.path(), loose_path);
 
@@ -618,7 +618,7 @@ TEST(runtime_tests, resource_test)
 	cache_guard_t cache_guard;
 
 	{
-		auto pkg = asset_package::load(std::filepath(TEST_DIR) / "test_package");
+		auto pkg = asset_package::load(std::filesystem::path(TEST_DIR) / "test_package");
 		db_guard.access()->packages().push_back(pkg);
 	}
 	type_info::reflect<test_resource>().attribute(make_resource_type<test_resource>()).submit();

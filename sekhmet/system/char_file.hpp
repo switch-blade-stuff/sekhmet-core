@@ -60,7 +60,7 @@ namespace sek
 		 * @warning Character files do not support unbuffered (`native_file::direct`) mode. */
 		basic_char_file(const path_char *path, openmode mode) { open(path, mode); }
 		/** @copydoc basic_char_file */
-		basic_char_file(const std::filepath &path, openmode mode) : basic_char_file(path.c_str(), mode) {}
+		basic_char_file(const std::filesystem::path &path, openmode mode) : basic_char_file(path.c_str(), mode) {}
 
 		/** @copydoc native_file::open(const path_char *, openmode)
 		 * @warning Character files do not support unbuffered (`native_file::direct`) mode. */
@@ -71,7 +71,7 @@ namespace sek
 			native_file::open(path, mode);
 		}
 		/** @copydoc open */
-		void open(const std::filepath &path, openmode mode) { open(path.c_str(), mode); }
+		void open(const std::filesystem::path &path, openmode mode) { open(path.c_str(), mode); }
 
 		/** @copydoc native_file::open(std::nothrow_t, const path_char *, openmode)
 		 * @warning Character files do not support unbuffered (`native_file::direct`) mode. */
@@ -82,7 +82,7 @@ namespace sek
 			return native_file::open(std::nothrow, path, mode);
 		}
 		/** @copydoc open */
-		expected<void, std::error_code> open(std::nothrow_t, const std::filepath &path, openmode mode) noexcept
+		expected<void, std::error_code> open(std::nothrow_t, const std::filesystem::path &path, openmode mode) noexcept
 		{
 			return open(std::nothrow, path.c_str(), mode);
 		}

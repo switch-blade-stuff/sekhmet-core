@@ -4,238 +4,197 @@
 
 #include "../plugin.hpp"
 
+#include "../access_guard.hpp"
+#include "../debug/assert.hpp"
 #include "../debug/logger.hpp"
-#include "../dense_map.hpp"
-#include <shared_mutex>
+#include "../sparse_set.hpp"
 
-#define ENABLE_FAIL_MSG "Failed to enable plugin - "
-#define DISABLE_FAIL_MSG "Failed to disable plugin - "
+#if defined(SEK_OS_WIN)
+#include <libloaderapi.h>
+#elif defined(SEK_OS_UNIX)
+#include <dlfcn.h>
+#if defined(SEK_OS_APPLE)
+#include <mach-o/dyld.h>
+#endif
+#endif
 
 namespace sek
 {
-	namespace detail
+	struct module::module_data
 	{
-		struct plugin_db
+		module_data(const path_char *path, native_handle_type handle) : path(path), handle(handle) {}
+		module_data(const std::filesystem::path &path, native_handle_type handle) : path(path), handle(handle) {}
+		module_data(std::filesystem::path &&path, native_handle_type handle) : path(std::move(path)), handle(handle) {}
+
+		/* Reference counter used to clean up module data entries. */
+		mutable std::size_t ref_ctr = 0;
+
+		std::filesystem::path path;
+		native_handle_type handle;
+	};
+	struct module::module_db
+	{
+		struct data_hash
 		{
-			static plugin_db instance;
+			typedef std::true_type is_transparent;
 
-			void filter(auto &&f) const
+			[[nodiscard]] hash_t operator()(const module_data &data) const noexcept { return operator()(data.handle); }
+			[[nodiscard]] hash_t operator()(native_handle_type handle) const noexcept
 			{
-				std::shared_lock<std::shared_mutex> l(mtx);
-				for (auto entry : plugins) f(entry.second);
+				const auto ptr = std::bit_cast<std::uintptr_t>(handle);
+				return static_cast<hash_t>(ptr);
 			}
+		};
+		struct data_cmp
+		{
+			typedef std::true_type is_transparent;
 
-			mutable std::shared_mutex mtx;
-			dense_map<std::string_view, plugin_data *> plugins;
+			[[nodiscard]] bool operator()(const module_data &a, const module_data &b) const noexcept
+			{
+				return a.handle == b.handle;
+			}
+			[[nodiscard]] bool operator()(native_handle_type a, const module_data &b) const noexcept
+			{
+				return a == b.handle;
+			}
+			[[nodiscard]] bool operator()(const module_data &a, native_handle_type b) const noexcept
+			{
+				return a.handle == b;
+			}
+			[[nodiscard]] bool operator()(native_handle_type a, native_handle_type b) const noexcept { return a == b; }
 		};
 
-		plugin_db plugin_db::instance;
+		using module_table = sparse_set<module_data, data_hash, data_cmp>;
 
-		static auto format_plugin(const plugin_data *data)
+		[[nodiscard]] static std::filesystem::path get_main_path() noexcept
 		{
-			return fmt::format("\"{}\" ({})", data->info.id, data->info.plugin_ver.to_string());
-		}
+			path_char buff[PATH_MAX + 1];
+			std::uint32_t n = 0;
 
-		static bool is_compatible(const version &a, const version &b) noexcept
-		{
-			return a.major() == b.major() && a.minor() <= b.minor();
-		}
-		static bool is_compatible(const version &ver) noexcept
-		{
-			return is_compatible(ver, version{SEK_CORE_VERSION});
-		}
-		static bool enable_guarded(plugin_data *data) noexcept
-		{
-			try
-			{
-				return data->enable();
-			}
-			catch (std::runtime_error &e)
-			{
-				logger::error() << fmt::format(ENABLE_FAIL_MSG "got runtime error: \"{}\"", e.what());
-			}
-			catch (std::exception &e)
-			{
-				logger::error() << fmt::format(ENABLE_FAIL_MSG "got exception: \"{}\". This my lead to a crash", e.what());
-			}
-			catch (...)
-			{
-				logger::error() << fmt::format(ENABLE_FAIL_MSG "unknown exception. This my lead to a crash");
-			}
-			return false;
-		}
-		static void disable_guarded(plugin_data *data) noexcept
-		{
-			try
-			{
-				data->disable();
-			}
-			catch (std::runtime_error &e)
-			{
-				logger::error() << fmt::format(DISABLE_FAIL_MSG "got runtime error: \"{}\"", e.what());
-			}
-			catch (std::exception &e)
-			{
-				logger::error() << fmt::format(DISABLE_FAIL_MSG "got exception: \"{}\". This my lead to a crash", e.what());
-			}
-			catch (...)
-			{
-				logger::error() << fmt::format(DISABLE_FAIL_MSG "unknown exception. This my lead to a crash");
-			}
-		}
-
-		void plugin_data::load_impl(plugin_data *data, void (*init)(void *))
-		{
-			auto &db = plugin_db::instance;
-
-			if (const auto ver = data->info.core_ver; !is_compatible(ver)) [[unlikely]]
-			{
-				logger::error() << fmt::format("Ignoring incompatible plugin {}. "
-											   "Plugin's core version: \"{}\", "
-											   "actual core version: \"{}\"",
-											   format_plugin(data),
-											   data->info.core_ver.to_string(),
-											   SEK_CORE_VERSION);
-				return;
-			}
-			else if (data->status != plugin_data::INITIAL) [[unlikely]]
-			{
-				logger::error() << fmt::format("Ignoring plugin {} - already loaded", format_plugin(data));
-				return;
-			}
-			else
-			{
-				bool auto_enable = false;
-				const auto existing = db.plugins.try_emplace(data->info.id, data);
-				if (!existing.second) [[unlikely]]
+#if defined(SEK_OS_WIN)
+			const auto res = GetModuleFileNameW(nullptr, buff, PATH_MAX + 1);
+			if (res == 0) [[unlikely]]
+				if (const auto err = GetLastError(); err != ERROR_INSUFFICIENT_BUFFER) [[unlikely]]
 				{
-					if (auto existing_ver = existing.first->second->info.plugin_ver; is_compatible(existing_ver, ver))
-					{
-						logger::warn() << fmt::format("Ignoring plugin {} - lesser version", format_plugin(data));
-						return;
-					}
-					else /* Replace existing plugin. */
-					{
-						logger::info() << fmt::format("Replacing plugin {} with "
-													  "greater version number ({}) ",
-													  format_plugin(data),
-													  ver.to_string());
-
-						if ((auto_enable = existing.first->second->status == plugin_data::ENABLED))
-							disable_guarded(existing.first->second);
-						unload_impl(existing.first->second);
-					}
+					// clang-format off
+					sek::logger::fatal()->log(fmt::format("Failed to get executable path using `GetModuleFileNameW`. "
+														  "Error: {}", err));
+					// clang-format on
+					std::abort();
 				}
-
-				logger::info() << fmt::format("Loading plugin {}", format_plugin(data));
-				try
-				{
-					init(data);
-					data->status = plugin_data::DISABLED;
-					if (auto_enable && !enable_guarded(data)) [[unlikely]]
-						logger::warn() << fmt::format("Failed to enable replacement plugin");
-					return;
-				}
-				catch (std::exception &e)
-				{
-					logger::error() << fmt::format("Failed to load plugin - init exception: \"{}\"", e.what());
-				}
-				catch (...)
-				{
-					logger::error() << fmt::format("Failed to load plugin - unknown init exception");
-				}
-				db.plugins.erase(existing.first);
-			}
-		}
-		void plugin_data::unload_impl(plugin_data *data)
-		{
-			auto &db = plugin_db::instance;
-
-			const auto old_status = std::exchange(data->status, plugin_data::INITIAL);
-			if (old_status == plugin_data::INITIAL) [[unlikely]]
-				return;
-
-			logger::info() << fmt::format("Unloading plugin {}", format_plugin(data));
-			if (old_status == plugin_data::ENABLED) [[unlikely]]
+			n = static_cast<std::uint32_t>(res);
+#elif defined(SEK_OS_APPLE)
+			if (_NSGetExecutablePath(buff, &n) != 0) [[unlikely]]
 			{
-				logger::warn() << fmt::format("Plugin is still enabled. Disabling on unload. "
-											  "This may lead to unexpected errors",
-											  data->info.id);
-				disable_guarded(data);
+				sek::logger::fatal()->log(fmt::format("Failed to get executable path using `_NSGetExecutablePath`"));
+				std::abort();
 			}
-
-			db.plugins.erase(data->info.id);
-		}
-		void plugin_data::load(plugin_data *data, void (*init)(void *))
-		{
-			std::lock_guard<std::shared_mutex> l(plugin_db::instance.mtx);
-			load_impl(data, init);
-		}
-		void plugin_data::unload(plugin_data *data)
-		{
-			std::lock_guard<std::shared_mutex> l(plugin_db::instance.mtx);
-			unload_impl(data);
-		}
-	}	 // namespace detail
-
-	std::vector<plugin> plugin::get_loaded()
-	{
-		std::vector<plugin> result;
-		detail::plugin_db::instance.filter([&result](auto *ptr) { result.push_back(plugin{ptr}); });
-		return result;
-	}
-	std::vector<plugin> plugin::get_enabled()
-	{
-		std::vector<plugin> result;
-		detail::plugin_db::instance.filter(
-			[&result](auto *ptr)
+#elif defined(SEK_OS_UNIX)
+			const auto res = readlink("/proc/self/exe", buff, PATH_MAX);
+			if (res == 0) [[unlikely]]
 			{
-				if (ptr->status == detail::plugin_data::ENABLED) result.push_back(plugin{ptr});
-			});
-		return result;
-	}
-	plugin plugin::get(std::string_view id)
-	{
-		auto &db = detail::plugin_db::instance;
-		std::shared_lock<std::shared_mutex> l(db.mtx);
-
-		if (auto pos = db.plugins.find(id); pos != db.plugins.end()) [[likely]]
-			return plugin{pos->second};
-		return plugin{};
-	}
-
-	bool plugin::enabled() const noexcept
-	{
-		std::shared_lock<std::shared_mutex> l(detail::plugin_db::instance.mtx);
-		return m_data->status == detail::plugin_data::ENABLED;
-	}
-	bool plugin::enable() const noexcept
-	{
-		std::lock_guard<std::shared_mutex> l(detail::plugin_db::instance.mtx);
-
-		logger::info() << fmt::format("Enabling plugin {}", detail::format_plugin(m_data));
-		if (m_data->status != detail::plugin_data::DISABLED) [[unlikely]]
-			logger::error() << fmt::format(ENABLE_FAIL_MSG "already enabled or not loaded");
-		else if (detail::enable_guarded(m_data)) [[likely]]
-		{
-			m_data->status = detail::plugin_data::ENABLED;
-			return true;
+				// clang-format off
+						const auto code = std::make_error_code(std::errc{errno});
+						sek::logger::fatal()->log(fmt::format("Failed to get executable path using `readlink. "
+															  "Error: [{}] {}`", code.value(), code.message()));
+						std::abort();
+				// clang-format on
+			}
+			n = static_cast<std::uint32_t>(res);
+#else
+#error "Unknown OS"
+#endif
+			return std::filesystem::path{std::basic_string_view{buff, n}};
 		}
-		return false;
-	}
-	bool plugin::disable() const noexcept
-	{
-		std::lock_guard<std::shared_mutex> l(detail::plugin_db::instance.mtx);
+		[[nodiscard]] static native_handle_type get_main_lib() noexcept
+		{
+			const auto res = native_open(nullptr);
+			if (!res.has_value()) [[unlikely]]
+			{
+				// clang-format off
+				const auto code = res.error();
+				sek::logger::fatal()->log(fmt::format("Failed to get executable module handle. Error: [{}] {}`",
+													  code.value(), code.message()));
+				std::abort();
+				// clang-format on
+			}
+			return *res;
+		}
 
-		logger::info() << fmt::format("Disabling plugin {}", detail::format_plugin(m_data));
-		if (m_data->status != detail::plugin_data::ENABLED) [[unlikely]]
-			logger::error() << fmt::format(DISABLE_FAIL_MSG "already disabled or not loaded");
+		[[nodiscard]] static access_guard<module_db> instance()
+		{
+			static module_db instance;
+			return {instance, instance.mtx};
+		}
+
+		module_db() { main = table.emplace(get_main_path(), get_main_lib()).first.get(); }
+
+		mutable std::mutex mtx;
+
+		const module_data *main;
+		module_table table;
+	};
+
+	expected<typename sek::module::native_handle_type, std::error_code> module::native_open(const path_char *path)
+	{
+		native_handle_type res;
+#if defined(SEK_OS_WIN)
+		if (path != nullptr) [[likely]]
+		{
+			// clang-format off
+			const auto flags = LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+							   LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32 |
+							   LOAD_LIBRARY_SEARCH_USER_DIRS;
+			// clang-format on
+			res = LoadLibraryExW(path, nullptr, flags);
+		}
 		else
-		{
-			detail::disable_guarded(m_data);
-			m_data->status = detail::plugin_data::DISABLED;
-			return true;
-		}
-		return false;
+			res = GetModuleHandleW(nullptr);
+
+		if (res == nullptr) [[unlikely]]
+			return unexpected{std::error_code{GetLastError(), std::system_category()}};
+#elif defined(SEK_OS_UNIX)
+		if ((res = dlopen(path, RTLD_NOW | RTLD_GLOBAL)) == nullptr) [[unlikely]]
+			return unexpected{std::make_error_code(std::errc{errno})};
+#else
+#error "Unknown OS"
+#endif
+		return res;
 	}
+	expected<void, std::error_code> module::native_close(native_handle_type) {}
+
+	constexpr module::module(const module_data *data) noexcept : m_data(data) { ++data->ref_ctr; }
+
+	expected<module, std::error_code> module::open(std::nothrow_t, const path_char *path)
+	{
+		if (path == nullptr) [[unlikely]]
+			return module{};
+
+		const auto handle = native_open(path);
+		if (!handle.has_value()) [[unlikely]]
+			return unexpected{handle.error()};
+
+		const auto db = module_db::instance().access();
+		auto iter = db->table.find(*handle);
+		if (iter == db->table.end()) [[likely]]
+			iter = db->table.emplace(path, *handle).first;
+		return module{iter.get()};
+	}
+	expected<void, std::error_code> module::close(std::nothrow_t, module &mod)
+	{
+		if (const auto data = mod.m_data; data != nullptr) [[likely]]
+			if (const auto db = module_db::instance().access(); db->main != data) [[likely]]
+			{
+				if (--data->ref_ctr == 0) [[unlikely]]
+					db->table.erase(data->handle);
+				return native_close(data->handle);
+			}
+		return {};
+	}
+
+	module module::open(const path_char *path) { return return_if(open(std::nothrow, path)); }
+	void module::close(sek::module &mod) { return_if(close(std::nothrow, mod)); }
+
+	module::module() :m_data(module_db::instance()->main) {}
+	module::~module() { close(*this); }
 }	 // namespace sek

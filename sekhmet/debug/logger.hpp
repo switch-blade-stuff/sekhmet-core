@@ -111,7 +111,7 @@ namespace sek
 
 		/** @brief Logs the provided message and any additional arguments even if the logger is disabled.
 		 * @param msg Message string.
-		 * @param args Additional arguments passed to `fmt::format`.
+		 * @param args Additional `fmt::format` arguments passed to the message format.
 		 * @return Reference to this logger. */
 		template<typename... Args>
 		basic_logger &log_explicit(string_view_type msg, Args &&...args)
@@ -132,10 +132,12 @@ namespace sek
 		basic_logger &log_explicit(const std::locale &loc, string_view_type msg, Args &&...args)
 		{
 			// clang-format off
-			string_type str = fmt::format(loc, m_format, fmt::arg("M", msg), std::forward<Args>(args)...,
-										  fmt::arg("T", fmt::localtime(std::time(nullptr))),
-										  fmt::arg("L", m_level));
+			string_type str = fmt::vformat(loc, m_format, fmt::make_format_args(
+									fmt::arg("M", msg), std::forward<Args>(args)...,
+									fmt::arg("T", fmt::localtime(std::time(nullptr))),
+									fmt::arg("L", m_level)));
 			// clang-format on
+
 			m_log_event(str);
 			return *this;
 		}
