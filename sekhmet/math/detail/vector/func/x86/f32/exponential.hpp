@@ -11,18 +11,16 @@ namespace sek::detail
 {
 	template<std::size_t N, policy_t P>
 	inline void vector_sqrt(vector_data<float, N, P> &out, const vector_data<float, N, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_sqrt_ps(v.simd);
+		x86_vector_apply(out, v, _mm_sqrt_ps);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_rsqrt(vector_data<float, N, P> &out, const vector_data<float, N, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		if constexpr (check_policy_v<P, policy_t::PRECISION_MASK, policy_t::FAST>)
-			out.simd = _mm_rsqrt_ps(v.simd);
+		if constexpr (!check_policy_v<P, policy_t::PRECISION_MASK, policy_t::FAST>)
+			x86_vector_apply(out, v, [](auto v) { return _mm_div_ps(_mm_set1_ps(1.0f), _mm_sqrt_ps(v)); });
 		else
-			out.simd = _mm_div_ps(_mm_set1_ps(1.0f), _mm_sqrt_ps(v.simd));
+			x86_vector_apply(out, v, _mm_rsqrt_ps);
 	}
 
 #ifdef SEK_USE_SSE2

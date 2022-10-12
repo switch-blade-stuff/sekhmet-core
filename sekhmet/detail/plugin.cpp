@@ -4,8 +4,8 @@
 
 #include "../plugin.hpp"
 
-#include "../../dense_map.hpp"
-#include "../logger.hpp"
+#include "../debug/logger.hpp"
+#include "../dense_map.hpp"
 #include <shared_mutex>
 
 #define ENABLE_FAIL_MSG "Failed to enable plugin - "

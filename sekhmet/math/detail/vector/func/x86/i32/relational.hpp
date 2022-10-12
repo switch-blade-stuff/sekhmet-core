@@ -42,15 +42,13 @@ namespace sek::detail
 
 	template<integral_of_size<4> T, std::size_t N, policy_t P>
 	inline void vector_max(vector_data<T, N, P> &out, const vector_data<T, N, P> &l, const vector_data<T, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_max_epi32(l.simd, r.simd);
+		x86_vector_apply(put, l, r, _mm_max_epi32);
 	}
 	template<integral_of_size<4> T, std::size_t N, policy_t P>
 	inline void vector_min(vector_data<T, N, P> &out, const vector_data<T, N, P> &l, const vector_data<T, N, P> &r) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_min_epi32(l.simd, r.simd);
+		x86_vector_apply(put, l, r, _mm_min_epi32);
 	}
 	template<integral_of_size<4> T, std::size_t N, policy_t P>
 	inline void vector_eq(mask_data<T, N, P> &out, const vector_data<T, N, P> &l, const vector_data<T, N, P> &r) noexcept

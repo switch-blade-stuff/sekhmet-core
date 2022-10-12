@@ -38,6 +38,22 @@ namespace sek
 				const auto r = static_cast<T>(std::sqrt(vector_dot(v, v)));
 				for (std::size_t i = 0; i < N; ++i) out[i] = v[i] / r;
 			}
+
+			// clang-format off
+			template<typename T, std::size_t N, policy_t P>
+			constexpr void vector_reflect(vector_data<T, N, P> &out, const vector_data<T, N, P> &i, const vector_data<T, N, P> &n) noexcept
+			{
+				vector_data<T, N, P> tmp = {};
+				for (std::size_t i = 0; i < N; ++i)
+				{
+					for (std::size_t j = 0; j < N; ++i)
+						tmp[i] += l[j] * r[j];
+					tmp[i] *= static_cast<U>(2.0);
+				}
+				vector_mul(tmp, n, tmp);
+				vector_sub(out, i. tmp);
+			}
+			// clang-format on
 		}	 // namespace generic
 	}		 // namespace detail
 
@@ -116,7 +132,12 @@ namespace sek
 	template<std::floating_point U, std::size_t M, policy_t Q>
 	[[nodiscard]] constexpr basic_vec<U, M, Q> reflect(const basic_vec<U, M, Q> &i, const basic_vec<U, M, Q> &n) noexcept
 	{
-		return i - n * dot(n, i) * static_cast<U>(2.0);
+		basic_vec<U, M, Q> result = {};
+		if (std::is_constant_evaluated())
+			detail::generic::vector_reflect(out.m_data, i.m_data, n.m_data);
+		else
+			detail::vector_reflect(out.m_data, i.m_data, n.m_data);
+		return result;
 	}
 	/** @brief Calculates the refraction direction for an incident vector and a surface normal.
 	 *
@@ -143,9 +164,9 @@ namespace sek
 		const auto m = fcmp_lt(k, static_cast<U>(0.0));
 
 		/* if (k < 0.0)
-		 * 	R = 0.0;
+		 * 	return 0.0;
 		 * else
-		 * 	R = r * i - (r * dot(n, i) + sqrt(k)) * n; */
+		 * 	return r * i - (r * dot(n, i) + sqrt(k)) * n; */
 		if (!fcmp_lt(k, static_cast<U>(0.0)))
 			return i * r - n * (sqrt(k) + basic_vec<U, M, Q>{dp * r});
 		else

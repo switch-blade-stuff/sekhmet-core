@@ -28,11 +28,11 @@ namespace sek
 	template<typename T = float>
 	using ray2 = basic_ray<T, 2>;
 	template<typename T = float>
-	using ray4_packed = basic_ray<T, 4, policy_t::DEFAULT_PACKED>;
+	using ray4_aligned = basic_ray<T, 4, policy_t::DEFAULT_PACKED>;
 	template<typename T = float>
-	using ray3_packed = basic_ray<T, 3, policy_t::DEFAULT_PACKED>;
+	using ray3_aligned = basic_ray<T, 3, policy_t::DEFAULT_PACKED>;
 	template<typename T = float>
-	using ray2_packed = basic_ray<T, 2, policy_t::DEFAULT_PACKED>;
+	using ray2_aligned = basic_ray<T, 2, policy_t::DEFAULT_PACKED>;
 
 	typedef ray4<double> ray4d;
 	typedef ray3<double> ray3d;
@@ -52,22 +52,22 @@ namespace sek
 	typedef ray4<std::int32_t> ray4i;
 	typedef ray3<std::int32_t> ray3i;
 	typedef ray2<std::int32_t> ray2i;
-	typedef ray4_packed<double> ray4d_packed;
-	typedef ray3_packed<double> ray3d_packed;
-	typedef ray2_packed<double> ray2d_packed;
-	typedef ray4_packed<float> ray4f_packed;
-	typedef ray3_packed<float> ray3f_packed;
-	typedef ray2_packed<float> ray2f_packed;
-	typedef ray4_packed<std::uint64_t> ray4ul_packed;
-	typedef ray3_packed<std::uint64_t> ray3ul_packed;
-	typedef ray2_packed<std::uint64_t> ray2ul_packed;
-	typedef ray4_packed<std::int64_t> ray4l_packed;
-	typedef ray3_packed<std::int64_t> ray3l_packed;
-	typedef ray2_packed<std::int64_t> ray2l_packed;
-	typedef ray4_packed<std::uint32_t> ray4ui_packed;
-	typedef ray3_packed<std::uint32_t> ray3ui_packed;
-	typedef ray2_packed<std::uint32_t> ray2ui_packed;
-	typedef ray4_packed<std::int32_t> ray4i_packed;
-	typedef ray3_packed<std::int32_t> ray3i_packed;
-	typedef ray2_packed<std::int32_t> ray2i_packed;
+	typedef ray4_aligned<double> ray4d_aligned;
+	typedef ray3_aligned<double> ray3d_aligned;
+	typedef ray2_aligned<double> ray2d_aligned;
+	typedef ray4_aligned<float> ray4f_aligned;
+	typedef ray3_aligned<float> ray3f_aligned;
+	typedef ray2_aligned<float> ray2f_aligned;
+	typedef ray4_aligned<std::uint64_t> ray4ul_aligned;
+	typedef ray3_aligned<std::uint64_t> ray3ul_aligned;
+	typedef ray2_aligned<std::uint64_t> ray2ul_aligned;
+	typedef ray4_aligned<std::int64_t> ray4l_aligned;
+	typedef ray3_aligned<std::int64_t> ray3l_aligned;
+	typedef ray2_aligned<std::int64_t> ray2l_aligned;
+	typedef ray4_aligned<std::uint32_t> ray4ui_aligned;
+	typedef ray3_aligned<std::uint32_t> ray3ui_aligned;
+	typedef ray2_aligned<std::uint32_t> ray2ui_aligned;
+	typedef ray4_aligned<std::int32_t> ray4i_aligned;
+	typedef ray3_aligned<std::int32_t> ray3i_aligned;
+	typedef ray2_aligned<std::int32_t> ray2i_aligned;
 }	 // namespace sek

@@ -19,15 +19,16 @@ namespace sek::detail
 
 	template<policy_t P>
 	inline void vector_sqrt(vector_data<double, 2, P> &out, const vector_data<double, 2, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_sqrt_pd(v.simd);
+		x86_vector_apply(out, v, _mm_sqrt_pd);
 	}
 	template<policy_t P>
 	inline void vector_rsqrt(vector_data<double, 2, P> &out, const vector_data<double, 2, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd = _mm_div_pd(_mm_set1_pd(1.0), _mm_sqrt_pd(v.simd));
+		if constexpr (!check_policy_v<P, policy_t::PRECISION_MASK, policy_t::FAST>)
+			x86_vector_apply(out, v, [](auto v) { return _mm_div_pd(_mm_set1_pd(1.0f), _mm_sqrt_pd(v)); });
+		else
+			x86_vector_apply(out, v, _mm_rsqrt_pd);
 	}
 
 	SEK_CORE_PUBLIC __m128d x86_exp_pd(__m128d v) noexcept;
@@ -90,18 +91,16 @@ namespace sek::detail
 #ifndef SEK_USE_AVX
 	template<std::size_t N, policy_t P>
 	inline void vector_sqrt(vector_data<double, N, P> &out, const vector_data<double, N, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		out.simd[0] = _mm_sqrt_pd(v.simd[0]);
-		out.simd[1] = _mm_sqrt_pd(v.simd[1]);
+		x86_vector_apply(out, v, _mm_sqrt_pd);
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_rsqrt(vector_data<double, N, P> &out, const vector_data<double, N, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
 	{
-		const auto one = _mm_set1_pd(1.0);
-		out.simd[0] = _mm_div_pd(one, _mm_sqrt_pd(v.simd[0]));
-		out.simd[1] = _mm_div_pd(one, _mm_sqrt_pd(v.simd[1]));
+		if constexpr (!check_policy_v<P, policy_t::PRECISION_MASK, policy_t::FAST>)
+			x86_vector_apply(out, v, [](auto v) { return _mm_div_pd(_mm_set1_pd(1.0f), _mm_sqrt_pd(v)); });
+		else
+			x86_vector_apply(out, v, _mm_rsqrt_pd);
 	}
 #endif
 }	 // namespace sek::detail

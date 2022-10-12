@@ -11,8 +11,8 @@
 
 namespace sek
 {
-	using fquat = basic_quat<float>;
-	using fquat_packed = basic_quat<float, policy_t::PACKED>;
-	using dquat = basic_quat<double>;
-	using dquat_packed = basic_quat<double, policy_t::PACKED>;
+	using quatf = basic_quat<float>;
+	using quatf_aligned = basic_quat<float, policy_t::DEFAULT_SIMD>;
+	using quatd = basic_quat<double>;
+	using quatd_aligned = basic_quat<double, policy_t::DEFAULT_SIMD>;
 }	 // namespace sek

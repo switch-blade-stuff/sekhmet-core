@@ -102,7 +102,7 @@ namespace sek::detail
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_acosh(vector_data<float, N, P> &out, const vector_data<float, N, P> &v) noexcept
-		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>
+		requires check_policy_v<P, policy_t::STORAGE_MASK, policy_t::FAST>
 	{
 		x86_vector_apply(out, v, x86_acosh_ps);
 	}
