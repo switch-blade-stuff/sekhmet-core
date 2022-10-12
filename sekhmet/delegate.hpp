@@ -14,7 +14,7 @@
 namespace sek
 {
 	/** @brief Exception thrown when a delegate cannot be invoked. */
-	class SEK_API delegate_error : public std::runtime_error
+	class SEK_CORE_PUBLIC delegate_error : public std::runtime_error
 	{
 	public:
 		delegate_error() : runtime_error("Failed to invoke a delegate") {}

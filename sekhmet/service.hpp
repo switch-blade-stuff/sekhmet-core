@@ -41,13 +41,13 @@ namespace sek
 		template<typename...>
 		struct service_storage;
 		template<>
-		struct SEK_API service_storage<void>
+		struct SEK_CORE_PUBLIC service_storage<void>
 		{
 			virtual ~service_storage();
 		};
 
 		template<service_type S>
-		struct SEK_API service_storage<S> : service_storage<void>
+		struct SEK_CORE_PUBLIC service_storage<S> : service_storage<void>
 		{
 			using value_type = typename service_traits<S>::type;
 
@@ -55,7 +55,7 @@ namespace sek
 			virtual value_type *get() noexcept = 0;
 		};
 		template<synchronized_service S>
-		struct SEK_API service_storage<S> : service_storage<void>
+		struct SEK_CORE_PUBLIC service_storage<S> : service_storage<void>
 		{
 			using value_type = typename service_traits<S>::type;
 			using mutex_type = typename service_traits<S>::mutex_type;
@@ -109,7 +109,7 @@ namespace sek
 	}
 
 	/** @brief Global dynamic database of singleton services. */
-	class SEK_API service_locator
+	class service_locator
 	{
 		template<service_type>
 		friend class service;
@@ -207,19 +207,19 @@ namespace sek
 		}
 
 	private:
-		[[nodiscard]] service_entry &get_entry(type_info type);
+		[[nodiscard]] SEK_CORE_PUBLIC service_entry &get_entry(type_info type);
 
-		void reset_impl(type_info type);
+		SEK_CORE_PUBLIC void reset_impl(type_info type);
 
-		[[nodiscard]] storage_t *load_impl(type_info service_type, type_info impl_type, factory_t factory, bool replace);
-		[[nodiscard]] storage_t *load_impl(type_info service_type, type_info attr_type, type_info impl_type, bool replace);
-		[[nodiscard]] storage_t *load_impl(type_info service_type, type_info attr_type, std::string_view id, bool replace);
+		[[nodiscard]] SEK_CORE_PUBLIC storage_t *load_impl(type_info service_type, type_info impl_type, factory_t factory, bool replace);
+		[[nodiscard]] SEK_CORE_PUBLIC storage_t *load_impl(type_info service_type, type_info attr_type, type_info impl_type, bool replace);
+		[[nodiscard]] SEK_CORE_PUBLIC storage_t *load_impl(type_info service_type, type_info attr_type, std::string_view id, bool replace);
 
-		[[nodiscard]] std::atomic<storage_t *> &get_impl(type_info type);
-		[[nodiscard]] type_info instance_type_impl(type_info type);
+		[[nodiscard]] SEK_CORE_PUBLIC std::atomic<storage_t *> &get_impl(type_info type);
+		[[nodiscard]] SEK_CORE_PUBLIC type_info instance_type_impl(type_info type);
 
-		[[nodiscard]] event<void()> &on_load_impl(type_info type);
-		[[nodiscard]] event<void()> &on_reset_impl(type_info type);
+		[[nodiscard]] SEK_CORE_PUBLIC event<void()> &on_load_impl(type_info type);
+		[[nodiscard]] SEK_CORE_PUBLIC event<void()> &on_reset_impl(type_info type);
 
 		dense_map<std::string_view, std::unique_ptr<service_entry>> m_entries;
 	};

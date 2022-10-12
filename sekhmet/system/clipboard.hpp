@@ -19,7 +19,7 @@ namespace sek::detail
 namespace sek
 {
 	/** @brief Handle used to reference a unique clipboard data type. */
-	class SEK_API clipboard_type
+	class clipboard_type
 	{
 	public:
 		enum class match_result : int
@@ -116,7 +116,7 @@ namespace sek
 	}
 
 	/** @brief Handle to a platform-specific clipboard interface. */
-	class SEK_API clipboard;
+	class clipboard;
 
 	/* TODO: Implement clipboard as part of application. */
 }	 // namespace sek

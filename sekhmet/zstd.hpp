@@ -12,7 +12,7 @@
 namespace sek
 {
 	/** @brief Exception thrown when ZSTD (de)compression worker threads encounter an error. */
-	class SEK_API zstd_error : public std::runtime_error
+	class SEK_CORE_PUBLIC zstd_error : public std::runtime_error
 	{
 	public:
 		zstd_error() : std::runtime_error("Unknown ZSTD error") {}
@@ -106,7 +106,7 @@ namespace sek
 		};
 
 		/** @brief Returns a per-thread context instance. */
-		SEK_API static zstd_thread_ctx &instance();
+		SEK_CORE_PUBLIC static zstd_thread_ctx &instance();
 
 	private:
 		constexpr static std::size_t min_frame_log = 19;
@@ -205,14 +205,14 @@ namespace sek
 		 * @note Decompression stops once no more input can be read.
 		 * @note If thread pool's size is 1, decompresses on the main thread, ignoring the thread pool.
 		 * @throw zstd_thread_error Containing any exceptions thrown by worker threads (most likely to be `zstd_error`). */
-		SEK_API std::size_t decompress(thread_pool &pool, read_t r, write_t w, std::size_t frames = 0);
+		SEK_CORE_PUBLIC std::size_t decompress(thread_pool &pool, read_t r, write_t w, std::size_t frames = 0);
 		/** Decompresses input data single-threaded.
 		 * @param r Delegate used to read compressed data.
 		 * @param w Delegate used to write decompressed data.
 		 * @return Total amount of frames read.
 		 * @note Decompression stops once no more input can be read.
 		 * @throw zstd_error When ZSTD encounters an error or when the write delegate cannot fully consume decompressed data. */
-		SEK_API std::size_t decompress_st(read_t r, write_t w);
+		SEK_CORE_PUBLIC std::size_t decompress_st(read_t r, write_t w);
 
 		/** Compresses input data at the specific compression level using the passed thread pool.
 		 * @param pool Thread pool used for compression.
@@ -227,7 +227,7 @@ namespace sek
 		 * @note Specifying explicit frame size may reduce memory usage.
 		 * @note If thread pool's size is 1, decompresses on the main thread, ignoring the thread pool.
 		 * @throw zstd_thread_error Containing any exceptions thrown by worker threads (most likely to be `zstd_error`). */
-		SEK_API std::size_t compress(thread_pool &pool, read_t r, write_t w, std::uint32_t level = 0, std::uint32_t frame_size = 0);
+		SEK_CORE_PUBLIC std::size_t compress(thread_pool &pool, read_t r, write_t w, std::uint32_t level = 0, std::uint32_t frame_size = 0);
 		/** Compresses input data single-threaded.
 		 * @param r Delegate used to read source (decompressed) data.
 		 * @param w Delegate used to write compressed data.
@@ -239,7 +239,7 @@ namespace sek
 		 * @note Maximum compression level is 20.
 		 * @note Specifying explicit frame size may reduce memory usage.
 		 * @throw zstd_error When ZSTD encounters an error or when the write delegate cannot fully consume compressed data. */
-		SEK_API std::size_t compress_st(read_t r, write_t w, std::uint32_t level = 0, std::uint32_t frame_size = 0);
+		SEK_CORE_PUBLIC std::size_t compress_st(read_t r, write_t w, std::uint32_t level = 0, std::uint32_t frame_size = 0);
 
 	private:
 		[[nodiscard]] auto guard_read() { return std::lock_guard<std::mutex>{m_in_mtx}; }

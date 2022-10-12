@@ -82,7 +82,7 @@ namespace sek
 	}	 // namespace detail
 
 	/** @brief Proxy structure used to operate on a tuple-like type-erased object. */
-	class SEK_API any_tuple
+	class any_tuple
 	{
 		friend class any;
 		friend class any_ref;
@@ -125,9 +125,9 @@ namespace sek
 		[[nodiscard]] constexpr type_info element(size_type i) const noexcept;
 
 		/** Returns the `i`th element of the referenced tuple, or an empty `any` if `i` is out of range. */
-		[[nodiscard]] any get(size_type i);
+		[[nodiscard]] SEK_CORE_PUBLIC any get(size_type i);
 		/** @copydoc get */
-		[[nodiscard]] any get(size_type i) const;
+		[[nodiscard]] SEK_CORE_PUBLIC any get(size_type i) const;
 
 		constexpr void swap(any_tuple &other) noexcept
 		{

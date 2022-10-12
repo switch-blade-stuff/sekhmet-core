@@ -11,7 +11,7 @@ namespace sek
 {
 	namespace detail
 	{
-		[[noreturn]] SEK_API void invalid_json_type(json_type expected, json_type actual);
+		[[noreturn]] SEK_CORE_PUBLIC void invalid_json_type(json_type expected, json_type actual);
 	}	 // namespace detail
 
 	/** @brief Error code used to specify Json parsing errors. */
@@ -20,7 +20,7 @@ namespace sek
 	};
 
 	/** Returns a reference to `std::error_category` used for Json serialization errors. */
-	[[nodiscard]] SEK_API const std::error_category &json_category() noexcept;
+	[[nodiscard]] SEK_CORE_PUBLIC const std::error_category &json_category() noexcept;
 
 	/** Creates an instance of `std::error_code` from the specified `json_errc` value.
 	 * Equivalent to `std::error_code{static_cast<int>(e), json_category()}`. */

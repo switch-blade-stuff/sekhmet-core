@@ -21,7 +21,7 @@ namespace sek
 	class config_registry;
 
 	/** @brief Runtime exception thrown by the config registry. */
-	class SEK_API config_error : public std::runtime_error
+	class SEK_CORE_PUBLIC config_error : public std::runtime_error
 	{
 	public:
 		config_error() : std::runtime_error("Unknown config registry error") {}
@@ -234,9 +234,9 @@ namespace sek
 		friend constexpr void swap(cfg_path &a, cfg_path &b) noexcept { a.swap(b); }
 
 	private:
-		[[nodiscard]] SEK_API cfg_path to_component(const slice_t *first, const slice_t *last) const;
+		[[nodiscard]] SEK_CORE_PUBLIC cfg_path to_component(const slice_t *first, const slice_t *last) const;
 
-		SEK_API void parse();
+		SEK_CORE_PUBLIC void parse();
 
 		/** String containing the full normalized path. */
 		string_type m_value;
@@ -305,8 +305,8 @@ namespace sek
 			struct nodes_proxy;
 			struct any_proxy;
 
-			SEK_API void serialize(output_frame &, const config_registry &) const;
-			SEK_API void deserialize(input_frame &, const config_registry &);
+			SEK_CORE_PUBLIC void serialize(output_frame &, const config_registry &) const;
+			SEK_CORE_PUBLIC void deserialize(input_frame &, const config_registry &);
 			void deserialize(input_frame &, std::vector<entry_node *> &, const config_registry &);
 
 			cfg_path path;	 /* Full path of the entry. */
@@ -509,7 +509,7 @@ namespace sek
 
 	public:
 		constexpr config_registry() noexcept = default;
-		SEK_API ~config_registry();
+		SEK_CORE_PUBLIC ~config_registry();
 
 		/** Returns entry iterator to the first category of the registry. */
 		[[nodiscard]] constexpr iterator begin() noexcept { return iterator{m_categories.begin()}; }
@@ -534,12 +534,12 @@ namespace sek
 		[[nodiscard]] constexpr auto back() const noexcept { return *(--end()); }
 
 		/** Erases all entries of the registry. */
-		SEK_API void clear();
+		SEK_CORE_PUBLIC void clear();
 
 		/** Returns entry pointer to the entry with the specified path. */
-		[[nodiscard]] SEK_API entry_ptr<false> find(const cfg_path &entry);
+		[[nodiscard]] SEK_CORE_PUBLIC entry_ptr<false> find(const cfg_path &entry);
 		/** @copydoc find */
-		[[nodiscard]] SEK_API entry_ptr<true> find(const cfg_path &entry) const;
+		[[nodiscard]] SEK_CORE_PUBLIC entry_ptr<true> find(const cfg_path &entry) const;
 
 		/** Creates a config entry of type `T`. If needed, creates empty entries for parents of the branch.
 		 * @param entry Full path of the entry.
@@ -573,11 +573,11 @@ namespace sek
 
 		/** Erases the specified config entry and all it's children.
 		 * @return `true` If the entry was erased, `false` otherwise. */
-		SEK_API bool erase(entry_ptr<true> which);
+		SEK_CORE_PUBLIC bool erase(entry_ptr<true> which);
 		/** @copydoc erase */
 		inline bool erase(const_iterator which) { return erase(which.operator->()); }
 		/** @copydoc erase */
-		SEK_API bool erase(const cfg_path &entry);
+		SEK_CORE_PUBLIC bool erase(const cfg_path &entry);
 
 		/** Loads an entry and all it's children from a Json data tree.
 		 * @param entry Full path of the entry.
@@ -585,39 +585,39 @@ namespace sek
 		 * @param cache If set to true, the data tree will be cached and re-used for de-serialization of new entries.
 		 * @return Entry pointer to the loaded entry.
 		 * @throw config_error If any entry within the resulting branch fails to initialize. */
-		SEK_API entry_ptr<false> load(cfg_path entry, json_tree &&tree, bool cache = true);
+		SEK_CORE_PUBLIC entry_ptr<false> load(cfg_path entry, json_tree &&tree, bool cache = true);
 		/** Loads an entry and all it's children from a local Json file.
 		 * @param entry Full path of the entry.
 		 * @param path Path to a Json file containing source data.
 		 * @param cache If set to true, the data will be cached and re-used for de-serialization of new entries.
 		 * @return Entry pointer to the loaded entry.
 		 * @throw config_error If the file fails to open or any entry within the resulting branch fails to initialize. */
-		SEK_API entry_ptr<false> load(cfg_path entry, const std::filepath &path, bool cache = true);
+		SEK_CORE_PUBLIC entry_ptr<false> load(cfg_path entry, const std::filepath &path, bool cache = true);
 		/** Loads an entry and all it's children from a Json file pointed to by a URI.
 		 * @param entry Full path of the entry.
 		 * @param location URI pointing to a Json file containing source data.
 		 * @param cache If set to true, the data will be cached and re-used for de-serialization of new entries.
 		 * @return Entry pointer to the loaded entry.
 		 * @throw config_error If the file fails to open or any entry within the resulting branch fails to initialize. */
-		SEK_API entry_ptr<false> load(cfg_path entry, const uri &location, bool cache = true);
+		SEK_CORE_PUBLIC entry_ptr<false> load(cfg_path entry, const uri &location, bool cache = true);
 
 		/** Saves an entry and all it's children to a Json data tree.
 		 * @param which Pointer to the entry to be saved.
 		 * @param tree Json data tree to store the serialized data in.
 		 * @return `true` on success, `false` on failure (entry does not exist). */
-		SEK_API bool save(entry_ptr<true> which, json_tree &tree) const;
+		SEK_CORE_PUBLIC bool save(entry_ptr<true> which, json_tree &tree) const;
 		/** @brief Saves an entry and all it's children to a Json file.
 		 * @param which Pointer to the entry to be saved.
 		 * @param path Path to a the file to write Json data to.
 		 * @return `true` on success, `false` on failure (entry does not exist).
 		 * @throw config_error If the file fails to open. */
-		SEK_API bool save(entry_ptr<true> which, const std::filepath &path) const;
+		SEK_CORE_PUBLIC bool save(entry_ptr<true> which, const std::filepath &path) const;
 		/** @copybrief save
 		 * @param which Pointer to the entry to be saved.
 		 * @param location URI pointing to the file write Json data to.
 		 * @return `true` on success, `false` on failure (entry does not exist).
 		 * @throw config_error If the file fails to open. */
-		SEK_API bool save(entry_ptr<true> which, const uri &location) const;
+		SEK_CORE_PUBLIC bool save(entry_ptr<true> which, const uri &location) const;
 
 		/** Saves an entry and all it's children to a Json data tree.
 		 * @param entry Full path of the entry.
@@ -648,8 +648,8 @@ namespace sek
 	private:
 		bool save_impl(entry_ptr<true> which, output_archive &archive) const;
 
-		SEK_API entry_node *assign_impl(entry_node *node, any &&value);
-		SEK_API entry_node *insert_impl(cfg_path &&entry, any &&value);
+		SEK_CORE_PUBLIC entry_node *assign_impl(entry_node *node, any &&value);
+		SEK_CORE_PUBLIC entry_node *insert_impl(cfg_path &&entry, any &&value);
 		entry_node *insert_impl(cfg_path &&entry);
 
 		entry_node *init_branch(entry_node *node, json_tree *cache);

@@ -37,10 +37,10 @@ namespace sek
 				ENABLED,
 			};
 
-			SEK_API static void load(plugin_data *data, void (*init)(void *));
+			SEK_CORE_PUBLIC static void load(plugin_data *data, void (*init)(void *));
 			static void load_impl(plugin_data *data, void (*init)(void *));
 
-			SEK_API static void unload(plugin_data *data);
+			SEK_CORE_PUBLIC static void unload(plugin_data *data);
 			static void unload_impl(plugin_data *data);
 
 			explicit plugin_data(plugin_info info) noexcept : info(info) {}
@@ -80,17 +80,122 @@ namespace sek
 		};
 	}	 // namespace detail
 
+	using modmode = int;
+	constexpr modmode lazy = 1;
+	constexpr modmode deep = 2;
+	constexpr modmode global = 4;
+	constexpr modmode nounload = 8;
+
+	/** @brief Handle used to reference a native dynamic library which contains one or multiple plugins. */
+	class module
+	{
+
+	public:
+		typedef void *native_handle_type;
+		typedef modmode modmode;
+
+		constexpr static modmode lazy = modmode;
+		constexpr static modmode deep = modmode;
+		constexpr static modmode global = modmode;
+		constexpr static modmode nounload = modmode;
+
+		/** Returns a module handle to the main (parent executable) module. */
+		[[nodiscard]] static SEK_CORE_PUBLIC module main() noexcept;
+
+	private:
+		struct module_data;
+
+		using path_char = typename std::filepath::value_type;
+
+		template<typename T>
+		inline static T return_if(expected<T, std::error_code> &&exp)
+		{
+			if (!exp.has_value()) [[unlikely]]
+				throw std::system_error(exp.error());
+
+			if constexpr (!std::is_void_v<T>) return std::move(exp.value());
+		}
+
+	public:
+		module(const module &) = delete;
+		module &operator=(const module &) = delete;
+
+		/** Initializes an invalid (empty) module. */
+		constexpr module() noexcept = default;
+		SEK_CORE_PUBLIC ~module();
+
+		constexpr module(module &&other) noexcept { swap(other); }
+		constexpr module &operator=(module &&other) noexcept
+		{
+			swap(other);
+			return *this;
+		}
+
+		/** Loads & initializes a module.
+		 * @param path Path to the module library.
+		 * @param mode Mode to load the module with.
+		 * @throw std::system_error On implementation-defined system errors.
+		 * @note A module library is guaranteed to be loaded only once. */
+		module(const path_char *path, modmode mode) { open(path, mode); }
+		/** @copydoc native_file */
+		module(const std::filepath &path, openmode mode) :module(path.c_str(), mode) {}
+
+		/** @brief Loads a module.
+		 * @param path Path to the module library.
+		 * @param mode Mode to load the module with.
+		 * @throw std::system_error On implementation-defined system errors.
+		 * @note A module library is guaranteed to be loaded only once. */
+		void open(const std::filepath &path, modmode mode) { open(path.c_str(), mode); }
+		/** @copydoc open */
+		SEK_CORE_PUBLIC void open(const path_char *path, modmode mode);
+
+		/** @copybrief open
+		 * @param path Path to the module library.
+		 * @param mode Mode to load the module with.
+		 * @return `void` or an error code.
+		 * @note A module library is guaranteed to be loaded only once. */
+		expected<void, std::error_code> open(std::nothrow_t, const std::filepath &path, modmode mode) noexcept
+		{
+			return open(std::nothrow, path.c_str(), mode);
+		}
+		/** @copydoc open */
+		SEK_CORE_PUBLIC expected<void, std::error_code> open(std::nothrow_t, const path_char *path, modmode mode) noexcept;
+
+		/** @brief Decrements the internal reference count and unloads the module.
+		 * @throw std::system_error On implementation-defined system errors.
+		 * @note If the module is loaded in `nounload` mode, it is never unloaded. */
+		SEK_CORE_PUBLIC void close();
+		/** @copybrief close
+		 * @return `void` or an error code.
+		 * @note If the module is loaded in `nounload` mode, it is never unloaded */
+		SEK_CORE_PUBLIC expected<void, std::error_code> close(std::nothrow_t) noexcept;
+
+		/** Checks if the module handle is empty (does not represent a valid module). */
+		[[nodiscard]] constexpr bool empty() const noexcept { return m_data == nullptr; }
+		/** @copydoc empty */
+		[[nodiscard]] constexpr operator bool() const noexcept { return !empty(); }
+
+		/** Returns the underlying native library handle. */
+		[[nodiscard]] SEK_CORE_PUBLIC native_handle_type native_handle() const noexcept;
+
+		constexpr void swap(native_file &other) noexcept { std::swap(m_data, other.m_data); }
+		friend constexpr void swap(native_file &a, native_file &b) noexcept { a.swap(b); }
+
+	protected:
+		const module_data *m_data = nullptr;
+	};
+
 	/** @brief Handle used to reference and manage plugins. */
 	class plugin
 	{
 	public:
 		/** Returns a vector of all currently loaded plugins. */
-		SEK_API static std::vector<plugin> get_loaded();
+		SEK_CORE_PUBLIC static std::vector<plugin> get_loaded();
 		/** Returns a vector of all currently enabled plugins. */
-		SEK_API static std::vector<plugin> get_enabled();
+		SEK_CORE_PUBLIC static std::vector<plugin> get_enabled();
 
 		/** Returns a plugin using it's id. If such plugin does not exist, returns an empty handle. */
-		SEK_API static plugin get(std::string_view id);
+		SEK_CORE_PUBLIC static plugin get(std::string_view id);
 
 	private:
 		constexpr explicit plugin(detail::plugin_data *data) noexcept : m_data(data) {}
@@ -110,15 +215,15 @@ namespace sek
 		[[nodiscard]] constexpr version core_ver() const noexcept { return m_data->info.core_ver; }
 
 		/** Checks if the plugin is enabled. */
-		[[nodiscard]] SEK_API bool enabled() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC bool enabled() const noexcept;
 		/** Enables the plugin and invokes it's `on_enable` member function.
 		 * @returns true on success, false otherwise.
 		 * @note Plugin will fail to enable if it is already enabled or not loaded or if `on_enable` returned false or threw an exception. */
-		[[nodiscard]] SEK_API bool enable() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC bool enable() const noexcept;
 		/** Disables the plugin and invokes it's `on_disable` member function.
 		 * @returns true on success, false otherwise.
 		 * @note Plugin will fail to disable if it is not enabled or not loaded. */
-		[[nodiscard]] SEK_API bool disable() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC bool disable() const noexcept;
 
 		[[nodiscard]] constexpr auto operator<=>(const plugin &) const noexcept = default;
 		[[nodiscard]] constexpr bool operator==(const plugin &) const noexcept = default;
@@ -206,13 +311,13 @@ namespace impl
                                                                                                                        \
 	/* Definition of plugin instance constructor. */                                                                   \
 	template<>                                                                                                         \
-	SEK_PLUGIN(id)::plugin_instance() : plugin_base({sek::version{SEK_CORE_VERSION}, sek::version{ver}, (id)})       \
+	SEK_PLUGIN(id)::plugin_instance() : plugin_base({sek::version{SEK_CORE_VERSION}, sek::version{ver}, (id)})         \
 	{                                                                                                                  \
 	}                                                                                                                  \
 	/* Static instantiation & bootstrap implementation. 2-stage bootstrap is required in order                         \
 	 * to allow for `SEK_PLUGIN(id)::instance()` to be called on static initialization. */                             \
 	template<>                                                                                                         \
-	impl::plugin_instance<(id)> &sek::detail::plugin_base<impl::plugin_instance<(id)>>::instance()             \
+	impl::plugin_instance<(id)> &sek::detail::plugin_base<impl::plugin_instance<(id)>>::instance()                     \
 	{                                                                                                                  \
 		static impl::plugin_instance<(id)> value;                                                                      \
 		return value;                                                                                                  \

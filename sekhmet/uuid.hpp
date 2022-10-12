@@ -67,7 +67,7 @@ namespace sek
 		 * @note Seed is based on OS-provided entropy. */
 		struct version4_t final : public generator
 		{
-			SEK_API void operator()(uuid &) const noexcept final;
+			SEK_CORE_PUBLIC void operator()(uuid &) const noexcept final;
 		};
 
 		constexpr static version4_t version4 = {};

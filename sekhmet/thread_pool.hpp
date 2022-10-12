@@ -115,13 +115,13 @@ namespace sek
 		/* Worker threads may outlive the pool, thus the control block must live as long as any worker lives. */
 		struct control_block
 		{
-			SEK_API control_block(std::size_t n, queue_mode mode);
-			SEK_API ~control_block();
+			SEK_CORE_PUBLIC control_block(std::size_t n, queue_mode mode);
+			SEK_CORE_PUBLIC ~control_block();
 
-			SEK_API void resize(std::size_t n);
-			SEK_API void terminate();
-			SEK_API void acquire();
-			SEK_API void release();
+			SEK_CORE_PUBLIC void resize(std::size_t n);
+			SEK_CORE_PUBLIC void terminate();
+			SEK_CORE_PUBLIC void acquire();
+			SEK_CORE_PUBLIC void release();
 
 			template<typename T, typename F>
 			std::future<T> schedule(std::promise<T> &&promise, F &&task)

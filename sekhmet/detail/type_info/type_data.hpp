@@ -279,7 +279,7 @@ namespace sek::detail
 		T *m_ptr = nullptr;
 	};
 	template<>
-	struct SEK_API range_type_iterator<void>
+	struct SEK_CORE_PUBLIC range_type_iterator<void>
 	{
 		typedef any value_type;
 		typedef std::size_t size_type;
@@ -309,7 +309,7 @@ namespace sek::detail
 		[[nodiscard]] virtual bool operator>=(const range_type_iterator &) const noexcept = 0;
 	};
 	template<>
-	struct SEK_API table_type_iterator<void>
+	struct SEK_CORE_PUBLIC table_type_iterator<void>
 	{
 		typedef any value_type;
 		typedef std::size_t size_type;

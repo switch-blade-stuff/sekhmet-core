@@ -17,7 +17,7 @@ namespace sek
 	}
 
 	/** @brief Base interface used to attach runtime type information to a polymorphic inheritance tree. */
-	class SEK_API object
+	class SEK_CORE_PUBLIC object
 	{
 		template<typename T>
 		friend constexpr type_info type_of(T &&) noexcept;

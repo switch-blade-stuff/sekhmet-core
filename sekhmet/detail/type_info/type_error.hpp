@@ -10,7 +10,7 @@
 namespace sek
 {
 	/** @brief Exception thrown by the type reflection system on runtime errors. */
-	class SEK_API type_error : public std::system_error
+	class SEK_CORE_PUBLIC type_error : public std::system_error
 	{
 	public:
 		type_error(const type_error &) noexcept = default;
@@ -92,7 +92,7 @@ namespace sek
 	[[nodiscard]] constexpr type_errc &operator^=(type_errc &a, std::uint8_t b) { return a = a ^ b; }
 
 	/** Returns a reference to `std::error_category` used for reflection errors. */
-	[[nodiscard]] SEK_API const std::error_category &type_category() noexcept;
+	[[nodiscard]] SEK_CORE_PUBLIC const std::error_category &type_category() noexcept;
 
 	/** Creates an instance of `std::error_code` from the specified `type_errc` value.
 	 * Equivalent to `std::error_code{static_cast<int>(e), type_category()}`. */

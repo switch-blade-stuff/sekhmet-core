@@ -25,7 +25,7 @@
 #endif
 #endif
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__CYGWIN__)
 
 #define SEK_PRETTY_FUNC __FUNCSIG__
 #define SEK_NO_VLA
@@ -48,30 +48,66 @@
 #define SEK_FILE __FILE__
 #define SEK_LINE __LINE__
 
-#ifdef SEK_OS_WIN
+#if defined _WIN32
+#ifdef BUILDING_DLL
+#ifdef __GNUC__
+#define DLL_PUBLIC __attribute__((dllexport))
+#else
+#define DLL_PUBLIC __declspec(dllexport)	// Note: actually gcc seems to also supports this syntax.
+#endif
+#else
+#ifdef __GNUC__
+#define DLL_PUBLIC __attribute__((dllimport))
+#else
+#define DLL_PUBLIC __declspec(dllimport)	// Note: actually gcc seems to also supports this syntax.
+#endif
+#endif
+#define DLL_LOCAL
+#else
+#if __GNUC__ >= 4
+#define DLL_PUBLIC __attribute__((visibility("default")))
+#define DLL_LOCAL __attribute__((visibility("hidden")))
+#else
+#define DLL_PUBLIC
+#define DLL_LOCAL
+#endif
+#endif
 
-#define SEK_PATH_SEPARATOR '\\'
+#ifdef SEK_OS_WIN
 
 #if defined(_MSC_VER)
 #define SEK_API_EXPORT __declspec(dllexport)
 #define SEK_API_IMPORT __declspec(dllimport)
 #elif defined(__clang__) || defined(__GNUC__)
-#define SEK_API_EXPORT __attribute__(dllexport)
-#define SEK_API_IMPORT __attribute__(dllimport)
+#define SEK_API_EXPORT __attribute__((dllexport))
+#define SEK_API_IMPORT __attribute__((dllimport))
 #endif
 
-#ifndef SEK_EXPORT_LIBRARY
-#define SEK_API SEK_API_IMPORT
+#ifndef SEK_CORE_EXPORT
+#define SEK_CORE_PUBLIC SEK_API_IMPORT
 #else
-#define SEK_API SEK_API_EXPORT
+#define SEK_CORE_PUBLIC SEK_API_EXPORT
 #endif
 
-#else
+#define SEK_API_HIDDEN
+#define SEK_CORE_PRIVATE
 
-#define SEK_PATH_SEPARATOR '/'
-#define SEK_API
+#elif __GNUC__ >= 4
+
 #define SEK_API_EXPORT
 #define SEK_API_IMPORT
+#define SEK_API_HIDDEN __attribute__((visibility("hidden")))
+#define SEK_CORE_PUBLIC __attribute__((visibility("default")))
+#define SEK_CORE_PRIVATE SEK_API_HIDDEN
+
+#else
+
+#define SEK_API_EXPORT
+#define SEK_API_IMPORT
+#define SEK_API_HIDDEN
+#define SEK_CORE_PUBLIC
+#define SEK_CORE_PRIVATE
+
 #endif
 
 #ifdef SEK_OS_UNIX

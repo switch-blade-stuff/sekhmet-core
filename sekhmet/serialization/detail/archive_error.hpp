@@ -10,7 +10,7 @@
 namespace sek
 {
 	/** @brief Exception thrown by serialization archives on runtime errors. */
-	class SEK_API archive_error : public std::system_error
+	class SEK_CORE_PUBLIC archive_error : public std::system_error
 	{
 	public:
 		archive_error(const archive_error &) noexcept = default;
@@ -43,7 +43,7 @@ namespace sek
 	};
 
 	/** Returns a reference to `std::error_category` used for generic serialization errors. */
-	[[nodiscard]] SEK_API const std::error_category &archive_category() noexcept;
+	[[nodiscard]] SEK_CORE_PUBLIC const std::error_category &archive_category() noexcept;
 
 	/** Creates an instance of  `std::error_code` from the specified `archive_errc` value.
 	 * Equivalent to `std::error_code{static_cast<int>(e), archive_category()}`. */

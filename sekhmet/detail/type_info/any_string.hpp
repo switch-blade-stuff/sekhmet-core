@@ -63,7 +63,7 @@ namespace sek
 	}	 // namespace detail
 
 	/** @brief Proxy structure used to operate on a string-like type-erased object. */
-	class SEK_API any_string
+	class any_string
 	{
 		friend class any;
 		friend class any_ref;
@@ -159,7 +159,7 @@ namespace sek
 			dst.erase(dst_off, dst.size() - dst_off);
 		}
 
-		static const detail::string_type_data *assert_data(const detail::type_data *data);
+		static SEK_CORE_PUBLIC const detail::string_type_data *assert_data(const detail::type_data *data);
 
 		any_string(std::in_place_t, const any_ref &ref) : m_data(ref.m_type->string_data), m_target(ref) {}
 		any_string(std::in_place_t, any_ref &&ref) : m_data(ref.m_type->string_data), m_target(std::move(ref)) {}
@@ -195,14 +195,14 @@ namespace sek
 		[[nodiscard]] constexpr type_info traits_type() const noexcept;
 
 		/** Checks if the referenced string is empty. */
-		[[nodiscard]] bool empty() const;
+		[[nodiscard]] SEK_CORE_PUBLIC bool empty() const;
 		/** Returns size of the referenced string. */
-		[[nodiscard]] size_type size() const;
+		[[nodiscard]] SEK_CORE_PUBLIC size_type size() const;
 
 		/** Returns raw pointer to the data of the string. If the string is const, returns `nullptr`.*/
-		[[nodiscard]] void *data();
+		[[nodiscard]] SEK_CORE_PUBLIC void *data();
 		/** Returns raw pointer to the data of the string. */
-		[[nodiscard]] const void *data() const;
+		[[nodiscard]] SEK_CORE_PUBLIC const void *data() const;
 		/** @copydoc data */
 		[[nodiscard]] const void *cdata() const { return data(); }
 

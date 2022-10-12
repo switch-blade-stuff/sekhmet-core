@@ -89,7 +89,7 @@ endif ()
 
 # Set compilation variables & definitions
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-target_compile_definitions(${SEK_CORE_PROJECT} PRIVATE SEK_EXPORT_LIBRARY)
+target_compile_definitions(${SEK_CORE_PROJECT} PRIVATE SEK_CORE_EXPORT)
 add_compile_definitions(SEK_CORE_VERSION="${SEK_CORE_VERSION}")
 add_compile_definitions(SEK_CORE_VERSION="${SEK_CORE_PROJECT}")
 

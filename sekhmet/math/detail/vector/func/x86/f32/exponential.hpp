@@ -33,7 +33,7 @@ namespace sek::detail
 	}
 	SEK_FORCE_INLINE __m128 x86_pow2_ps(__m128 v) noexcept { return x86_pow2_ps(_mm_cvtps_epi32(v)); }
 
-	SEK_API __m128 x86_exp_ps(__m128 v) noexcept;
+	SEK_CORE_PUBLIC __m128 x86_exp_ps(__m128 v) noexcept;
 
 	template<std::size_t N, policy_t P>
 	inline void vector_exp(vector_data<float, N, P> &out, const vector_data<float, N, P> &v) noexcept
@@ -48,7 +48,7 @@ namespace sek::detail
 		x86_vector_apply(out, v, [](auto v) { return _mm_sub_ps(x86_exp_ps(v), _mm_set1_ps(1.0f)); });
 	}
 
-	SEK_API __m128 x86_exp2_ps(__m128 v) noexcept;
+	SEK_CORE_PUBLIC __m128 x86_exp2_ps(__m128 v) noexcept;
 
 	template<std::size_t N, policy_t P>
 	inline void vector_exp2(vector_data<float, N, P> &out, const vector_data<float, N, P> &v) noexcept
@@ -57,7 +57,7 @@ namespace sek::detail
 		x86_vector_apply(out, v, x86_exp2_ps);
 	}
 
-	SEK_API __m128 x86_log_ps(__m128 v) noexcept;
+	SEK_CORE_PUBLIC __m128 x86_log_ps(__m128 v) noexcept;
 
 	template<std::size_t N, policy_t P>
 	inline void vector_log(vector_data<float, N, P> &out, const vector_data<float, N, P> &v) noexcept
@@ -72,7 +72,7 @@ namespace sek::detail
 		x86_vector_apply(out, v, [one = _mm_set1_ps(1.0)](auto v) { return x86_log_ps(_mm_add_ps(v, one)); });
 	}
 
-	SEK_API __m128 x86_log2_ps(__m128 v) noexcept;
+	SEK_CORE_PUBLIC __m128 x86_log2_ps(__m128 v) noexcept;
 
 	template<std::size_t N, policy_t P>
 	inline void vector_log2(vector_data<float, N, P> &out, const vector_data<float, N, P> &v) noexcept
@@ -81,7 +81,7 @@ namespace sek::detail
 		x86_vector_apply(out, v, x86_log2_ps);
 	}
 
-	SEK_API __m128 x86_log10_ps(__m128 v) noexcept;
+	SEK_CORE_PUBLIC __m128 x86_log10_ps(__m128 v) noexcept;
 
 	template<std::size_t N, policy_t P>
 	inline void vector_log10(vector_data<float, N, P> &out, const vector_data<float, N, P> &v) noexcept

@@ -30,7 +30,7 @@ namespace sek::detail
 		out.simd = _mm_div_pd(_mm_set1_pd(1.0), _mm_sqrt_pd(v.simd));
 	}
 
-	SEK_API __m128d x86_exp_pd(__m128d v) noexcept;
+	SEK_CORE_PUBLIC __m128d x86_exp_pd(__m128d v) noexcept;
 
 	template<std::size_t N, policy_t P>
 	inline void vector_exp(vector_data<double, N, P> &out, const vector_data<double, N, P> &v) noexcept
@@ -45,7 +45,7 @@ namespace sek::detail
 		x86_vector_apply(out, v, [one = _mm_set1_pd(1.0)](auto v) { return _mm_sub_pd(x86_exp_pd(v), one); });
 	}
 
-	SEK_API __m128d x86_exp2_pd(__m128d v) noexcept;
+	SEK_CORE_PUBLIC __m128d x86_exp2_pd(__m128d v) noexcept;
 
 	template<std::size_t N, policy_t P>
 	inline void vector_exp2(vector_data<double, N, P> &out, const vector_data<double, N, P> &v) noexcept
@@ -54,7 +54,7 @@ namespace sek::detail
 		x86_vector_apply(out, v, x86_exp2_pd);
 	}
 
-	SEK_API __m128d x86_log_pd(__m128d v) noexcept;
+	SEK_CORE_PUBLIC __m128d x86_log_pd(__m128d v) noexcept;
 
 	template<std::size_t N, policy_t P>
 	inline void vector_log(vector_data<double, N, P> &out, const vector_data<double, N, P> &v) noexcept
@@ -69,7 +69,7 @@ namespace sek::detail
 		x86_vector_apply(out, v, [one = _mm_set1_pd(1.0)](auto v) { return x86_log_pd(_mm_add_pd(v, one)); });
 	}
 
-	SEK_API __m128d x86_log2_pd(__m128d v) noexcept;
+	SEK_CORE_PUBLIC __m128d x86_log2_pd(__m128d v) noexcept;
 
 	template<std::size_t N, policy_t P>
 	inline void vector_log2(vector_data<double, N, P> &out, const vector_data<double, N, P> &v) noexcept
@@ -78,7 +78,7 @@ namespace sek::detail
 		x86_vector_apply(out, v, x86_log2_pd);
 	}
 
-	SEK_API __m128d x86_log10_pd(__m128d v) noexcept;
+	SEK_CORE_PUBLIC __m128d x86_log10_pd(__m128d v) noexcept;
 
 	template<std::size_t N, policy_t P>
 	inline void vector_log10(vector_data<double, N, P> &out, const vector_data<double, N, P> &v) noexcept

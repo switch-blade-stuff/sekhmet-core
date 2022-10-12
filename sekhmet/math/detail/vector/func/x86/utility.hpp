@@ -44,10 +44,10 @@ namespace sek::detail
 	}
 
 #ifndef SEK_USE_AVX512_DQ
-	SEK_API __m128d x86_cvtepu64_pd(__m128i v) noexcept;
-	SEK_API __m128d x86_cvtepi64_pd(__m128i v) noexcept;
-	SEK_API __m128i x86_cvtpd_epu64(__m128d v) noexcept;
-	SEK_API __m128i x86_cvtpd_epi64(__m128d v) noexcept;
+	SEK_CORE_PUBLIC __m128d x86_cvtepu64_pd(__m128i v) noexcept;
+	SEK_CORE_PUBLIC __m128d x86_cvtepi64_pd(__m128i v) noexcept;
+	SEK_CORE_PUBLIC __m128i x86_cvtpd_epu64(__m128d v) noexcept;
+	SEK_CORE_PUBLIC __m128i x86_cvtpd_epi64(__m128d v) noexcept;
 #else
 	SEK_FORCE_INLINE __m128d x86_cvtepu64_pd(__m128i v) noexcept { return _mm_cvtepu64_pd(v); }
 	SEK_FORCE_INLINE __m128d x86_cvtepi64_pd(__m128i v) noexcept { return _mm_cvtepi64_pd(v); }

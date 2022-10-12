@@ -53,7 +53,7 @@ namespace sek
 
 		// clang-format off
 		/** @copydoc native_filemap */
-		SEK_API void map(const native_file &file, std::uint64_t off = 0, std::uint64_t n = 0, mapmode mode = 0);
+		SEK_CORE_PUBLIC void map(const native_file &file, std::uint64_t off = 0, std::uint64_t n = 0, mapmode mode = 0);
 		/** @copybrief map
 		 * @param file File to create a mapping of.
 		 * @param off Offset into the file at which to create the mapping.
@@ -70,7 +70,7 @@ namespace sek
 
 		/** @brief Unmaps the file mapped file from memory.
 		 * @throw std::system_error On implementation-defined system errors. */
-		SEK_API void unmap();
+		SEK_CORE_PUBLIC void unmap();
 		/** @copybrief unmap
 		 * @return `void` or an error code. */
 		inline expected<void, std::error_code> unmap(std::nothrow_t) noexcept { return m_handle.unmap(); }

@@ -47,14 +47,14 @@ namespace sek
 		/** Loads a package at the specified path.
 		 * @throw asset_error If the path does not contain a valid package or
 		 * an implementation-defined error occurred during loading of package metadata. */
-		[[nodiscard]] static SEK_API asset_package load(const std::filepath &path);
+		[[nodiscard]] static SEK_CORE_PUBLIC asset_package load(const std::filepath &path);
 		/** Load all packages in the specified directory.
 		 * @throw asset_error If the path is not a valid directory. */
-		[[nodiscard]] static SEK_API std::vector<asset_package> load_all(const std::filepath &path);
+		[[nodiscard]] static SEK_CORE_PUBLIC std::vector<asset_package> load_all(const std::filepath &path);
 
 	private:
 		constexpr explicit asset_package(detail::package_info_ptr &&ptr) noexcept : m_ptr(std::move(ptr)) {}
-		SEK_API explicit asset_package(detail::package_info *pkg);
+		SEK_CORE_PUBLIC explicit asset_package(detail::package_info *pkg);
 
 	public:
 		asset_package() = delete;
@@ -217,7 +217,7 @@ namespace sek
 		}
 
 		/** Clears the contents of the asset database by removing all assets & packages. */
-		SEK_API void clear();
+		SEK_CORE_PUBLIC void clear();
 
 		/** Returns a proxy range used to manipulate the load order of packages. */
 		[[nodiscard]] constexpr auto packages() noexcept;
@@ -225,19 +225,19 @@ namespace sek
 		[[nodiscard]] constexpr auto packages() const noexcept;
 
 	protected:
-		SEK_API void restore_asset(typename packages_t::const_iterator, uuid, const detail::asset_info *);
-		SEK_API void override_asset(typename packages_t::const_iterator, uuid, detail::asset_info *);
+		SEK_CORE_PUBLIC void restore_asset(typename packages_t::const_iterator, uuid, const detail::asset_info *);
+		SEK_CORE_PUBLIC void override_asset(typename packages_t::const_iterator, uuid, detail::asset_info *);
 
 		typename packages_t::const_iterator insert_impl(typename packages_t::iterator);
-		SEK_API typename packages_t::const_iterator insert(typename packages_t::const_iterator, const asset_package &);
-		SEK_API typename packages_t::const_iterator insert(typename packages_t::const_iterator, asset_package &&);
+		SEK_CORE_PUBLIC typename packages_t::const_iterator insert(typename packages_t::const_iterator, const asset_package &);
+		SEK_CORE_PUBLIC typename packages_t::const_iterator insert(typename packages_t::const_iterator, asset_package &&);
 
 		typename packages_t::const_iterator erase_impl(typename packages_t::iterator);
-		SEK_API typename packages_t::const_iterator erase(typename packages_t::const_iterator,
+		SEK_CORE_PUBLIC typename packages_t::const_iterator erase(typename packages_t::const_iterator,
 														  typename packages_t::const_iterator);
-		SEK_API typename packages_t::const_iterator erase(typename packages_t::const_iterator);
+		SEK_CORE_PUBLIC typename packages_t::const_iterator erase(typename packages_t::const_iterator);
 
-		SEK_API void swap(typename packages_t::const_iterator, typename packages_t::const_iterator);
+		SEK_CORE_PUBLIC void swap(typename packages_t::const_iterator, typename packages_t::const_iterator);
 
 #ifdef SEK_ENGINE
 		void handle_asset_removed(const asset_handle &);

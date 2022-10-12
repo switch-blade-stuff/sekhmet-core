@@ -28,7 +28,7 @@ namespace sek
 	class expected;
 
 	template<>
-	class SEK_API bad_expected_access<void> : public std::runtime_error
+	class SEK_CORE_PUBLIC bad_expected_access<void> : public std::runtime_error
 	{
 		template<typename, typename>
 		friend class expected;

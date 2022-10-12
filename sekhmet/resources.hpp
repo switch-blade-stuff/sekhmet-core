@@ -20,7 +20,7 @@ namespace sek
 	}
 
 	/** @brief Exception thrown by the resource system on runtime errors. */
-	class SEK_API resource_error : public std::runtime_error
+	class SEK_CORE_PUBLIC resource_error : public std::runtime_error
 	{
 	public:
 		resource_error() : std::runtime_error("Unknown asset resource") {}
@@ -63,12 +63,12 @@ namespace sek
 		 * @param src Asset source containing asset's data.
 		 * @return `any` containing the loaded resource.
 		 * @throw resource_error If `type` is not a valid resource type. */
-		static SEK_API any load_anonymous(type_info type, asset_source &src);
+		static SEK_CORE_PUBLIC any load_anonymous(type_info type, asset_source &src);
 		/** Loads a resource form an asset, completely bypassing the cache.
 		 * @param asset Asset to load the resource from.
 		 * @return `any` containing the loaded resource.
 		 * @throw resource_error If the asset is not a valid resource. */
-		static SEK_API any load_anonymous(const asset_handle &asset);
+		static SEK_CORE_PUBLIC any load_anonymous(const asset_handle &asset);
 
 	protected:
 		constexpr resource_cache() = default;
@@ -124,16 +124,16 @@ namespace sek
 		/** Removes cache entries of all resources of the specified type.
 		 * @return Amount of resources removed.
 		 * @note Cache entries of relevant types should be cleared on plugin unload to avoid stale references. */
-		SEK_API std::size_t clear(type_info type);
+		SEK_CORE_PUBLIC std::size_t clear(type_info type);
 		/** Removes cache entry for resource with the specified id. */
-		SEK_API void clear(uuid id);
+		SEK_CORE_PUBLIC void clear(uuid id);
 		/** Removes all cache entries. */
-		SEK_API void clear();
+		SEK_CORE_PUBLIC void clear();
 
 	protected:
-		SEK_API std::pair<std::shared_ptr<void>, metadata_t *> load_impl(const asset_handle &asset, bool copy);
-		SEK_API std::pair<std::shared_ptr<void>, metadata_t *> load_impl(std::string_view name, bool copy);
-		SEK_API std::pair<std::shared_ptr<void>, metadata_t *> load_impl(uuid id, bool copy);
+		SEK_CORE_PUBLIC std::pair<std::shared_ptr<void>, metadata_t *> load_impl(const asset_handle &asset, bool copy);
+		SEK_CORE_PUBLIC std::pair<std::shared_ptr<void>, metadata_t *> load_impl(std::string_view name, bool copy);
+		SEK_CORE_PUBLIC std::pair<std::shared_ptr<void>, metadata_t *> load_impl(uuid id, bool copy);
 
 		template<typename T>
 		std::shared_ptr<T> cast_impl(std::shared_ptr<void> &&ptr, metadata_t *metadata)

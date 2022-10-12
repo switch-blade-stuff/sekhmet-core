@@ -167,7 +167,7 @@ namespace sek
 		 * @param str Unencoded string.
 		 * @return String encoded in ACE.
 		 * @note Non-ASCII characters in the source string are treated as UTF-8. */
-		[[nodiscard]] static SEK_API string_type encode_ace(string_view_type str);
+		[[nodiscard]] static SEK_CORE_PUBLIC string_type encode_ace(string_view_type str);
 		/** @copydoc encode_ace */
 		[[nodiscard]] static string_type encode_ace(const string_type &str)
 		{
@@ -178,7 +178,7 @@ namespace sek
 		 * @param str String in ACE format.
 		 * @return Decoded string.
 		 * @note Decoder outputs UTF-8 sequences for encoded characters. */
-		[[nodiscard]] static SEK_API string_type decode_ace(string_view_type str);
+		[[nodiscard]] static SEK_CORE_PUBLIC string_type decode_ace(string_view_type str);
 		/** @copydoc decode_ace */
 		[[nodiscard]] static string_type decode_ace(const string_type &str)
 		{
@@ -188,19 +188,19 @@ namespace sek
 		/** Returns a URI who's host is decoded from ASCII-Compatible Encoding (ACE).
 		 * Equivalent to initializing a URI from `str` and replacing it's host with a decoded string.
 		 * @note Non-ASCII characters in the source string are treated as UTF-8. */
-		[[nodiscard]] static SEK_API uri from_ace(string_view_type str);
+		[[nodiscard]] static SEK_CORE_PUBLIC uri from_ace(string_view_type str);
 		/** @copydoc from_ace */
-		[[nodiscard]] static SEK_API uri from_ace(const string_type &str);
+		[[nodiscard]] static SEK_CORE_PUBLIC uri from_ace(const string_type &str);
 		/** @copydoc from_ace */
-		[[nodiscard]] static SEK_API uri from_ace(string_type &&str);
+		[[nodiscard]] static SEK_CORE_PUBLIC uri from_ace(string_type &&str);
 
 		/** Produced a URI from a local filesystem path (implicitly using the `file` scheme).
 		 * @note Validity of the local path is not verified. */
-		[[nodiscard]] static SEK_API uri from_local(string_view_type path);
+		[[nodiscard]] static SEK_CORE_PUBLIC uri from_local(string_view_type path);
 		/** @copydoc from_local */
-		[[nodiscard]] static SEK_API uri from_local(const string_type &str);
+		[[nodiscard]] static SEK_CORE_PUBLIC uri from_local(const string_type &str);
 		/** @copydoc from_local */
-		[[nodiscard]] static SEK_API uri from_local(string_type &&str);
+		[[nodiscard]] static SEK_CORE_PUBLIC uri from_local(string_type &&str);
 
 	private:
 		struct component_t
@@ -250,9 +250,9 @@ namespace sek
 		public:
 			constexpr data_handle() noexcept = default;
 
-			SEK_API data_handle(const data_handle &);
-			SEK_API data_handle &operator=(const data_handle &);
-			SEK_API ~data_handle();
+			SEK_CORE_PUBLIC data_handle(const data_handle &);
+			SEK_CORE_PUBLIC data_handle &operator=(const data_handle &);
+			SEK_CORE_PUBLIC ~data_handle();
 
 			constexpr data_handle(data_handle &&other) noexcept : m_ptr(other.m_ptr) { other.m_ptr = nullptr; }
 			constexpr data_handle &operator=(data_handle &&other) noexcept
@@ -348,7 +348,7 @@ namespace sek
 		uri(const uri &other) = default;
 		/** @copydoc uri
 		 * @param mask Mask specifying which components to copy. */
-		SEK_API uri(const uri &other, uri_component mask);
+		SEK_CORE_PUBLIC uri(const uri &other, uri_component mask);
 
 		/** @brief Assigns the URI from another URI.
 		 * @param other Uri to copy components from.
@@ -358,7 +358,7 @@ namespace sek
 		uri &assign(const uri &other) { return operator=(other); }
 		/** @copydoc operator=
 		 * @param mask Mask specifying which components to copy. */
-		SEK_API uri &assign(const uri &other, uri_component mask);
+		SEK_CORE_PUBLIC uri &assign(const uri &other, uri_component mask);
 
 		/** @copybrief uri
 		 * @param other Uri to move components from. */
@@ -366,18 +366,18 @@ namespace sek
 		/** @copydoc uri
 		 * @param mask Mask specifying which components to move.
 		 * @note Host is implied if any authority components are present. */
-		SEK_API uri(uri &&other, uri_component mask);
+		SEK_CORE_PUBLIC uri(uri &&other, uri_component mask);
 
 		/** @copybrief operator=
 		 * @param other Uri to move components from.
 		 * @return Reference to this URI. */
-		SEK_API uri &operator=(uri &&other) noexcept;
+		SEK_CORE_PUBLIC uri &operator=(uri &&other) noexcept;
 		/** @copydoc operator= */
 		uri &assign(uri &&other) noexcept { return operator=(std::move(other)); }
 		/** @copydoc operator=
 		 * @param mask Mask specifying which components to move.
 		 * @note Host is implied if any authority components are present. */
-		SEK_API uri &assign(uri &&other, uri_component mask);
+		SEK_CORE_PUBLIC uri &assign(uri &&other, uri_component mask);
 
 		/** Checks if the URI is empty. */
 		[[nodiscard]] constexpr bool empty() const noexcept { return m_value.empty(); }
@@ -393,7 +393,7 @@ namespace sek
 		[[nodiscard]] constexpr operator string_type() const { return string(); }
 
 		/** Checks if the URI has the components specified by a mask. */
-		[[nodiscard]] SEK_API bool has_components(uri_component mask) const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC bool has_components(uri_component mask) const noexcept;
 
 		/** Checks if the URI has a scheme. Equivalent to `has_components(uri_component::SCHEME)`. */
 		[[nodiscard]] bool has_scheme() const noexcept { return has_components(uri_component::SCHEME); }
@@ -423,7 +423,7 @@ namespace sek
 		[[nodiscard]] bool has_fragment() const noexcept { return has_components(uri_component::FRAGMENT); }
 
 		/** Checks if the URI refers to a local file (uses the `file` scheme). */
-		[[nodiscard]] SEK_API bool is_local() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC bool is_local() const noexcept;
 
 		/** Checks if the URI is "clean" (has no query). Equivalent to `!has_query()`. */
 		[[nodiscard]] bool is_clean() const noexcept { return !has_query(); }
@@ -433,126 +433,126 @@ namespace sek
 		/** Returns a formatted copy of the selected components of the URI.
 		 * @param mask Component type mask used to select target components.
 		 * @param format Formatting options for the resulting string. */
-		[[nodiscard]] SEK_API string_type components(uri_component mask, uri_format format = uri_format::NO_FORMAT) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type components(uri_component mask, uri_format format = uri_format::NO_FORMAT) const;
 
 		/** Returns a formatted copy of the scheme of the URI.
 		 * @param format Formatting options for the resulting string. */
-		[[nodiscard]] SEK_API string_type scheme(uri_format format) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type scheme(uri_format format) const;
 		/** Returns a string view to the scheme of the URI. */
-		[[nodiscard]] SEK_API string_view_type scheme() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC string_view_type scheme() const noexcept;
 
 		/** Returns a formatted copy of the authority of the URI (i.e. `[username[:password]@]host[:port]`).
 		 * @param format Formatting options for the resulting string. */
-		[[nodiscard]] SEK_API string_type authority(uri_format format) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type authority(uri_format format) const;
 		/** Returns a string view to the authority of the URI (i.e. `[username[:password]@]host[:port]`). */
-		[[nodiscard]] SEK_API string_view_type authority() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC string_view_type authority() const noexcept;
 
 		/** Returns a formatted copy of the userinfo of the URI (i.e. `username[:password]`).
 		 * @param format Formatting options for the resulting string. */
-		[[nodiscard]] SEK_API string_type userinfo(uri_format format) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type userinfo(uri_format format) const;
 		/** Returns a string view to the userinfo of the URI (i.e. `username[:password]`). */
-		[[nodiscard]] SEK_API string_view_type userinfo() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC string_view_type userinfo() const noexcept;
 
 		/** Returns a formatted copy of the username of the URI.
 		 * @param format Formatting options for the resulting string. */
-		[[nodiscard]] SEK_API string_type username(uri_format format) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type username(uri_format format) const;
 		/** Returns a string view to the username of the URI. */
-		[[nodiscard]] SEK_API string_view_type username() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC string_view_type username() const noexcept;
 
 		/** Returns a formatted copy of the password of the URI.
 		 * @param format Formatting options for the resulting string. */
-		[[nodiscard]] SEK_API string_type password(uri_format format) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type password(uri_format format) const;
 		/** Returns a string view to the password of the URI. */
-		[[nodiscard]] SEK_API string_view_type password() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC string_view_type password() const noexcept;
 
 		/** Returns a formatted copy of the host of the URI.
 		 * @param format Formatting options for the resulting string.
 		 * @note If encoding of Unicode sequences is required, the ASCII-Compatible Encoding (ACE) is used. */
-		[[nodiscard]] SEK_API string_type host(uri_format format) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type host(uri_format format) const;
 		/** Returns a string view to the host of the URI. */
-		[[nodiscard]] SEK_API string_view_type host() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC string_view_type host() const noexcept;
 
 		/** Returns a formatted copy of the port of the URI.
 		 * @param format Formatting options for the resulting string. */
-		[[nodiscard]] SEK_API string_type port(uri_format format) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type port(uri_format format) const;
 		/** Returns a string view to the port of the URI. */
-		[[nodiscard]] SEK_API string_view_type port() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC string_view_type port() const noexcept;
 
 		/** Returns a formatted copy of the path of the URI.
 		 * @param format Formatting options for the resulting string. */
-		[[nodiscard]] SEK_API string_type path(uri_format format) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type path(uri_format format) const;
 		/** Returns a string view to the path of the URI. */
-		[[nodiscard]] SEK_API string_view_type path() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC string_view_type path() const noexcept;
 
 		/** Returns a formatted copy of the filename of the URI.
 		 * @param format Formatting options for the resulting string. */
-		[[nodiscard]] SEK_API string_type filename(uri_format format) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type filename(uri_format format) const;
 		/** Returns a string view to the filename of the URI. */
-		[[nodiscard]] SEK_API string_view_type filename() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC string_view_type filename() const noexcept;
 
 		/** Returns a formatted copy of the query of the URI.
 		 * @param format Formatting options for the resulting string. */
-		[[nodiscard]] SEK_API string_type query(uri_format format) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type query(uri_format format) const;
 		/** Returns a string view to the query of the URI. */
-		[[nodiscard]] SEK_API string_view_type query() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC string_view_type query() const noexcept;
 
 		/** Returns a formatted copy of the fragment of the URI.
 		 * @param format Formatting options for the resulting string. */
-		[[nodiscard]] SEK_API string_type fragment(uri_format format) const;
+		[[nodiscard]] SEK_CORE_PUBLIC string_type fragment(uri_format format) const;
 		/** Returns a string view to the fragment of the URI. */
-		[[nodiscard]] SEK_API string_view_type fragment() const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC string_view_type fragment() const noexcept;
 
 		/** Replaces scheme of the URI.
 		 * @param value New scheme of the URI.
 		 * @return Reference to `this`. */
-		SEK_API uri &set_scheme(string_view_type value);
+		SEK_CORE_PUBLIC uri &set_scheme(string_view_type value);
 		/** Replaces username of the URI.
 		 * @param value New username of the URI.
 		 * @return Reference to `this`. */
-		SEK_API uri &set_username(string_view_type value);
+		SEK_CORE_PUBLIC uri &set_username(string_view_type value);
 		/** Replaces password of the URI.
 		 * @param value New password of the URI.
 		 * @return Reference to `this`. */
-		SEK_API uri &set_password(string_view_type value);
+		SEK_CORE_PUBLIC uri &set_password(string_view_type value);
 		/** Replaces userinfo of the URI.
 		 * @param value New userinfo of the URI.
 		 * @return Reference to `this`. */
-		SEK_API uri &set_userinfo(string_view_type value);
+		SEK_CORE_PUBLIC uri &set_userinfo(string_view_type value);
 		/** Replaces host of the URI.
 		 * @param value New host of the URI.
 		 * @return Reference to `this`. */
-		SEK_API uri &set_host(string_view_type value);
+		SEK_CORE_PUBLIC uri &set_host(string_view_type value);
 		/** Replaces port of the URI.
 		 * @param value New port of the URI.
 		 * @return Reference to `this`. */
-		SEK_API uri &set_port(string_view_type value);
+		SEK_CORE_PUBLIC uri &set_port(string_view_type value);
 		/** Replaces authority of the URI.
 		 * @param value New authority of the URI.
 		 * @return Reference to `this`. */
-		SEK_API uri &set_authority(string_view_type value);
+		SEK_CORE_PUBLIC uri &set_authority(string_view_type value);
 		/** Replaces path of the URI.
 		 * @param value New path of the URI.
 		 * @return Reference to `this`.
 		 * @note URI path will be normalized. */
-		SEK_API uri &set_path(string_view_type value);
+		SEK_CORE_PUBLIC uri &set_path(string_view_type value);
 		/** Replaces filename of the URI.
 		 * @param value New filename of the URI.
 		 * @return Reference to `this`.
 		 * @note URI path will be normalized. */
-		SEK_API uri &set_filename(string_view_type value);
+		SEK_CORE_PUBLIC uri &set_filename(string_view_type value);
 		/** Replaces query of the URI.
 		 * @param value New query of the URI.
 		 * @return Reference to `this`. */
-		SEK_API uri &set_query(string_view_type value);
+		SEK_CORE_PUBLIC uri &set_query(string_view_type value);
 		/** Appends query of the URI with that of `other`.
 		 * @param value Query to append.
 		 * @param sep Separator character used for the query. May be one of the following: `&`, `;`. Default is `&`.
 		 * @return Reference to `this`. */
-		SEK_API uri &append_query(string_view_type value, value_type sep = '&');
+		SEK_CORE_PUBLIC uri &append_query(string_view_type value, value_type sep = '&');
 		/** Replaces fragment of the URI.
 		 * @param value New fragment of the URI.
 		 * @return Reference to `this`. */
-		SEK_API uri &set_fragment(string_view_type value);
+		SEK_CORE_PUBLIC uri &set_fragment(string_view_type value);
 
 		// clang-format off
 		/** @copydoc set_scheme */
@@ -642,14 +642,14 @@ namespace sek
 			return {m_value.data() + cmp.start, cmp.end - cmp.start};
 		}
 
-		SEK_API void parse();
+		SEK_CORE_PUBLIC void parse();
 
 		string_type m_value;
 		data_handle m_data;
 	};
 
 	/** Returns a normalized copy of the URI. That is, a URI who's path does not contain any relative path traversal (`.` and `..`). */
-	[[nodiscard]] SEK_API uri normalize(const uri &value);
+	[[nodiscard]] SEK_CORE_PUBLIC uri normalize(const uri &value);
 
 	/** @brief Status code indicating whether a URI is valid or specifying an error. */
 	enum class uri_status
@@ -659,5 +659,5 @@ namespace sek
 	};
 
 	/** Validates a URI and returns a status code indicating whether it is valid (or the reason why it is not). */
-	SEK_API uri_status validate(const uri &value) noexcept;
+	SEK_CORE_PUBLIC uri_status validate(const uri &value) noexcept;
 }	 // namespace sek

@@ -113,7 +113,7 @@ namespace sek
 
 		/** Initializes an invalid (closed) file. */
 		constexpr native_file() noexcept = default;
-		SEK_API ~native_file();
+		SEK_CORE_PUBLIC ~native_file();
 
 		constexpr native_file(native_file &&other) noexcept { swap(other); }
 		constexpr native_file &operator=(native_file &&other) noexcept
@@ -142,7 +142,7 @@ namespace sek
 		 * @throw std::system_error On implementation-defined system errors. */
 		void open(const std::filepath &path, openmode mode) { open(path.c_str(), mode); }
 		/** @copydoc open */
-		SEK_API void open(const path_char *path, openmode mode);
+		SEK_CORE_PUBLIC void open(const path_char *path, openmode mode);
 
 		/** @copybrief open
 		 * @param path Path to the file.
@@ -153,71 +153,71 @@ namespace sek
 			return open(std::nothrow, path.c_str(), mode);
 		}
 		/** @copydoc open */
-		SEK_API expected<void, std::error_code> open(std::nothrow_t, const path_char *path, openmode mode) noexcept;
+		SEK_CORE_PUBLIC expected<void, std::error_code> open(std::nothrow_t, const path_char *path, openmode mode) noexcept;
 
 		/** @brief Flushes & closes the file.
 		 * @throw std::system_error On implementation-defined system errors. */
-		SEK_API void close();
+		SEK_CORE_PUBLIC void close();
 		/** @copybrief close
 		 * @return `void` or an error code. */
-		SEK_API expected<void, std::error_code> close(std::nothrow_t) noexcept;
+		SEK_CORE_PUBLIC expected<void, std::error_code> close(std::nothrow_t) noexcept;
 
 		/** @brief Flushes buffered output to the underlying file and un-reads any buffered input.
 		 * @throw std::system_error On implementation-defined system errors. */
-		SEK_API void flush();
+		SEK_CORE_PUBLIC void flush();
 		/** @brief Synchronizes file to disk. If the internal buffers are not empty, flushes their contents as well.
 		 * @throw std::system_error On implementation-defined system errors. */
-		SEK_API void sync();
+		SEK_CORE_PUBLIC void sync();
 
 		/** @copybrief sync
 		 * @return `void` or an error code. */
-		SEK_API expected<void, std::error_code> sync(std::nothrow_t) noexcept;
+		SEK_CORE_PUBLIC expected<void, std::error_code> sync(std::nothrow_t) noexcept;
 		/** @copybrief flush
 		 * @return `void` or an error code. */
-		SEK_API expected<void, std::error_code> flush(std::nothrow_t) noexcept;
+		SEK_CORE_PUBLIC expected<void, std::error_code> flush(std::nothrow_t) noexcept;
 
 		/** @brief Reads file to a data buffer.
 		 * @param dst Memory buffer receiving data.
 		 * @param n Amount of bytes to read.
 		 * @return Amount of bytes read from the file.
 		 * @throw std::system_error On implementation-defined system errors. */
-		SEK_API std::size_t read(void *dst, std::size_t n);
+		SEK_CORE_PUBLIC std::size_t read(void *dst, std::size_t n);
 		/** @brief Writes data buffer to the file.
 		 * @param src Memory buffer containing source data.
 		 * @param n Amount of bytes to write.
 		 * @return Amount of bytes written to the file.
 		 * @throw std::system_error On implementation-defined system errors. */
-		SEK_API std::size_t write(const void *src, std::size_t n);
+		SEK_CORE_PUBLIC std::size_t write(const void *src, std::size_t n);
 
 		/** @copybrief write
 		 * @param dst Memory buffer receiving data.
 		 * @param n Amount of bytes to read.
 		 * @return Amount of bytes read from the file or an error code. */
-		SEK_API expected<std::size_t, std::error_code> read(std::nothrow_t, void *dst, std::size_t n) noexcept;
+		SEK_CORE_PUBLIC expected<std::size_t, std::error_code> read(std::nothrow_t, void *dst, std::size_t n) noexcept;
 		/** @copybrief write
 		 * @param src Memory buffer containing source data.
 		 * @param n Amount of bytes to write.
 		 * @return Amount of bytes written to the file or an error code. */
-		SEK_API expected<std::size_t, std::error_code> write(std::nothrow_t, const void *src, std::size_t n) noexcept;
+		SEK_CORE_PUBLIC expected<std::size_t, std::error_code> write(std::nothrow_t, const void *src, std::size_t n) noexcept;
 
 		/** @brief Reads file to ASIO data buffers.
 		 * @param buff ASIO mutable buffer sequence receiving data.
 		 * @return Amount of bytes read from the file.
 		 * @throw std::system_error On implementation-defined system errors. */
-		SEK_API std::size_t read(asio::mutable_buffer &buff);
+		SEK_CORE_PUBLIC std::size_t read(asio::mutable_buffer &buff);
 		/** @brief Writes data buffers to the file.
 		 * @param buff ASIO const buffer sequence containing source data.
 		 * @return Amount of bytes written to the file.
 		 * @throw std::system_error On implementation-defined system errors. */
-		SEK_API std::size_t write(const asio::const_buffer &buff);
+		SEK_CORE_PUBLIC std::size_t write(const asio::const_buffer &buff);
 
 		/** @copybrief read
 		 * @param buff ASIO mutable buffer receiving data.
 		 * @return Amount of bytes read from the file or an error code. */
-		SEK_API expected<std::size_t, std::error_code> read(std::nothrow_t, asio::mutable_buffer &buff) noexcept;
+		SEK_CORE_PUBLIC expected<std::size_t, std::error_code> read(std::nothrow_t, asio::mutable_buffer &buff) noexcept;
 		/** @copybrief write
 		 * @return Amount of bytes written to the file or an error code. */
-		SEK_API expected<std::size_t, std::error_code> write(std::nothrow_t, const asio::const_buffer &buff) noexcept;
+		SEK_CORE_PUBLIC expected<std::size_t, std::error_code> write(std::nothrow_t, const asio::const_buffer &buff) noexcept;
 
 		/** @brief Seeks the file in the specified direction to the specified offset.
 		 * @param off Offset to seek.
@@ -225,50 +225,50 @@ namespace sek
 		 * @return Resulting position within the file.
 		 * @note If the wile is open in read mode, flushes the output buffer before seeking.
 		 * @throw std::system_error On implementation-defined system errors. */
-		SEK_API std::uint64_t seek(std::int64_t off, seek_basis dir);
+		SEK_CORE_PUBLIC std::uint64_t seek(std::int64_t off, seek_basis dir);
 		/** @brief Sets position within the file to the specified offset from the start.
 		 * Equivalent to `seek(static_cast<std::int64_t>(pos), seek_set)`.
 		 * @param pos New position within the file.
 		 * @return Resulting position within the file.
 		 * @note If the wile is open in read mode, flushes the output buffer before seeking.
 		 * @throw std::system_error On implementation-defined system errors. */
-		SEK_API std::uint64_t setpos(std::uint64_t pos);
+		SEK_CORE_PUBLIC std::uint64_t setpos(std::uint64_t pos);
 
 		/** @copybrief seek
 		 * @param off Offset to seek.
 		 * @param dir Direction to seek in (`beg`, `curr` or `end`).
 		 * @return Resulting position within the file or an error code.
 		 * @note If the wile is open in read mode, flushes the output buffer before seeking. */
-		SEK_API expected<std::uint64_t, std::error_code> seek(std::nothrow_t, std::int64_t off, seek_basis dir) noexcept;
+		SEK_CORE_PUBLIC expected<std::uint64_t, std::error_code> seek(std::nothrow_t, std::int64_t off, seek_basis dir) noexcept;
 		/** @copybrief setpos
 		 * @param pos New position within the file.
 		 * @return Resulting position within the file or an error code.
 		 * @note If the wile is open in read mode, flushes the output buffer before seeking. */
-		SEK_API expected<std::uint64_t, std::error_code> setpos(std::nothrow_t, std::uint64_t pos) noexcept;
+		SEK_CORE_PUBLIC expected<std::uint64_t, std::error_code> setpos(std::nothrow_t, std::uint64_t pos) noexcept;
 
 		/** @brief Modifies size of the file.
 		 * @param size New size of the file.
 		 * @return Updated size of the file.
 		 * @throw std::system_error On implementation-defined system errors. */
-		SEK_API std::uint64_t resize(std::uint64_t size);
+		SEK_CORE_PUBLIC std::uint64_t resize(std::uint64_t size);
 		/** @copybrief resize
 		 * @param size New size of the file.
 		 * @return Updated size of the file pr an error code. */
-		SEK_API expected<std::uint64_t, std::error_code> resize(std::nothrow_t, std::uint64_t size) noexcept;
+		SEK_CORE_PUBLIC expected<std::uint64_t, std::error_code> resize(std::nothrow_t, std::uint64_t size) noexcept;
 
 		/** @brief Returns total size of the file.
 		 * @throw std::system_error On implementation-defined system errors. */
-		[[nodiscard]] SEK_API std::uint64_t size() const;
+		[[nodiscard]] SEK_CORE_PUBLIC std::uint64_t size() const;
 		/** @brief Returns the current position within the file.
 		 * @throw std::system_error On implementation-defined system errors. */
-		[[nodiscard]] SEK_API std::uint64_t tell() const;
+		[[nodiscard]] SEK_CORE_PUBLIC std::uint64_t tell() const;
 
 		/** @copybrief size
 		 * @return Total size of the file or an error code. */
-		[[nodiscard]] SEK_API expected<std::uint64_t, std::error_code> size(std::nothrow_t) const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC expected<std::uint64_t, std::error_code> size(std::nothrow_t) const noexcept;
 		/** @copybrief tell
 		 * @return Current position within the file or an error code. */
-		[[nodiscard]] SEK_API expected<std::uint64_t, std::error_code> tell(std::nothrow_t) const noexcept;
+		[[nodiscard]] SEK_CORE_PUBLIC expected<std::uint64_t, std::error_code> tell(std::nothrow_t) const noexcept;
 
 		/** Releases and returns the underlying native file handle. */
 		[[nodiscard]] constexpr native_handle_type release() noexcept { return m_handle.release(); }
@@ -295,7 +295,7 @@ namespace sek
 		friend constexpr void swap(native_file &a, native_file &b) noexcept { a.swap(b); }
 
 	protected:
-		SEK_API void init_buffer(std::size_t min_size);
+		void init_buffer(std::size_t min_size);
 
 		detail::native_file_handle m_handle;
 

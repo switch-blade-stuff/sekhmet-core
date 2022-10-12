@@ -56,7 +56,7 @@ namespace sek::detail
 		out.simd = _mm_round_pd(v.simd, _MM_FROUND_TRUNC);
 	}
 #else
-	SEK_API __m128d x86_floor_pd(__m128d v) noexcept;
+	SEK_CORE_PUBLIC __m128d x86_floor_pd(__m128d v) noexcept;
 #endif
 	template<policy_t P>
 	inline void vector_floor(vector_data<double, 2, P> &out, const vector_data<double, 2, P> &v) noexcept

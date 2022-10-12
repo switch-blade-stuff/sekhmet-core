@@ -301,7 +301,7 @@ namespace sek
 	}	 // namespace detail
 
 	/** @brief Proxy structure used to operate on a table-like type-erased object. */
-	class SEK_API any_table
+	class any_table
 	{
 		friend class any;
 		friend class any_ref;
@@ -311,7 +311,7 @@ namespace sek
 		typedef std::ptrdiff_t difference_type;
 
 	private:
-		class SEK_API table_iterator
+		class table_iterator
 		{
 			friend class any_table;
 
@@ -329,52 +329,52 @@ namespace sek
 		public:
 			constexpr table_iterator() noexcept = default;
 
-			table_iterator(const table_iterator &);
-			table_iterator &operator=(const table_iterator &);
+			SEK_CORE_PUBLIC table_iterator(const table_iterator &);
+			SEK_CORE_PUBLIC table_iterator &operator=(const table_iterator &);
 			table_iterator(table_iterator &&) noexcept = default;
 			table_iterator &operator=(table_iterator &&) noexcept = default;
 
 			/** Checks if the iterator is a bidirectional table_type_iterator. */
-			[[nodiscard]] bool is_bidirectional() const noexcept;
+			[[nodiscard]] SEK_CORE_PUBLIC bool is_bidirectional() const noexcept;
 			/** Checks if the iterator is a random access table_type_iterator. */
-			[[nodiscard]] bool is_random_access() const noexcept;
+			[[nodiscard]] SEK_CORE_PUBLIC bool is_random_access() const noexcept;
 
 			/** Post-increments the iterator if it is a bidirectional iterator, otherwise returns copy of `this`. */
-			table_iterator operator++(int);
+			SEK_CORE_PUBLIC table_iterator operator++(int);
 			/** Pre-increments the iterator if it is a bidirectional iterator, otherwise does nothing. */
-			table_iterator &operator++();
+			SEK_CORE_PUBLIC table_iterator &operator++();
 			/** Increments the iterator by `n` if it is a random access iterator, otherwise does nothing. */
-			table_iterator &operator+=(difference_type n);
+			SEK_CORE_PUBLIC table_iterator &operator+=(difference_type n);
 			/** Post-decrements the iterator if it is a bidirectional iterator, otherwise returns copy of `this`. */
-			table_iterator operator--(int);
+			SEK_CORE_PUBLIC table_iterator operator--(int);
 			/** Pre-decrements the iterator if it is a bidirectional iterator, otherwise does nothing. */
-			table_iterator &operator--();
+			SEK_CORE_PUBLIC table_iterator &operator--();
 			/** Decrements the iterator by `n` if it is a random access iterator, otherwise does nothing. */
-			table_iterator &operator-=(difference_type n);
+			SEK_CORE_PUBLIC table_iterator &operator-=(difference_type n);
 
 			/** Returns a copy of this iterator incremented by `n` if it is a random access iterator, otherwise returns copy of `this`. */
-			[[nodiscard]] table_iterator operator+(difference_type n) const;
+			[[nodiscard]] SEK_CORE_PUBLIC table_iterator operator+(difference_type n) const;
 			/** Returns a copy of this iterator decremented by `n` if it is a random access iterator, otherwise returns copy of `this`. */
-			[[nodiscard]] table_iterator operator-(difference_type n) const;
+			[[nodiscard]] SEK_CORE_PUBLIC table_iterator operator-(difference_type n) const;
 			/** Returns difference between `this` and `other`, if `this` is a random access iterator, otherwise returns 0. */
-			[[nodiscard]] difference_type operator-(const table_iterator &other) const;
+			[[nodiscard]] SEK_CORE_PUBLIC difference_type operator-(const table_iterator &other) const;
 
 			/** Returns the object pointed to by the iterator. */
-			[[nodiscard]] any value() const;
+			[[nodiscard]] SEK_CORE_PUBLIC any value() const;
 			/** If the iterator points to a key-mapped pair, returns the key object. Otherwise, returns the pointed-to object. */
-			[[nodiscard]] any key() const;
+			[[nodiscard]] SEK_CORE_PUBLIC any key() const;
 			/** If the iterator points to a key-mapped pair, returns the mapped object. Otherwise, returns the pointed-to object. */
-			[[nodiscard]] any mapped() const;
+			[[nodiscard]] SEK_CORE_PUBLIC any mapped() const;
 			/** @copydoc value */
 			[[nodiscard]] any operator*() const { return value(); }
 			/** Returns the object located at an offset from this iterator if it is a random access iterator, otherwise returns empty `any`. */
-			[[nodiscard]] any operator[](difference_type n) const;
+			[[nodiscard]] SEK_CORE_PUBLIC any operator[](difference_type n) const;
 
-			[[nodiscard]] bool operator==(const table_iterator &) const;
-			[[nodiscard]] bool operator>(const table_iterator &) const;
-			[[nodiscard]] bool operator>=(const table_iterator &) const;
-			[[nodiscard]] bool operator<(const table_iterator &) const;
-			[[nodiscard]] bool operator<=(const table_iterator &) const;
+			[[nodiscard]] SEK_CORE_PUBLIC bool operator==(const table_iterator &) const;
+			[[nodiscard]] SEK_CORE_PUBLIC bool operator>(const table_iterator &) const;
+			[[nodiscard]] SEK_CORE_PUBLIC bool operator>=(const table_iterator &) const;
+			[[nodiscard]] SEK_CORE_PUBLIC bool operator<(const table_iterator &) const;
+			[[nodiscard]] SEK_CORE_PUBLIC bool operator<=(const table_iterator &) const;
 
 		private:
 			detail::type_iterator_ptr<iter_t> m_iter;
@@ -389,7 +389,7 @@ namespace sek
 		typedef typename table_iterator::reference const_reference;
 
 	private:
-		static const detail::table_type_data *assert_data(const detail::type_data *data);
+		static SEK_CORE_PUBLIC const detail::table_type_data *assert_data(const detail::type_data *data);
 
 		any_table(std::in_place_t, const any_ref &ref) : m_data(ref.m_type->table_data), m_target(ref) {}
 		any_table(std::in_place_t, any_ref &&ref) : m_data(ref.m_type->table_data), m_target(std::move(ref)) {}
@@ -432,51 +432,51 @@ namespace sek
 		[[nodiscard]] constexpr type_info mapped_type() const noexcept;
 
 		/** Returns iterator to the first element of the referenced table. */
-		[[nodiscard]] iterator begin();
+		[[nodiscard]] SEK_CORE_PUBLIC iterator begin();
 		/** @copydoc begin */
-		[[nodiscard]] const_iterator begin() const;
+		[[nodiscard]] SEK_CORE_PUBLIC const_iterator begin() const;
 		/** @copydoc begin */
 		[[nodiscard]] const_iterator cbegin() const { return begin(); }
 		/** Returns iterator one past to the last element of the referenced table. */
-		[[nodiscard]] iterator end();
+		[[nodiscard]] SEK_CORE_PUBLIC iterator end();
 		/** @copydoc end */
-		[[nodiscard]] const_iterator end() const;
+		[[nodiscard]] SEK_CORE_PUBLIC const_iterator end() const;
 		/** @copydoc end */
 		[[nodiscard]] const_iterator cend() const { return end(); }
 		/** Returns reverse iterator to the last element of the referenced table,
 		 * or a default-constructed sentinel if it is not a bidirectional range. */
-		[[nodiscard]] reverse_iterator rbegin();
+		[[nodiscard]] SEK_CORE_PUBLIC reverse_iterator rbegin();
 		/** @copydoc rbegin */
-		[[nodiscard]] const_reverse_iterator rbegin() const;
+		[[nodiscard]] SEK_CORE_PUBLIC const_reverse_iterator rbegin() const;
 		/** @copydoc rbegin */
 		[[nodiscard]] const_reverse_iterator crbegin() const { return rbegin(); }
 		/** Returns reverse iterator one past the first element of the referenced table,
 		 * or a default-constructed sentinel if it is not a bidirectional range. */
-		[[nodiscard]] reverse_iterator rend();
+		[[nodiscard]] SEK_CORE_PUBLIC reverse_iterator rend();
 		/** @copydoc rend */
-		[[nodiscard]] const_reverse_iterator rend() const;
+		[[nodiscard]] SEK_CORE_PUBLIC const_reverse_iterator rend() const;
 		/** @copydoc rend */
 		[[nodiscard]] const_reverse_iterator crend() const { return rend(); }
 
 		/** Checks if the referenced table contains the specified key. */
-		[[nodiscard]] bool contains(const any &key) const;
+		[[nodiscard]] SEK_CORE_PUBLIC bool contains(const any &key) const;
 		/** Returns iterator to the element of the referenced table located at the specified key, or the end iterator. */
-		[[nodiscard]] iterator find(const any &key);
+		[[nodiscard]] SEK_CORE_PUBLIC iterator find(const any &key);
 		/** @copydoc begin */
-		[[nodiscard]] const_iterator find(const any &key) const;
+		[[nodiscard]] SEK_CORE_PUBLIC const_iterator find(const any &key) const;
 
 		/** Checks if the referenced table is empty. */
-		[[nodiscard]] bool empty() const;
+		[[nodiscard]] SEK_CORE_PUBLIC bool empty() const;
 		/** Returns size of the referenced table, or `0` if the table is not a sized range. */
-		[[nodiscard]] size_type size() const;
+		[[nodiscard]] SEK_CORE_PUBLIC size_type size() const;
 
 		/** Returns the element of the referenced table located at the specified key.
 		 * @throw std::out_of_range If the key is not present within the table. */
-		[[nodiscard]] any at(const any &key);
+		[[nodiscard]] SEK_CORE_PUBLIC any at(const any &key);
 		/** @copydoc at */
 		[[nodiscard]] any operator[](const any &key) { return at(key); }
 		/** @copydoc at */
-		[[nodiscard]] any at(const any &key) const;
+		[[nodiscard]] SEK_CORE_PUBLIC any at(const any &key) const;
 		/** @copydoc at */
 		[[nodiscard]] any operator[](const any &key) const { return at(key); }
 

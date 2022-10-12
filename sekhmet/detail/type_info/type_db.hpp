@@ -19,7 +19,7 @@ namespace sek
 	};
 
 	/** @brief Global synchronized service used to store reflection type database. */
-	class SEK_API type_database : public service<type_database>
+	class type_database : public service<type_database>
 	{
 		template<service_type>
 		friend class service;
@@ -70,8 +70,9 @@ namespace sek
 			static_assert(is_type_info_exported_v<T>, "Reflected type must be exported via `SEK_EXTERN_TYPE_INFO`");
 			return type_factory<T>{reflect(type_info::handle<T>())};
 		}
+
 		/** Removes a previously reflected type from the internal database. */
-		void reset(std::string_view type);
+		SEK_CORE_PUBLIC void reset(std::string_view type);
 		/** @copydoc reset */
 		template<typename T>
 		void reset()
@@ -85,14 +86,14 @@ namespace sek
 		[[nodiscard]] constexpr const type_table_t &types() const noexcept { return m_type_table; }
 
 	private:
-		[[nodiscard]] detail::type_data *reflect(detail::type_handle);
+		[[nodiscard]] SEK_CORE_PUBLIC detail::type_data *reflect(detail::type_handle);
 
 		type_table_t m_type_table;
 		attr_table_t m_attr_table;
 	};
 
 	/** @brief Structure used to obtain a filtered subset of types from the type database. */
-	class SEK_API type_query
+	class type_query
 	{
 		using type_set_t = typename type_database::type_table_t;
 
@@ -103,7 +104,7 @@ namespace sek
 		constexpr explicit type_query(const type_database &db) : m_db(db) {}
 
 		/** Excludes all types that do not have the specified parent. */
-		[[nodiscard]] type_query &with_parent(type_info type);
+		[[nodiscard]] SEK_CORE_PUBLIC type_query &with_parent(type_info type);
 		/** @copydoc with_parent */
 		template<typename T>
 		[[nodiscard]] type_query &with_parent()
@@ -112,7 +113,7 @@ namespace sek
 		}
 
 		/** Excludes all types that do not have the specified attribute. */
-		[[nodiscard]] type_query &with_attribute(type_info type);
+		[[nodiscard]] SEK_CORE_PUBLIC type_query &with_attribute(type_info type);
 		/** @copydoc with_attribute */
 		template<typename T>
 		[[nodiscard]] type_query &with_attribute()

@@ -273,7 +273,7 @@ namespace sek
 	}	 // namespace detail
 
 	/** @brief Proxy structure used to operate on a range-like type-erased object. */
-	class SEK_API any_range
+	class any_range
 	{
 		friend class any;
 		friend class any_ref;
@@ -283,7 +283,7 @@ namespace sek
 		typedef std::ptrdiff_t difference_type;
 
 	private:
-		class SEK_API range_iterator
+		class range_iterator
 		{
 			friend class any_range;
 
@@ -301,48 +301,48 @@ namespace sek
 		public:
 			constexpr range_iterator() noexcept = default;
 
-			range_iterator(const range_iterator &);
-			range_iterator &operator=(const range_iterator &);
+			SEK_CORE_PUBLIC range_iterator(const range_iterator &);
+			SEK_CORE_PUBLIC range_iterator &operator=(const range_iterator &);
 			range_iterator(range_iterator &&) noexcept = default;
 			range_iterator &operator=(range_iterator &&) noexcept = default;
 
 			/** Checks if the iterator is a bidirectional range_type_iterator. */
-			[[nodiscard]] bool is_bidirectional() const noexcept;
+			[[nodiscard]] SEK_CORE_PUBLIC bool is_bidirectional() const noexcept;
 			/** Checks if the iterator is a random access range_type_iterator. */
-			[[nodiscard]] bool is_random_access() const noexcept;
+			[[nodiscard]] SEK_CORE_PUBLIC bool is_random_access() const noexcept;
 
 			/** Post-increments the iterator if it is a bidirectional iterator, otherwise returns copy of `this`. */
-			range_iterator operator++(int);
+			SEK_CORE_PUBLIC range_iterator operator++(int);
 			/** Pre-increments the iterator if it is a bidirectional iterator, otherwise does nothing. */
-			range_iterator &operator++();
+			SEK_CORE_PUBLIC range_iterator &operator++();
 			/** Increments the iterator by `n` if it is a random access iterator, otherwise does nothing. */
-			range_iterator &operator+=(difference_type n);
+			SEK_CORE_PUBLIC range_iterator &operator+=(difference_type n);
 			/** Post-decrements the iterator if it is a bidirectional iterator, otherwise returns copy of `this`. */
-			range_iterator operator--(int);
+			SEK_CORE_PUBLIC range_iterator operator--(int);
 			/** Pre-decrements the iterator if it is a bidirectional iterator, otherwise does nothing. */
-			range_iterator &operator--();
+			SEK_CORE_PUBLIC range_iterator &operator--();
 			/** Decrements the iterator by `n` if it is a random access iterator, otherwise does nothing. */
-			range_iterator &operator-=(difference_type n);
+			SEK_CORE_PUBLIC range_iterator &operator-=(difference_type n);
 
 			/** Returns a copy of this iterator incremented by `n` if it is a random access iterator, otherwise returns copy of `this`. */
-			[[nodiscard]] range_iterator operator+(difference_type n) const;
+			[[nodiscard]] SEK_CORE_PUBLIC range_iterator operator+(difference_type n) const;
 			/** Returns a copy of this iterator decremented by `n` if it is a random access iterator, otherwise returns copy of `this`. */
-			[[nodiscard]] range_iterator operator-(difference_type n) const;
+			[[nodiscard]] SEK_CORE_PUBLIC range_iterator operator-(difference_type n) const;
 			/** Returns difference between `this` and `other`, if `this` is a random access iterator, otherwise returns 0. */
-			[[nodiscard]] difference_type operator-(const range_iterator &other) const;
+			[[nodiscard]] SEK_CORE_PUBLIC difference_type operator-(const range_iterator &other) const;
 
 			/** Returns the object pointed to by the iterator. */
-			[[nodiscard]] any value() const;
+			[[nodiscard]] SEK_CORE_PUBLIC any value() const;
 			/** @copydoc value */
 			[[nodiscard]] any operator*() const { return value(); }
 			/** Returns the object located at an offset from this iterator if it is a random access iterator, otherwise returns empty `any`. */
-			[[nodiscard]] any operator[](difference_type n) const;
+			[[nodiscard]] SEK_CORE_PUBLIC any operator[](difference_type n) const;
 
-			[[nodiscard]] bool operator==(const range_iterator &) const;
-			[[nodiscard]] bool operator>(const range_iterator &) const;
-			[[nodiscard]] bool operator>=(const range_iterator &) const;
-			[[nodiscard]] bool operator<(const range_iterator &) const;
-			[[nodiscard]] bool operator<=(const range_iterator &) const;
+			[[nodiscard]] SEK_CORE_PUBLIC bool operator==(const range_iterator &) const;
+			[[nodiscard]] SEK_CORE_PUBLIC bool operator>(const range_iterator &) const;
+			[[nodiscard]] SEK_CORE_PUBLIC bool operator>=(const range_iterator &) const;
+			[[nodiscard]] SEK_CORE_PUBLIC bool operator<(const range_iterator &) const;
+			[[nodiscard]] SEK_CORE_PUBLIC bool operator<=(const range_iterator &) const;
 
 		private:
 			detail::type_iterator_ptr<iter_t> m_iter;
@@ -357,7 +357,7 @@ namespace sek
 		typedef typename range_iterator::reference const_reference;
 
 	private:
-		static const detail::range_type_data *assert_data(const detail::type_data *data);
+		static SEK_CORE_PUBLIC const detail::range_type_data *assert_data(const detail::type_data *data);
 
 		any_range(std::in_place_t, const any_ref &ref) : m_data(ref.m_type->range_data), m_target(ref) {}
 		any_range(std::in_place_t, any_ref &&ref) : m_data(ref.m_type->range_data), m_target(std::move(ref)) {}
@@ -399,53 +399,53 @@ namespace sek
 
 		/** Returns iterator to the first element of the referenced range,
 		 * or a default-constructed sentinel if it is not a forward range. */
-		[[nodiscard]] iterator begin();
+		[[nodiscard]] SEK_CORE_PUBLIC iterator begin();
 		/** @copydoc begin */
-		[[nodiscard]] const_iterator begin() const;
+		[[nodiscard]] SEK_CORE_PUBLIC const_iterator begin() const;
 		/** @copydoc begin */
 		[[nodiscard]] const_iterator cbegin() const { return begin(); }
 		/** Returns iterator one past to the last element of the referenced range,
 		 * or a default-constructed sentinel if it is not a forward range. */
-		[[nodiscard]] iterator end();
+		[[nodiscard]] SEK_CORE_PUBLIC iterator end();
 		/** @copydoc end */
-		[[nodiscard]] const_iterator end() const;
+		[[nodiscard]] SEK_CORE_PUBLIC const_iterator end() const;
 		/** @copydoc end */
 		[[nodiscard]] const_iterator cend() const { return end(); }
 		/** Returns reverse iterator to the last element of the referenced range,
 		 * or a default-constructed sentinel if it is not a bidirectional range. */
-		[[nodiscard]] reverse_iterator rbegin();
+		[[nodiscard]] SEK_CORE_PUBLIC reverse_iterator rbegin();
 		/** @copydoc rbegin */
-		[[nodiscard]] const_reverse_iterator rbegin() const;
+		[[nodiscard]] SEK_CORE_PUBLIC const_reverse_iterator rbegin() const;
 		/** @copydoc rbegin */
 		[[nodiscard]] const_reverse_iterator crbegin() const { return rbegin(); }
 		/** Returns reverse iterator one past the first element of the referenced range,
 		 * or a default-constructed sentinel if it is not a bidirectional range. */
-		[[nodiscard]] reverse_iterator rend();
+		[[nodiscard]] SEK_CORE_PUBLIC reverse_iterator rend();
 		/** @copydoc rend */
-		[[nodiscard]] const_reverse_iterator rend() const;
+		[[nodiscard]] SEK_CORE_PUBLIC const_reverse_iterator rend() const;
 		/** @copydoc rend */
 		[[nodiscard]] const_reverse_iterator crend() const { return rend(); }
 
 		/** Checks if the referenced range is empty. */
-		[[nodiscard]] bool empty() const;
+		[[nodiscard]] SEK_CORE_PUBLIC bool empty() const;
 		/** Returns size of the referenced range, or `0` if the range is not a sized range. */
-		[[nodiscard]] size_type size() const;
+		[[nodiscard]] SEK_CORE_PUBLIC size_type size() const;
 
 		/** Returns the first object of the referenced range, or empty `any` if the range is not a forward range. */
-		[[nodiscard]] any front();
+		[[nodiscard]] SEK_CORE_PUBLIC any front();
 		/** @copydoc front */
-		[[nodiscard]] any front() const;
+		[[nodiscard]] SEK_CORE_PUBLIC any front() const;
 		/** Returns the last object of the referenced range, or empty `any` if the range is not a bidirectional range. */
-		[[nodiscard]] any back();
+		[[nodiscard]] SEK_CORE_PUBLIC any back();
 		/** @copydoc back */
-		[[nodiscard]] any back() const;
+		[[nodiscard]] SEK_CORE_PUBLIC any back() const;
 		/** Returns the `i`th object of the referenced range, or empty `any` if the range is not a random access range.
 		 * @throw std::out_of_range If `i` is out of bounds of the range. */
-		[[nodiscard]] any at(size_type i);
+		[[nodiscard]] SEK_CORE_PUBLIC any at(size_type i);
 		/** @copydoc at */
 		[[nodiscard]] any operator[](size_type i) { return at(i); }
 		/** @copydoc at */
-		[[nodiscard]] any at(size_type i) const;
+		[[nodiscard]] SEK_CORE_PUBLIC any at(size_type i) const;
 		/** @copydoc at */
 		[[nodiscard]] any operator[](size_type i) const { return at(i); }
 
