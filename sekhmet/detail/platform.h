@@ -27,9 +27,8 @@
 
 #if defined(_MSC_VER) || defined(__CYGWIN__)
 
-#define SEK_PRETTY_FUNC __FUNCSIG__
 #define SEK_NO_VLA
-
+#define SEK_PRETTY_FUNC __FUNCSIG__
 #define SEK_FORCE_INLINE __forceinline
 #define SEK_NEVER_INLINE __declspec(noinline)
 #define SEK_VECTORCALL __vectorcall
@@ -37,7 +36,6 @@
 #elif defined(__clang__) || defined(__GNUC__)
 
 #define SEK_PRETTY_FUNC __PRETTY_FUNCTION__
-
 #define SEK_FORCE_INLINE __attribute__((always_inline)) inline
 #define SEK_NEVER_INLINE __attribute__((noinline))
 #define SEK_VECTORCALL
@@ -51,7 +49,6 @@
 #ifdef SEK_OS_WIN
 
 #define SEK_API_HIDDEN
-
 #if defined(_MSC_VER)
 #define SEK_API_EXPORT __declspec(dllexport)
 #define SEK_API_IMPORT __declspec(dllimport)

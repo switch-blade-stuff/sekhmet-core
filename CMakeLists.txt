@@ -72,6 +72,8 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}
     endif ()
 endif ()
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # Enable IPO
 if (SEK_ENABLE_IPO)
     include(CheckIPOSupported OPTIONAL RESULT_VARIABLE IPO_MODULE)
@@ -88,10 +90,9 @@ if (SEK_ENABLE_IPO)
 endif ()
 
 # Set compilation variables & definitions
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-target_compile_definitions(${SEK_CORE_PROJECT} PRIVATE SEK_CORE_EXPORT)
 add_compile_definitions(SEK_CORE_VERSION="${SEK_CORE_VERSION}")
 add_compile_definitions(SEK_CORE_VERSION="${SEK_CORE_PROJECT}")
+set_target_properties(${SEK_CORE_PROJECT} PROPERTIES DEFINE_SYMBOL "SEK_CORE_EXPORT")
 
 # Find & link thread library
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -106,7 +107,7 @@ include(${SEK_CORE_SOURCE_DIR}/CMakeLists.txt)
 # Include third-party projects
 include(${CMAKE_CURRENT_LIST_DIR}/third-party/CMakeLists.txt)
 
- # Include test project
+# Include test project
 if (SEK_ENABLE_TESTS)
     add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/test test)
 endif ()
