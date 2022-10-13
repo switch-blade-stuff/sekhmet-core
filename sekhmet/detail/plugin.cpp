@@ -10,6 +10,8 @@
 #include "../sparse_set.hpp"
 
 #if defined(SEK_OS_WIN)
+#include <cstdlib>
+#include <errhandlingapi.h>
 #include <libloaderapi.h>
 #elif defined(SEK_OS_UNIX)
 #include <dlfcn.h>
@@ -68,43 +70,46 @@ namespace sek
 
 		[[nodiscard]] static std::filesystem::path get_main_path() noexcept
 		{
-			path_char buff[PATH_MAX + 1];
+			std::basic_string<path_char> buff;
+			buff.resize(MAX_PATH, '\0');
 			std::uint32_t n = 0;
 
 #if defined(SEK_OS_WIN)
-			const auto res = GetModuleFileNameW(nullptr, buff, PATH_MAX + 1);
-			if (res == 0) [[unlikely]]
-				if (const auto err = GetLastError(); err != ERROR_INSUFFICIENT_BUFFER) [[unlikely]]
+			for (;;)
+				if ((n = GetModuleFileNameW(nullptr, buff.data(), buff.size())) == 0) [[unlikely]]
 				{
-					// clang-format off
-					sek::logger::fatal()->log(fmt::format("Failed to get executable path using `GetModuleFileNameW`. "
-														  "Error: {}", err));
-					// clang-format on
-					std::abort();
+					const auto err = GetLastError();
+					if (err == 0x7A /* ERROR_INSUFFICIENT_BUFFER */) [[likely]]
+						buff.resize(buff.size() * 2, '\0');
+					else
+					{
+						// clang-format off
+						sek::logger::fatal()->log(fmt::format("Failed to get executable path using `GetModuleFileNameW`. "
+															  "Error: {}", err));
+						// clang-format on
+						std::abort();
+					}
 				}
-			n = static_cast<std::uint32_t>(res);
 #elif defined(SEK_OS_APPLE)
-			if (_NSGetExecutablePath(buff, &n) != 0) [[unlikely]]
+			if (_NSGetExecutablePath(buff.data(), &n) != 0) [[unlikely]]
 			{
 				sek::logger::fatal()->log(fmt::format("Failed to get executable path using `_NSGetExecutablePath`"));
 				std::abort();
 			}
 #elif defined(SEK_OS_UNIX)
-			const auto res = readlink("/proc/self/exe", buff, PATH_MAX);
-			if (res == 0) [[unlikely]]
+			if ((n = readlink("/proc/self/exe", buff.data(), PATH_MAX)) == 0) [[unlikely]]
 			{
 				// clang-format off
-						const auto code = std::make_error_code(std::errc{errno});
-						sek::logger::fatal()->log(fmt::format("Failed to get executable path using `readlink. "
-															  "Error: [{}] {}`", code.value(), code.message()));
-						std::abort();
+				const auto code = std::make_error_code(std::errc{errno});
+				sek::logger::fatal()->log(fmt::format("Failed to get executable path using `readlink. "
+													  "Error: [{}] {}`", code.value(), code.message()));
+				std::abort();
 				// clang-format on
 			}
-			n = static_cast<std::uint32_t>(res);
 #else
 #error "Unknown OS"
 #endif
-			return std::filesystem::path{std::basic_string_view{buff, n}};
+			return std::filesystem::path{std::basic_string_view{buff.data(), n}};
 		}
 		[[nodiscard]] static native_handle_type get_main_lib() noexcept
 		{
@@ -152,7 +157,10 @@ namespace sek
 			res = GetModuleHandleW(nullptr);
 
 		if (res == nullptr) [[unlikely]]
-			return unexpected{std::error_code{GetLastError(), std::system_category()}};
+		{
+			const auto errc = static_cast<int>(GetLastError());
+			return unexpected{std::error_code{errc, std::system_category()}};
+		}
 #elif defined(SEK_OS_UNIX)
 		if ((res = dlopen(path, RTLD_NOW | RTLD_GLOBAL)) == nullptr) [[unlikely]]
 			return unexpected{std::make_error_code(std::errc{errno})};
@@ -196,5 +204,25 @@ namespace sek
 	void module::close(sek::module &mod) { return_if(close(std::nothrow, mod)); }
 
 	module::module() :m_data(module_db::instance()->main) {}
+	module::module(const path_char *path)
+	{
+		if (const auto db = module_db::instance().access(); path == nullptr) [[unlikely]]
+			m_data = db->main;
+		else
+		{
+			const auto handle = native_open(path);
+			if (!handle.has_value()) [[unlikely]]
+				throw std::system_error(handle.error());
+
+			auto iter = db->table.find(*handle);
+			if (iter == db->table.end()) [[likely]]
+				iter = db->table.emplace(path, *handle).first;
+
+			m_data = iter.get();
+			m_data->ref_ctr++;
+		}
+	}
 	module::~module() { close(*this); }
+
+	typename module::native_handle_type module::native_handle() const noexcept { return m_data->handle; }
 }	 // namespace sek

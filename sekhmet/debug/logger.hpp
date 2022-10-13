@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <ctime>
 
 #include "../access_guard.hpp"
@@ -30,18 +31,30 @@ namespace sek
 		using string_type = std::basic_string<value_type, traits_type>;
 		using log_event = event<void(const string_type &)>;
 
+	private:
+		struct guarded_instance
+		{
+			template<typename... Args>
+			constexpr guarded_instance(Args &&...args) : logger(std::forward<Args>(args)...)
+			{
+			}
+
+			std::shared_mutex mtx;
+			basic_logger logger;
+		};
+
 	public:
 		/** Returns the global info logger. */
-		[[nodiscard]] static shared_guard<basic_logger> &info();
+		[[nodiscard]] static shared_guard<basic_logger> info();
 		/** Returns the global warning logger. */
-		[[nodiscard]] static shared_guard<basic_logger> &warn();
+		[[nodiscard]] static shared_guard<basic_logger> warn();
 		/** Returns the global error logger. */
-		[[nodiscard]] static shared_guard<basic_logger> &error();
+		[[nodiscard]] static shared_guard<basic_logger> error();
 		/** Returns the global fatal logger. */
-		[[nodiscard]] static shared_guard<basic_logger> &fatal();
+		[[nodiscard]] static shared_guard<basic_logger> fatal();
 		/** Returns the global debug logger.
 		 * @note This logger is disabled by default in release mode. */
-		[[nodiscard]] static shared_guard<basic_logger> &debug();
+		[[nodiscard]] static shared_guard<basic_logger> debug();
 
 	private:
 		constexpr static auto default_format = static_string_cast<value_type>("[{T:%H:%M:%S}][{L}]: {M}\n");
@@ -164,49 +177,49 @@ namespace sek
 	};
 
 	template<typename C, typename T>
-	shared_guard<basic_logger<C, T>> &basic_logger<C, T>::info()
+	shared_guard<basic_logger<C, T>> basic_logger<C, T>::info()
 	{
-		static shared_guard<basic_logger> instance{static_string_cast<C, T>("INFO").data()};
-		return instance;
+		static guarded_instance instance{static_string_cast<C, T>("INFO").data()};
+		return {instance.logger, instance.mtx};
 	}
 	template<typename C, typename T>
-	shared_guard<basic_logger<C, T>> &basic_logger<C, T>::warn()
+	shared_guard<basic_logger<C, T>> basic_logger<C, T>::warn()
 	{
-		static shared_guard<basic_logger> instance{static_string_cast<C, T>("WARN").data()};
-		return instance;
+		static guarded_instance instance{static_string_cast<C, T>("WARN").data()};
+		return {instance.logger, instance.mtx};
 	}
 	template<typename C, typename T>
-	shared_guard<basic_logger<C, T>> &basic_logger<C, T>::debug()
+	shared_guard<basic_logger<C, T>> basic_logger<C, T>::debug()
 	{
-		static shared_guard<basic_logger> instance{static_string_cast<C, T>("DEBUG").data()};
-		return instance;
+		static guarded_instance instance{static_string_cast<C, T>("DEBUG").data()};
+		return {instance.logger, instance.mtx};
 	}
 	template<typename C, typename T>
-	shared_guard<basic_logger<C, T>> &basic_logger<C, T>::error()
+	shared_guard<basic_logger<C, T>> basic_logger<C, T>::error()
 	{
-		static shared_guard<basic_logger> instance{static_string_cast<C, T>("ERROR").data()};
-		return instance;
+		static guarded_instance instance{static_string_cast<C, T>("ERROR").data()};
+		return {instance.logger, instance.mtx};
 	}
 	template<typename C, typename T>
-	shared_guard<basic_logger<C, T>> &basic_logger<C, T>::fatal()
+	shared_guard<basic_logger<C, T>> basic_logger<C, T>::fatal()
 	{
-		static shared_guard<basic_logger> instance{static_string_cast<C, T>("FATAL").data()};
-		return instance;
+		static guarded_instance instance{static_string_cast<C, T>("FATAL").data()};
+		return {instance.logger, instance.mtx};
 	}
 
 	/** @brief Alias of `basic_logger` for `char` type. By default, global logger categories print to `stdout`. */
 	typedef basic_logger<char> logger;
 
 	template<>
-	shared_guard<logger> &logger::info();
+	shared_guard<logger> logger::info();
 	template<>
-	shared_guard<logger> &logger::warn();
+	shared_guard<logger> logger::warn();
 	template<>
-	shared_guard<logger> &logger::debug();
+	shared_guard<logger> logger::debug();
 	template<>
-	shared_guard<logger> &logger::error();
+	shared_guard<logger> logger::error();
 	template<>
-	shared_guard<logger> &logger::fatal();
+	shared_guard<logger> logger::fatal();
 
 	extern template class SEK_API_IMPORT basic_logger<char>;
 }	 // namespace sek

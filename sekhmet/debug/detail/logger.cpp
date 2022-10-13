@@ -8,56 +8,55 @@
 
 namespace sek
 {
-	template<typename L>
-	class logger_init
+	template<typename L, typename T>
+	struct instance_init
 	{
 		static void log_message(const typename L::string_type &msg) { fmt::print("{}\n", msg); }
 
-	public:
-		constexpr logger_init(const auto &level, bool enable = true) : m_logger(level)
+		constexpr instance_init(const auto &level, bool enable = true) : m_data(level)
 		{
-			m_logger.value().on_log() += delegate_func<log_message>;
-			if (!enable) m_logger.value().disable();
+			m_data.logger.on_log() += delegate_func<log_message>;
+			if (!enable) m_data.logger.disable();
 		}
 
-		constexpr operator shared_guard<L> &() noexcept { return m_logger; }
+		constexpr operator shared_guard<L> () noexcept { return {m_data.logger, m_data.mtx}; }
 
 	private:
-		shared_guard<L> m_logger;
+		T m_data;
 	};
 
 	template<>
-	shared_guard<logger> &logger::info()
+	shared_guard<logger> logger::info()
 	{
-		static auto instance = logger_init<logger>{"INFO"};
+		static auto instance = instance_init<logger, guarded_instance>{"INFO"};
 		return instance;
 	}
 	template<>
-	shared_guard<logger> &logger::warn()
+	shared_guard<logger> logger::warn()
 	{
-		static auto instance = logger_init<logger>{"WARN"};
+		static auto instance = instance_init<logger, guarded_instance>{"WARN"};
 		return instance;
 	}
 	template<>
-	shared_guard<logger> &logger::debug()
+	shared_guard<logger> logger::debug()
 	{
 #ifndef SEK_DEBUG
-		static auto instance = logger_init<logger>{"DEBUG", false};
+		static auto instance = instance_init<logger, guarded_instance>{"DEBUG", false};
 #else
-		static auto instance = logger_init<logger>{"DEBUG"};
+		static auto instance = instance_init<logger, guarded_instance>{"DEBUG"};
 #endif
 		return instance;
 	}
 	template<>
-	shared_guard<logger> &logger::error()
+	shared_guard<logger> logger::error()
 	{
-		static auto instance = logger_init<logger>{"ERROR"};
+		static auto instance = instance_init<logger, guarded_instance>{"ERROR"};
 		return instance;
 	}
 	template<>
-	shared_guard<logger> &logger::fatal()
+	shared_guard<logger> logger::fatal()
 	{
-		static auto instance = logger_init<logger>{"FATAL"};
+		static auto instance = instance_init<logger, guarded_instance>{"FATAL"};
 		return instance;
 	}
 

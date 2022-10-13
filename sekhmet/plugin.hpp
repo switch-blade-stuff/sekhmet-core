@@ -68,7 +68,7 @@ namespace sek
 		static expected<native_handle_type, std::error_code> native_open(const path_char *);
 		static expected<void, std::error_code> native_close(native_handle_type);
 
-		constexpr module(const module_data *data) noexcept;
+		constexpr explicit module(const module_data *data) noexcept;
 
 	public:
 		module(const module &) = delete;
@@ -91,9 +91,9 @@ namespace sek
 		 * @throw std::system_error On implementation-defined system errors.
 		 * @note A module library is guaranteed to be loaded only once.
 		 * @note If the module path is `nullptr`, initializes a main (parent executable) module handle. */
-		SEK_CORE_PUBLIC module(const path_char *path);
+		SEK_CORE_PUBLIC explicit module(const path_char *path);
 		/** @copydoc native_file */
-		module(const std::filesystem::path &path) :module(path.c_str()) {}
+		explicit module(const std::filesystem::path &path) :module(path.c_str()) {}
 
 		/** Checks if the module handle is valid (closed module handles are invalid). */
 		[[nodiscard]] constexpr bool valid() const noexcept { return m_data != nullptr; }
