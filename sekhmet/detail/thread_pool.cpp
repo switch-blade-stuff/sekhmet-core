@@ -4,7 +4,7 @@
 
 #include "../thread_pool.hpp"
 
-#include "../assert.hpp"
+#include "../debug/assert.hpp"
 #include "../debug/logger.hpp"
 
 namespace sek

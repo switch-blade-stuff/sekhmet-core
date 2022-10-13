@@ -6,10 +6,10 @@
 
 #include <limits>
 #include <memory>
-#include <utility>
 #include <vector>
 
-#include "../assert.hpp"
+#include "../debug/assert.hpp"
+#include "detail/table_util.hpp"
 #include "packed_pair.hpp"
 
 namespace sek::detail

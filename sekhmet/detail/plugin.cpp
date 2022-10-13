@@ -4,13 +4,14 @@
 
 #include "../plugin.hpp"
 
+#include <cstdlib>
+
 #include "../access_guard.hpp"
 #include "../debug/assert.hpp"
 #include "../debug/logger.hpp"
 #include "../sparse_set.hpp"
 
 #if defined(SEK_OS_WIN)
-#include <cstdlib>
 #include <errhandlingapi.h>
 #include <libloaderapi.h>
 #elif defined(SEK_OS_UNIX)

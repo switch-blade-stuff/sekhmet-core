@@ -8,7 +8,7 @@
 #include <limits>
 #include <vector>
 
-#include "../assert.hpp"
+#include "../debug/assert.hpp"
 #include "../delegate.hpp"
 
 namespace sek

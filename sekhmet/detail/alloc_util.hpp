@@ -7,7 +7,7 @@
 #include <concepts>
 #include <memory>
 
-#include "../assert.hpp"
+#include "../debug/assert.hpp"
 
 namespace sek::detail
 {
