@@ -29,7 +29,7 @@ namespace sek
 		/* If ZSTD version is invalid, there is no way we can recover at any stage.
 		 * The only way this could happen is if sekhmet was compiled with invalid version of ZSTD. */
 		logger::fatal() << fmt::format("Invalid ZSTD version ({}). This can be caused by "
-									   "an incorrectly compiled sekhmet-core library",
+									   "an incorrectly compiled core library",
 									   ZSTD_versionString());
 		std::abort();
 	}

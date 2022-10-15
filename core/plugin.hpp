@@ -11,14 +11,29 @@
 
 namespace sek
 {
+	namespace detail
+	{
+		using module_path_char = typename std::filesystem::path::value_type;
+		using module_handle = void *;
+
+		expected<module_handle, std::error_code> open_module(const module_path_char *);
+		expected<void, std::error_code> close_module(module_handle);
+
+		struct module_data;
+		struct module_db;
+	}	 // namespace detail
+
 	/** @brief Handle used to reference a native dynamic library which contains one or multiple plugins. */
 	class module
 	{
-		using path_char = typename std::filesystem::path::value_type;
+	public:
+		typedef detail::module_handle native_handle_type;
+
+	private:
+		using path_char = detail::module_path_char;
+		using data_t = detail::module_data;
 
 	public:
-		typedef void *native_handle_type;
-
 		/** @brief Loads a module.
 		 * @param path Path to the module library.
 		 * @return Handle to the loaded module.
@@ -53,9 +68,6 @@ namespace sek
 		static SEK_CORE_PUBLIC expected<void, std::error_code> close(std::nothrow_t, module &mod);
 
 	private:
-		struct module_data;
-		struct module_db;
-
 		template<typename T>
 		inline static T return_if(expected<T, std::error_code> &&exp)
 		{
@@ -65,16 +77,13 @@ namespace sek
 			if constexpr (!std::is_void_v<T>) return std::move(exp.value());
 		}
 
-		static expected<native_handle_type, std::error_code> native_open(const path_char *);
-		static expected<void, std::error_code> native_close(native_handle_type);
-
-		constexpr explicit module(const module_data *data) noexcept;
+		constexpr explicit module(data_t *data) noexcept;
 
 	public:
 		module(const module &) = delete;
 		module &operator=(const module &) = delete;
 
-		/** Initializes a module handle referencing the main (parent executable) module. */
+		/** Opens a module handle referencing the main (parent executable) module. */
 		SEK_CORE_PUBLIC module();
 		/** Closes the module handle. */
 		SEK_CORE_PUBLIC ~module();
@@ -93,11 +102,11 @@ namespace sek
 		 * @note If the module path is `nullptr`, initializes a main (parent executable) module handle. */
 		SEK_CORE_PUBLIC explicit module(const path_char *path);
 		/** @copydoc native_file */
-		explicit module(const std::filesystem::path &path) :module(path.c_str()) {}
+		explicit module(const std::filesystem::path &path) : module(path.c_str()) {}
 
-		/** Checks if the module handle is valid (closed module handles are invalid). */
-		[[nodiscard]] constexpr bool valid() const noexcept { return m_data != nullptr; }
-		/** @copydoc valid */
+		/** Checks if the module handle is open. */
+		[[nodiscard]] constexpr bool is_open() const noexcept { return m_data != nullptr; }
+		/** @copydoc is_open */
 		[[nodiscard]] constexpr operator bool() const noexcept { return valid(); }
 
 		/** Returns the underlying native library handle. */
@@ -107,6 +116,6 @@ namespace sek
 		friend constexpr void swap(module &a, module &b) noexcept { a.swap(b); }
 
 	protected:
-		const module_data *m_data = nullptr;
+		data_t *m_data = nullptr;
 	};
 }	 // namespace sek

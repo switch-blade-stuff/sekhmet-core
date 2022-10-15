@@ -49,7 +49,7 @@ IncludeCategories:
     Priority: 1
   - Regex: '<[[:alnum:].]+>'
     Priority: 2
-  - Regex: '^([<"](sekhmet)/)'
+  - Regex: '^([<"](core)/)'
     Priority: 3
   - Regex: '.*'
     Priority: 4
