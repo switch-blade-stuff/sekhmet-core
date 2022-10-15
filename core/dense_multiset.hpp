@@ -368,31 +368,28 @@ namespace sek
 		/** Returns iterator to the start of the set. */
 		[[nodiscard]] constexpr iterator begin() noexcept { iterator{value_vector().begin()}; }
 		/** Returns iterator to the end of the set. */
-		[[nodiscard]] constexpr iterator end() noexcept { return const_iterator{value_vector().begin()}; }
+		[[nodiscard]] constexpr iterator end() noexcept { return iterator{value_vector().end()}; }
 		/** Returns const iterator to the start of the set. */
-		[[nodiscard]] constexpr const_iterator cbegin() const noexcept { return cbegin(); }
+		[[nodiscard]] constexpr const_iterator begin() const noexcept { return const_iterator{value_vector().begin()}; }
 		/** Returns const iterator to the end of the set. */
-		[[nodiscard]] constexpr const_iterator cend() const noexcept { return iterator{value_vector().end()}; }
-		/** @copydoc cbegin */
-		[[nodiscard]] constexpr const_iterator begin() const noexcept { return const_iterator{value_vector().end()}; }
-		/** @copydoc cend */
-		[[nodiscard]] constexpr const_iterator end() const noexcept { return cend(); }
+		[[nodiscard]] constexpr const_iterator end() const noexcept { return const_iterator{value_vector().end()}; }
+		/** @copydoc begin */
+		[[nodiscard]] constexpr const_iterator cbegin() const noexcept { return begin(); }
+		/** @copydoc end */
+		[[nodiscard]] constexpr const_iterator cend() const noexcept { return end(); }
 
 		/** Returns reverse iterator to the end of the set. */
 		[[nodiscard]] constexpr reverse_iterator rbegin() noexcept { return reverse_iterator{end()}; }
 		/** Returns reverse iterator to the start of the set. */
-		[[nodiscard]] constexpr reverse_iterator rend() noexcept { return const_reverse_iterator{cend()}; }
+		[[nodiscard]] constexpr reverse_iterator rend() noexcept { return reverse_iterator{begin()}; }
 		/** Returns const reverse iterator to the end of the set. */
-		[[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept { return crbegin(); }
+		[[nodiscard]] constexpr const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator{end()}; }
 		/** Returns const reverse iterator to the start of the set. */
-		[[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return reverse_iterator{begin()}; }
-		/** @copydoc crbegin */
-		[[nodiscard]] constexpr const_reverse_iterator rbegin() const noexcept
-		{
-			return const_reverse_iterator{cbegin()};
-		}
-		/** @copydoc crend */
-		[[nodiscard]] constexpr const_reverse_iterator rend() const noexcept { return crend(); }
+		[[nodiscard]] constexpr const_reverse_iterator rend() const noexcept { return const_reverse_iterator{begin()}; }
+		/** @copydoc rbegin */
+		[[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept { return rbegin(); }
+		/** @copydoc rend */
+		[[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return rend(); }
 
 		/** Locates an element within the set using the `I`th key.
 		 * @tparam I Index of the key to use.
