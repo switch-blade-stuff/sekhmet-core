@@ -204,7 +204,7 @@ namespace sek
 
 		/** Locates an element within the set.
 		 * @param key Key to search for.
-		 * @return Iterator to the element setped to key. */
+		 * @return Iterator to the element with the specified key. */
 		constexpr iterator find(const key_type &key) noexcept { return m_table.find(key); }
 		/** @copydoc find */
 		constexpr const_iterator find(const key_type &key) const noexcept { return m_table.find(key); }

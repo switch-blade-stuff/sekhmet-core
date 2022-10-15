@@ -38,18 +38,14 @@ namespace sek
 		typedef Alloc allocator_type;
 
 	private:
-		constexpr static auto enable_three_way =
-			requires(value_type a, value_type b)
-		{
-			std::compare_three_way{}(a.first, b.first);
-			std::compare_three_way{}(a.second, b.second);
-		};
-		constexpr static auto enable_equal =
-			requires(value_type a, value_type b)
-		{
-			std::equal_to<>{}(a.first, b.first);
-			std::equal_to<>{}(a.second, b.second);
-		};
+		constexpr static auto enable_three_way = requires(value_type a, value_type b) {
+													 std::compare_three_way{}(a.first, b.first);
+													 std::compare_three_way{}(a.second, b.second);
+												 };
+		constexpr static auto enable_equal = requires(value_type a, value_type b) {
+												 std::equal_to<>{}(a.first, b.first);
+												 std::equal_to<>{}(a.second, b.second);
+											 };
 
 		using table_value = std::pair<key_type, mapped_type>;
 
@@ -130,7 +126,7 @@ namespace sek
 		typedef typename table_type::difference_type difference_type;
 
 	public:
-		constexpr dense_map() noexcept(std::is_nothrow_default_constructible_v<table_type>) = default;
+		constexpr dense_map() = default;
 		constexpr ~dense_map() = default;
 
 		/** Constructs a map with the specified allocators.
@@ -213,30 +209,18 @@ namespace sek
 
 		/** Copy-constructs the map. Allocator is copied via `select_on_container_copy_construction`.
 		 * @param other Map to copy data and allocators from. */
-		constexpr dense_map(const dense_map &other) noexcept(std::is_nothrow_copy_constructible_v<table_type>)
-			: m_table(other.m_table)
-		{
-		}
+		constexpr dense_map(const dense_map &other) : m_table(other.m_table) {}
 		/** Copy-constructs the map.
 		 * @param other Map to copy data and bucket allocator from.
 		 * @param alloc Allocator used to allocate map's value array. */
-		constexpr dense_map(const dense_map &other, const allocator_type &alloc) noexcept(
-			std::is_nothrow_constructible_v<table_type, const table_type &, const allocator_type &>)
-			: m_table(other.m_table, alloc)
-		{
-		}
+		constexpr dense_map(const dense_map &other, const allocator_type &alloc) : m_table(other.m_table, alloc) {}
 		/** Move-constructs the map. Allocator is move-constructed.
 		 * @param other Map to move elements and allocators from. */
-		constexpr dense_map(dense_map &&other) noexcept(std::is_nothrow_move_constructible_v<table_type>)
-			: m_table(std::move(other.m_table))
-		{
-		}
+		constexpr dense_map(dense_map &&other) : m_table(std::move(other.m_table)) {}
 		/** Move-constructs the map.
 		 * @param other Map to move elements and bucket allocator from.
 		 * @param alloc Allocator used to allocate map's value array. */
-		constexpr dense_map(dense_map &&other, const allocator_type &alloc) noexcept(
-			std::is_nothrow_constructible_v<table_type, table_type &&, const allocator_type &>)
-			: m_table(std::move(other.m_table), alloc)
+		constexpr dense_map(dense_map &&other, const allocator_type &alloc) : m_table(std::move(other.m_table), alloc)
 		{
 		}
 
@@ -249,7 +233,7 @@ namespace sek
 		}
 		/** Move-assigns the map.
 		 * @param other Map to move elements from. */
-		constexpr dense_map &operator=(dense_map &&other) noexcept(std::is_nothrow_move_assignable_v<table_type>)
+		constexpr dense_map &operator=(dense_map &&other)
 		{
 			m_table = std::move(other.m_table);
 			return *this;

@@ -50,6 +50,18 @@ namespace sek
 		template<size_type I>
 		using n_key_ref = const std::remove_cvref_t<n_key_type<I>> &;
 
+		// clang-format off
+		constexpr static bool transparent_key = requires
+		{
+			typename KeyHash::is_transparent;
+			typename KeyComp::is_transparent;
+		};
+		// clang-format on
+
+		/* General operation of a dense multiset is similar to a regular dense hash table, with the exception
+		 * that every entry of the sparse vector contains multiple indices into the dense vector (one per every key).
+		 * As such, a multiset maintains multiple bucket chains for every entry, which must be updated synchronously. */
+
 		class sparse_entry
 		{
 		public:
@@ -122,8 +134,348 @@ namespace sek
 		using dense_alloc = typename std::allocator_traits<Alloc>::template rebind_alloc<dense_entry>;
 		using dense_data = std::vector<dense_entry, dense_alloc>;
 
+		template<bool IsConst>
+		class multiset_iterator
+		{
+			template<bool>
+			friend class multiset_iterator;
+			friend class dense_multiset;
+
+			using iter_t = std::conditional_t<IsConst, typename dense_data::const_iterator, typename dense_data::iterator>;
+			using ptr_t = std::conditional_t<IsConst, const dense_entry, dense_entry> *;
+
+		public:
+			typedef Key value_type;
+			typedef std::conditional_t<IsConst, const value_type, value_type> *pointer;
+			typedef std::conditional_t<IsConst, const value_type, value_type> &reference;
+			typedef typename table_traits::size_type size_type;
+			typedef typename table_traits::difference_type difference_type;
+			typedef std::random_access_iterator_tag iterator_category;
+
+		private:
+			constexpr explicit multiset_iterator(iter_t iter) noexcept : m_ptr(std::to_address(iter)) {}
+			constexpr explicit multiset_iterator(ptr_t ptr) noexcept : m_ptr(ptr) {}
+
+		public:
+			constexpr multiset_iterator() noexcept = default;
+			template<bool OtherConst, typename = std::enable_if_t<IsConst && !OtherConst>>
+			constexpr multiset_iterator(const multiset_iterator<OtherConst> &other) noexcept
+				: multiset_iterator(other.m_ptr)
+			{
+			}
+
+			constexpr multiset_iterator operator++(int) noexcept
+			{
+				auto temp = *this;
+				++(*this);
+				return temp;
+			}
+			constexpr multiset_iterator &operator++() noexcept
+			{
+				++m_ptr;
+				return *this;
+			}
+			constexpr multiset_iterator &operator+=(difference_type n) noexcept
+			{
+				m_ptr += n;
+				return *this;
+			}
+			constexpr multiset_iterator operator--(int) noexcept
+			{
+				auto temp = *this;
+				--(*this);
+				return temp;
+			}
+			constexpr multiset_iterator &operator--() noexcept
+			{
+				--m_ptr;
+				return *this;
+			}
+			constexpr multiset_iterator &operator-=(difference_type n) noexcept
+			{
+				m_ptr -= n;
+				return *this;
+			}
+
+			[[nodiscard]] constexpr multiset_iterator operator+(difference_type n) const noexcept
+			{
+				return multiset_iterator{m_ptr + n};
+			}
+			[[nodiscard]] constexpr multiset_iterator operator-(difference_type n) const noexcept
+			{
+				return multiset_iterator{m_ptr - n};
+			}
+			[[nodiscard]] constexpr difference_type operator-(const multiset_iterator &other) const noexcept
+			{
+				return m_ptr - other.m_ptr;
+			}
+
+			/** Returns pointer to the target element. */
+			[[nodiscard]] constexpr pointer get() const noexcept { return pointer{std::addressof(m_ptr->value)}; }
+			/** @copydoc value */
+			[[nodiscard]] constexpr pointer operator->() const noexcept { return get(); }
+
+			/** Returns reference to the element at an offset. */
+			[[nodiscard]] constexpr reference operator[](difference_type n) const noexcept { return m_ptr[n].value; }
+			/** Returns reference to the target element. */
+			[[nodiscard]] constexpr reference operator*() const noexcept { return *get(); }
+
+			[[nodiscard]] constexpr auto operator<=>(const multiset_iterator &) const noexcept = default;
+			[[nodiscard]] constexpr bool operator==(const multiset_iterator &) const noexcept = default;
+
+			constexpr void swap(multiset_iterator &other) noexcept { std::swap(m_ptr, other.m_ptr); }
+			friend constexpr void swap(multiset_iterator &a, multiset_iterator &b) noexcept { a.swap(b); }
+
+		private:
+			ptr_t m_ptr = {};
+		};
+
 	public:
-		[[nodiscard]] constexpr auto allocator() const noexcept { return value_vector().get_allocator(); }
+		typedef multiset_iterator<false> iterator;
+		typedef multiset_iterator<true> const_iterator;
+		typedef std::reverse_iterator<iterator> reverse_iterator;
+		typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
+
+	public:
+		constexpr dense_multiset() = default;
+		constexpr ~dense_multiset() = default;
+
+		/** Constructs a set with the specified allocators.
+		 * @param alloc Allocator used to allocate set's value array.
+		 * @param bucket_alloc Allocator used to allocate set's bucket array. */
+		constexpr explicit dense_multiset(const allocator_type &alloc) : dense_multiset(key_equal{}, hash_type{}, alloc)
+		{
+		}
+		/** Constructs a set with the specified hasher & allocators.
+		 * @param key_hash Key hasher.
+		 * @param alloc Allocator used to allocate set's value array. */
+		constexpr explicit dense_multiset(const hash_type &key_hash, const allocator_type &alloc = allocator_type{})
+			: dense_multiset(key_equal{}, key_hash, alloc)
+		{
+		}
+		/** Constructs a set with the specified comparator, hasher & allocators.
+		 * @param key_compare Key comparator.
+		 * @param key_hash Key hasher.
+		 * @param alloc Allocator used to allocate set's value array. */
+		constexpr explicit dense_multiset(const key_equal &key_compare,
+										  const hash_type &key_hash = {},
+										  const allocator_type &alloc = allocator_type{})
+			: dense_multiset{initial_capacity, key_compare, key_hash, alloc}
+		{
+		}
+		/** Constructs a set with the specified minimum capacity.
+		 * @param capacity Capacity of the set.
+		 * @param key_compare Key comparator.
+		 * @param key_hash Key hasher.
+		 * @param alloc Allocator used to allocate set's value array. */
+		constexpr explicit dense_multiset(size_type capacity,
+										  const KeyComp &key_compare = {},
+										  const KeyHash &key_hash = {},
+										  const allocator_type &alloc = allocator_type{})
+			: m_dense_data{dense_alloc{alloc}, key_compare},
+			  m_sparse_data{std::piecewise_construct,
+							std::forward_as_tuple(capacity, sparse_entry{npos}, sparse_alloc{alloc}),
+							std::forward_as_tuple(key_hash)}
+		{
+		}
+
+		/** Constructs a set from a sequence of values.
+		 * @param first Iterator to the start of the value sequence.
+		 * @param first Iterator to the end of the value sequence.
+		 * @param key_compare Key comparator.
+		 * @param key_hash Key hasher.
+		 * @param alloc Allocator used to allocate set's value array. */
+		template<std::random_access_iterator Iterator>
+		constexpr dense_multiset(Iterator first,
+								 Iterator last,
+								 const KeyComp &key_compare = {},
+								 const KeyHash &key_hash = {},
+								 const allocator_type &alloc = allocator_type{})
+			: dense_multiset(static_cast<size_type>(std::distance(first, last)), key_compare, key_hash, alloc)
+		{
+			insert(first, last);
+		}
+		/** Constructs a set from a sequence of values.
+		 * @param first Iterator to the start of the value sequence.
+		 * @param first Iterator to the end of the value sequence.
+		 * @param key_compare Key comparator.
+		 * @param key_hash Key hasher.
+		 * @param alloc Allocator used to allocate set's value array. */
+		template<std::forward_iterator Iterator>
+		constexpr dense_multiset(Iterator first,
+								 Iterator last,
+								 const KeyComp &key_compare = {},
+								 const KeyHash &key_hash = {},
+								 const allocator_type &alloc = allocator_type{})
+			: dense_multiset(key_compare, key_hash, alloc)
+		{
+			insert(first, last);
+		}
+		/** Constructs a set from an initializer list.
+		 * @param il Initializer list containing values.
+		 * @param key_compare Key comparator.
+		 * @param key_hash Key hasher.
+		 * @param alloc Allocator used to allocate set's value array. */
+		constexpr dense_multiset(std::initializer_list<value_type> il,
+								 const KeyComp &key_compare = {},
+								 const KeyHash &key_hash = {},
+								 const allocator_type &alloc = allocator_type{})
+			: dense_multiset(il.begin(), il.end(), key_compare, key_hash, alloc)
+		{
+		}
+
+		/** Copy-constructs the set. Allocator is copied via `select_on_container_copy_construction`.
+		 * @param other Map to copy data and allocators from. */
+		constexpr dense_multiset(const dense_multiset &) = default;
+		/** Copy-constructs the set.
+		 * @param other Map to copy data and bucket allocator from.
+		 * @param alloc Allocator used to allocate set's value array. */
+		constexpr dense_multiset(const dense_multiset &other, const allocator_type &alloc)
+			: m_dense_data{std::piecewise_construct,
+						   std::forward_as_tuple(other.value_vector(), dense_alloc{alloc}),
+						   std::forward_as_tuple(other.m_dense_data.second())},
+			  m_sparse_data{std::piecewise_construct,
+							std::forward_as_tuple(other.bucket_vector(), sparse_alloc{alloc}),
+							std::forward_as_tuple(other.m_sparse_data.second())},
+			  m_max_load_factor{other.m_max_load_factor}
+		{
+		}
+
+		/** Move-constructs the set. Allocator is move-constructed.
+		 * @param other Map to move elements and bucket allocator from. */
+		constexpr dense_multiset(dense_multiset &&) = default;
+		/** Move-constructs the set.
+		 * @param other Map to move elements and bucket allocator from.
+		 * @param alloc Allocator used to allocate set's value array. */
+		constexpr dense_multiset(dense_multiset &&other, const Alloc &alloc)
+			: m_dense_data{std::piecewise_construct,
+						   std::forward_as_tuple(std::move(other.value_vector()), dense_alloc{alloc}),
+						   std::forward_as_tuple(std::move(other.m_dense_data.second()))},
+			  m_sparse_data{std::piecewise_construct,
+							std::forward_as_tuple(std::move(other.bucket_vector()), sparse_alloc{alloc}),
+							std::forward_as_tuple(std::move(other.m_sparse_data.second()))},
+			  m_max_load_factor{other.m_max_load_factor}
+		{
+		}
+
+		/** Copy-assigns the set.
+		 * @param other Map to copy elements from. */
+		constexpr dense_multiset &operator=(const dense_multiset &) = default;
+		/** Move-assigns the set.
+		 * @param other Map to move elements from. */
+		constexpr dense_multiset &operator=(dense_multiset &&) = default;
+
+		/** Returns iterator to the start of the set. */
+		[[nodiscard]] constexpr iterator begin() noexcept { iterator{value_vector().begin()}; }
+		/** Returns iterator to the end of the set. */
+		[[nodiscard]] constexpr iterator end() noexcept { return const_iterator{value_vector().begin()}; }
+		/** Returns const iterator to the start of the set. */
+		[[nodiscard]] constexpr const_iterator cbegin() const noexcept { return cbegin(); }
+		/** Returns const iterator to the end of the set. */
+		[[nodiscard]] constexpr const_iterator cend() const noexcept { return iterator{value_vector().end()}; }
+		/** @copydoc cbegin */
+		[[nodiscard]] constexpr const_iterator begin() const noexcept { return const_iterator{value_vector().end()}; }
+		/** @copydoc cend */
+		[[nodiscard]] constexpr const_iterator end() const noexcept { return cend(); }
+
+		/** Returns reverse iterator to the end of the set. */
+		[[nodiscard]] constexpr reverse_iterator rbegin() noexcept { return reverse_iterator{end()}; }
+		/** Returns reverse iterator to the start of the set. */
+		[[nodiscard]] constexpr reverse_iterator rend() noexcept { return const_reverse_iterator{cend()}; }
+		/** Returns const reverse iterator to the end of the set. */
+		[[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept { return crbegin(); }
+		/** Returns const reverse iterator to the start of the set. */
+		[[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return reverse_iterator{begin()}; }
+		/** @copydoc crbegin */
+		[[nodiscard]] constexpr const_reverse_iterator rbegin() const noexcept
+		{
+			return const_reverse_iterator{cbegin()};
+		}
+		/** @copydoc crend */
+		[[nodiscard]] constexpr const_reverse_iterator rend() const noexcept { return crend(); }
+
+		/** Locates an element within the set using the `I`th key.
+		 * @tparam I Index of the key to use.
+		 * @param key Key to search for.
+		 * @return Iterator to the element who's `I`th key is equal to `key`, or end iterator. */
+		template<size_type I>
+		constexpr const_iterator find(const key_type &key) const noexcept
+		{
+			const auto entry_idx = find_impl<I>(key_hash(key), key);
+			return begin() + static_cast<difference_type>(entry_idx);
+		}
+		/** Checks if the set contains an element with a matching `I`th key.
+		 * @tparam I Index of the key to use.
+		 * @param key Key to search for. */
+		constexpr bool contains(const key_type &key) const noexcept { return find(key) != end(); }
+		// clang-format off
+		/** @copydoc find
+		 * @note This overload participates in overload resolution only
+		 * if both key hasher and key comparator are transparent. */
+		template<size_type I>
+		constexpr const_iterator find(const auto &key) const noexcept requires transparent_key
+		{
+			const auto entry_idx = find_impl<I>(key_hash(key), key);
+			return begin() + static_cast<difference_type>(entry_idx);
+		}
+		/** @copydoc contains
+		 * @note This overload participates in overload resolution only
+		 * if both key hasher and key comparator are transparent. */
+		constexpr bool contains(const auto &key) const noexcept requires transparent_key
+		{
+			return find(key) != end();
+		}
+		// clang-format on
+
+		/** Empties the set's contents. */
+		constexpr void clear()
+		{
+			std::fill_n(bucket_vector().data(), bucket_count(), sparse_entry{npos});
+			value_vector().clear();
+		}
+
+		/** Returns current amount of elements in the set. */
+		[[nodiscard]] constexpr size_type size() const noexcept { return value_vector().size(); }
+		/** Returns current capacity of the set. */
+		[[nodiscard]] constexpr size_type capacity() const noexcept
+		{
+			return static_cast<size_type>(static_cast<float>(bucket_count()) * m_max_load_factor);
+		}
+		/** Returns maximum possible amount of elements in the set. */
+		[[nodiscard]] constexpr size_type max_size() const noexcept
+		{
+			const auto max_idx = std::min(value_vector().max_size(), npos - 1);
+			return static_cast<size_type>(static_cast<float>(max_idx) * m_max_load_factor);
+		}
+		/** Checks if the set is empty. */
+		[[nodiscard]] constexpr size_type empty() const noexcept { return size() == 0; }
+
+		/** Returns current amount of buckets in the set. */
+		[[nodiscard]] constexpr size_type bucket_count() const noexcept { return bucket_vector().size(); }
+		/** Returns the maximum amount of buckets. */
+		[[nodiscard]] constexpr size_type max_bucket_count() const noexcept { return bucket_vector().max_size(); }
+
+		/** Returns current load factor of the set. */
+		[[nodiscard]] constexpr auto load_factor() const noexcept
+		{
+			return static_cast<float>(size()) / static_cast<float>(bucket_count());
+		}
+		/** Returns current max load factor of the set. */
+		[[nodiscard]] constexpr auto max_load_factor() const noexcept { return m_max_load_factor; }
+		/** Sets current max load factor of the set. */
+		constexpr void max_load_factor(float f) noexcept
+		{
+			SEK_ASSERT(f > .0f);
+			m_max_load_factor = f;
+		}
+
+		[[nodiscard]] constexpr allocator_type get_allocator() const noexcept
+		{
+			return allocator_type{value_allocator()};
+		}
+
+		[[nodiscard]] constexpr hash_type hash_function() const noexcept { return get_hash(); }
+		[[nodiscard]] constexpr key_equal key_eq() const noexcept { return get_comp(); }
 
 		constexpr void swap(dense_multiset &other) noexcept
 		{
@@ -135,13 +487,50 @@ namespace sek
 		friend constexpr void swap(dense_multiset &a, dense_multiset &b) noexcept { a.swap(b); }
 
 	private:
-		[[nodiscard]] constexpr auto &value_vector() noexcept { return m_dense_data.first(); }
-		[[nodiscard]] constexpr const auto &value_vector() const noexcept { return m_dense_data.first(); }
-		[[nodiscard]] constexpr auto &bucket_vector() noexcept { return m_sparse_data.first(); }
-		[[nodiscard]] constexpr const auto &bucket_vector() const noexcept { return m_sparse_data.first(); }
+		[[nodiscard]] constexpr dense_data &value_vector() noexcept { return m_dense_data.first(); }
+		[[nodiscard]] constexpr const dense_data &value_vector() const noexcept { return m_dense_data.first(); }
+		[[nodiscard]] constexpr sparse_data &bucket_vector() noexcept { return m_sparse_data.first(); }
+		[[nodiscard]] constexpr const sparse_data &bucket_vector() const noexcept { return m_sparse_data.first(); }
 
+		[[nodiscard]] constexpr auto value_allocator() const noexcept { return value_vector().get_allocator(); }
 		[[nodiscard]] constexpr auto &get_hash() const noexcept { return m_sparse_data.second(); }
 		[[nodiscard]] constexpr auto &get_comp() const noexcept { return m_dense_data.second(); }
+
+		[[nodiscard]] constexpr auto key_hash(const auto &k) const { return m_sparse_data.second()(k); }
+		[[nodiscard]] constexpr auto key_comp(const auto &a, const auto &b) const
+		{
+			return m_dense_data.second()(a, b);
+		}
+
+		template<size_type I>
+		[[nodiscard]] constexpr size_type *get_chain(hash_t h) noexcept
+		{
+			const auto idx = h % bucket_vector().size();
+			return &(bucket_vector()[idx][I]);
+		}
+		template<size_type I>
+		[[nodiscard]] constexpr const size_type *get_chain(hash_t h) const noexcept
+		{
+			const auto idx = h % bucket_vector().size();
+			return &(bucket_vector()[idx][I]);
+		}
+
+		template<size_type I>
+		[[nodiscard]] constexpr size_type find_impl(hash_t h, const auto &key) const noexcept
+		{
+			for (auto *idx = get_chain<I>(h); *idx != npos;)
+			{
+				const auto &entry = value_vector()[*idx];
+				const auto &entry_key = entry.template key<I>();
+				const auto entry_hash = entry.hash[I];
+
+				if (entry_hash == h && key_comp(key, entry_key))
+					return *idx;
+				else
+					idx = &entry.next[I];
+			}
+			return value_vector().size();
+		}
 
 		packed_pair<dense_data, key_equal> m_dense_data;
 		packed_pair<sparse_data, hash_type> m_sparse_data = {sparse_data(initial_capacity, sparse_entry{npos}), hash_type{}};

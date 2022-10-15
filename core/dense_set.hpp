@@ -74,7 +74,7 @@ namespace sek
 		typedef typename table_type::difference_type difference_type;
 
 	public:
-		constexpr dense_set() noexcept(std::is_nothrow_default_constructible_v<table_type>) = default;
+		constexpr dense_set() = default;
 		constexpr ~dense_set() = default;
 
 		/** Constructs a set with the specified allocators.
@@ -158,30 +158,18 @@ namespace sek
 
 		/** Copy-constructs the set. Allocator is copied via `select_on_container_copy_construction`.
 		 * @param other Map to copy data and allocators from. */
-		constexpr dense_set(const dense_set &other) noexcept(std::is_nothrow_copy_constructible_v<table_type>)
-			: m_table(other.m_table)
-		{
-		}
+		constexpr dense_set(const dense_set &other) : m_table(other.m_table) {}
 		/** Copy-constructs the set.
 		 * @param other Map to copy data and bucket allocator from.
 		 * @param alloc Allocator used to allocate set's value array. */
-		constexpr dense_set(const dense_set &other, const allocator_type &alloc) noexcept(
-			std::is_nothrow_constructible_v<table_type, const table_type &, const allocator_type &>)
-			: m_table(other.m_table, alloc)
-		{
-		}
+		constexpr dense_set(const dense_set &other, const allocator_type &alloc) : m_table(other.m_table, alloc) {}
 		/** Move-constructs the set. Allocator is move-constructed.
 		 * @param other Map to move elements and bucket allocator from. */
-		constexpr dense_set(dense_set &&other) noexcept(std::is_nothrow_move_constructible_v<table_type>)
-			: m_table(std::move(other.m_table))
-		{
-		}
+		constexpr dense_set(dense_set &&other) : m_table(std::move(other.m_table)) {}
 		/** Move-constructs the set.
 		 * @param other Map to move elements and bucket allocator from.
 		 * @param alloc Allocator used to allocate set's value array. */
-		constexpr dense_set(dense_set &&other, const allocator_type &alloc) noexcept(
-			std::is_nothrow_constructible_v<table_type, table_type &&, const allocator_type &>)
-			: m_table(std::move(other.m_table), alloc)
+		constexpr dense_set(dense_set &&other, const allocator_type &alloc) : m_table(std::move(other.m_table), alloc)
 		{
 		}
 
@@ -194,7 +182,7 @@ namespace sek
 		}
 		/** Move-assigns the set.
 		 * @param other Map to move elements from. */
-		constexpr dense_set &operator=(dense_set &&other) noexcept(std::is_nothrow_move_assignable_v<table_type>)
+		constexpr dense_set &operator=(dense_set &&other)
 		{
 			m_table = std::move(other.m_table);
 			return *this;
@@ -228,7 +216,7 @@ namespace sek
 
 		/** Locates an element within the set.
 		 * @param key Key to search for.
-		 * @return Iterator to the element setped to key. */
+		 * @return Iterator to the element with the specified key. */
 		constexpr const_iterator find(const key_type &key) const noexcept { return m_table.find(key); }
 		/** @copydoc find
 		 * @note This overload participates in overload resolution only

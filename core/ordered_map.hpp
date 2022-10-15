@@ -116,7 +116,7 @@ namespace sek
 		typedef typename table_type::difference_type difference_type;
 
 	public:
-		constexpr ordered_map() noexcept(std::is_nothrow_default_constructible_v<table_type>) = default;
+		constexpr ordered_map() = default;
 		constexpr ~ordered_map() = default;
 
 		/** Constructs a map with the specified allocators.
@@ -199,29 +199,18 @@ namespace sek
 
 		/** Copy-constructs the map. Allocator is copied via `select_on_container_copy_construction`.
 		 * @param other Map to copy data and allocators from. */
-		constexpr ordered_map(const ordered_map &other) noexcept(std::is_nothrow_copy_constructible_v<table_type>)
-			: m_table(other.m_table)
-		{
-		}
+		constexpr ordered_map(const ordered_map &other) : m_table(other.m_table) {}
 		/** Copy-constructs the map.
 		 * @param other Map to copy data and bucket allocator from.
 		 * @param alloc Allocator used to allocate map's value array. */
-		constexpr ordered_map(const ordered_map &other, const allocator_type &alloc) noexcept(
-			std::is_nothrow_constructible_v<table_type, const table_type &, const allocator_type &>)
-			: m_table(other.m_table, alloc)
-		{
-		}
+		constexpr ordered_map(const ordered_map &other, const allocator_type &alloc) : m_table(other.m_table, alloc) {}
 		/** Move-constructs the map. Allocator is move-constructed.
 		 * @param other Map to move elements and allocators from. */
-		constexpr ordered_map(ordered_map &&other) noexcept(std::is_nothrow_move_constructible_v<table_type>)
-			: m_table(std::move(other.m_table))
-		{
-		}
+		constexpr ordered_map(ordered_map &&other) : m_table(std::move(other.m_table)) {}
 		/** Move-constructs the map.
 		 * @param other Map to move elements and bucket allocator from.
 		 * @param alloc Allocator used to allocate map's value array. */
-		constexpr ordered_map(ordered_map &&other, const allocator_type &alloc) noexcept(
-			std::is_nothrow_constructible_v<table_type, table_type &&, const allocator_type &>)
+		constexpr ordered_map(ordered_map &&other, const allocator_type &alloc)
 			: m_table(std::move(other.m_table), alloc)
 		{
 		}
@@ -235,7 +224,7 @@ namespace sek
 		}
 		/** Move-assigns the map.
 		 * @param other Map to move elements from. */
-		constexpr ordered_map &operator=(ordered_map &&other) noexcept(std::is_nothrow_move_assignable_v<table_type>)
+		constexpr ordered_map &operator=(ordered_map &&other)
 		{
 			m_table = std::move(other.m_table);
 			return *this;

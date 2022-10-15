@@ -306,7 +306,6 @@ namespace sek::detail
 		constexpr dense_hash_table &operator=(dense_hash_table &&) = default;
 		constexpr ~dense_hash_table() = default;
 
-		constexpr explicit dense_hash_table(const Alloc &alloc) : dense_hash_table{Cmp{}, Hash{}, alloc} {}
 		constexpr dense_hash_table(const Cmp &equal, const Hash &hash, const Alloc &alloc)
 			: dense_hash_table{initial_capacity, equal, hash, alloc}
 		{
@@ -400,11 +399,11 @@ namespace sek::detail
 
 		[[nodiscard]] constexpr auto find(const auto &key) noexcept
 		{
-			return iterator{value_vector().begin() + static_cast<difference_type>(find_impl(key_hash(key), key))};
+			return begin() + static_cast<difference_type>(find_impl(key_hash(key), key));
 		}
 		[[nodiscard]] constexpr auto find(const auto &key) const noexcept
 		{
-			return cbegin() + static_cast<difference_type>(find_impl(key_hash(key), key));
+			return begin() + static_cast<difference_type>(find_impl(key_hash(key), key));
 		}
 
 		constexpr void clear()
@@ -547,24 +546,25 @@ namespace sek::detail
 		}
 
 	private:
-		[[nodiscard]] constexpr auto &value_vector() noexcept { return m_dense_data.first(); }
-		[[nodiscard]] constexpr const auto &value_vector() const noexcept { return m_dense_data.first(); }
-		[[nodiscard]] constexpr auto &bucket_vector() noexcept { return m_sparse_data.first(); }
-		[[nodiscard]] constexpr const auto &bucket_vector() const noexcept { return m_sparse_data.first(); }
+		[[nodiscard]] constexpr dense_data &value_vector() noexcept { return m_dense_data.first(); }
+		[[nodiscard]] constexpr const dense_data &value_vector() const noexcept { return m_dense_data.first(); }
+		[[nodiscard]] constexpr sparse_data &bucket_vector() noexcept { return m_sparse_data.first(); }
+		[[nodiscard]] constexpr const sparse_data &bucket_vector() const noexcept { return m_sparse_data.first(); }
 
 		[[nodiscard]] constexpr auto key_hash(const auto &k) const { return m_sparse_data.second()(k); }
 		[[nodiscard]] constexpr auto key_comp(const auto &a, const auto &b) const
 		{
 			return m_dense_data.second()(a, b);
 		}
-		[[nodiscard]] constexpr auto *get_chain(hash_t h) noexcept
+
+		[[nodiscard]] constexpr size_type *get_chain(hash_t h) noexcept
 		{
-			auto idx = h % bucket_vector().size();
+			const auto idx = h % bucket_vector().size();
 			return bucket_vector().data() + idx;
 		}
-		[[nodiscard]] constexpr auto *get_chain(hash_t h) const noexcept
+		[[nodiscard]] constexpr const size_type *get_chain(hash_t h) const noexcept
 		{
-			auto idx = h % bucket_vector().size();
+			const auto idx = h % bucket_vector().size();
 			return bucket_vector().data() + idx;
 		}
 
