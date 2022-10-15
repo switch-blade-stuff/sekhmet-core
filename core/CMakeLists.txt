@@ -1,6 +1,4 @@
 
-include_directories(${SEK_CORE_SOURCE_DIR})
-
 include(${CMAKE_CURRENT_LIST_DIR}/detail/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/system/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/math/CMakeLists.txt)

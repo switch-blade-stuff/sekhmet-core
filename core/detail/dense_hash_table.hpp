@@ -10,8 +10,8 @@
 #include <vector>
 
 #include "../debug/assert.hpp"
-#include "detail/table_util.hpp"
 #include "packed_pair.hpp"
+#include "table_util.hpp"
 
 namespace sek::detail
 {

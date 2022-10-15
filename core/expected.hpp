@@ -6,6 +6,7 @@
 
 #include <exception>
 #include <optional>
+#include <stdexcept>
 
 #include "define.h"
 
