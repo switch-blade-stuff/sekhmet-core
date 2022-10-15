@@ -30,7 +30,7 @@ namespace sek
 {
 	namespace detail
 	{
-		[[nodiscard]] static std::error_code get_error_code() noexcept
+		[[nodiscard]] inline static std::error_code current_error() noexcept
 		{
 #if defined(SEK_OS_WIN)
 			const auto errc = static_cast<int>(GetLastError());
@@ -83,7 +83,7 @@ namespace sek
 					return unexpected{make_errc()};
 #elif defined(SEK_OS_UNIX)
 				if ((res = dlopen(path, RTLD_NOW | RTLD_GLOBAL)) == nullptr) [[unlikely]]
-					return unexpected{get_error_code()};
+					return unexpected{current_error()};
 #endif
 				return res;
 			}
@@ -94,7 +94,7 @@ namespace sek
 					return unexpected{get_error_code()};
 #elif defined(SEK_OS_UNIX)
 				if (dlclose(handle)) [[unlikely]]
-					return unexpected{get_error_code()};
+					return unexpected{current_error()};
 #endif
 				return {};
 			}
@@ -132,7 +132,7 @@ namespace sek
 				const auto res = readlink("/proc/self/exe", buff.data(), PATH_MAX);
 				if (res <= 0) [[unlikely]]
 				{
-					const auto code = get_error_code();
+					const auto code = current_error();
 					// clang-format off
 					sek::logger::fatal()->log(fmt::format("Failed to get executable path using `readlink. "
 														  "Error: [{}] {}`", code.value(), code.message()));

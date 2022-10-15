@@ -30,8 +30,8 @@ namespace sek::detail
 {
 	constexpr auto access = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
 
-	inline static std::error_code current_error() noexcept { return std::make_error_code(std::errc{errno}); }
-	inline static std::uint64_t page_size() noexcept
+	[[nodiscard]] inline static std::error_code current_error() noexcept { return std::make_error_code(std::errc{errno}); }
+	[[nodiscard]] inline static std::uint64_t page_size() noexcept
 	{
 		const auto res = sysconf(_SC_PAGE_SIZE);
 		return res < 0 ? SEK_KB(8) : static_cast<std::uint64_t>(res);
