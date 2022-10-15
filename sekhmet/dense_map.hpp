@@ -7,7 +7,7 @@
 #include <iterator>
 #include <stdexcept>
 
-#include "assert.hpp"
+#include "debug/assert.hpp"
 #include "detail/dense_hash_table.hpp"
 #include "detail/table_util.hpp"
 
@@ -38,14 +38,18 @@ namespace sek
 		typedef Alloc allocator_type;
 
 	private:
-		constexpr static auto enable_three_way = requires(value_type a, value_type b) {
-													 std::compare_three_way{}(a.first, b.first);
-													 std::compare_three_way{}(a.second, b.second);
-												 };
-		constexpr static auto enable_equal = requires(value_type a, value_type b) {
-												 std::equal_to<>{}(a.first, b.first);
-												 std::equal_to<>{}(a.second, b.second);
-											 };
+		constexpr static auto enable_three_way =
+			requires(value_type a, value_type b)
+		{
+			std::compare_three_way{}(a.first, b.first);
+			std::compare_three_way{}(a.second, b.second);
+		};
+		constexpr static auto enable_equal =
+			requires(value_type a, value_type b)
+		{
+			std::equal_to<>{}(a.first, b.first);
+			std::equal_to<>{}(a.second, b.second);
+		};
 
 		using table_value = std::pair<key_type, mapped_type>;
 
@@ -606,7 +610,10 @@ namespace sek
 			m_table.max_load_factor = f;
 		}
 
-		[[nodiscard]] constexpr allocator_type get_allocator() const noexcept { return m_table.allocator(); }
+		[[nodiscard]] constexpr allocator_type get_allocator() const noexcept
+		{
+			return allocator_type{m_table.allocator()};
+		}
 
 		[[nodiscard]] constexpr hash_type hash_function() const noexcept { return m_table.get_hash(); }
 		[[nodiscard]] constexpr key_equal key_eq() const noexcept { return m_table.get_comp(); }
