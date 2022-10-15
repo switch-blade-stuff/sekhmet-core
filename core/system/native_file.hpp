@@ -8,63 +8,9 @@
 #include <span>
 
 #include "../expected.hpp"
-#include <asio/basic_file.hpp>
-#include <system_error>
-
-namespace sek
-{
-#ifdef ASIO_HAS_FILE /* If ASIO file is available, openmode & seek_basis are defined via asio::file_base for compatibility */
-	using openmode = asio::file_base::flags;
-	using seek_basis = asio::file_base::seek_basis;
-
-	constexpr openmode read_only = openmode::read_only;
-	constexpr openmode write_only = openmode::write_only;
-	constexpr openmode read_write = openmode::read_write;
-	constexpr openmode append = openmode::append;
-	constexpr openmode create = openmode::create;
-	constexpr openmode exclusive = openmode::exclusive;
-	constexpr openmode truncate = openmode::truncate;
-	constexpr openmode sync_all_on_write = openmode::sync_all_on_write;
-
-	constexpr seek_basis seek_cur = seek_basis::seek_cur;
-	constexpr seek_basis seek_end = seek_basis::seek_end;
-	constexpr seek_basis seek_set = seek_basis::seek_set;
-#else
-
-#ifdef SEK_OS_WIN
-	using openmode = int;
-	constexpr openmode read_only = 1;
-	constexpr openmode write_only = 2;
-	constexpr openmode read_write = 4;
-	constexpr openmode append = 8;
-	constexpr openmode create = 16;
-	constexpr openmode exclusive = 32;
-	constexpr openmode truncate = 64;
-	constexpr openmode sync_all_on_write = 128;
-#else
-	using openmode = int;
-	constexpr openmode read_only = O_RDONLY;
-	constexpr openmode write_only = O_WRONLY;
-	constexpr openmode read_write = O_RDWR;
-	constexpr openmode append = O_APPEND;
-	constexpr openmode create = O_CREAT;
-	constexpr openmode exclusive = O_EXCL;
-	constexpr openmode truncate = O_TRUNC;
-	constexpr openmode sync_all_on_write = O_SYNC;
-#endif
-
-	using seek_basis = int;
-	constexpr seek_basis seek_cur = SEEK_SET;
-	constexpr seek_basis seek_end = SEEK_CUR;
-	constexpr seek_basis seek_set = SEEK_END;
-#endif
-
-	typedef int mapmode;
-	constexpr mapmode map_copy = 1;
-	constexpr mapmode map_populate = 2;
-}	 // namespace sek
-
+#include "detail/file_mode.hpp"
 #include "detail/unix/native_file.hpp"
+#include <system_error>
 
 namespace sek
 {
@@ -81,19 +27,19 @@ namespace sek
 		typedef seek_basis seek_basis;
 		typedef openmode openmode;
 
-		constexpr static openmode read_only = read_only;
-		constexpr static openmode write_only = write_only;
-		constexpr static openmode read_write = read_write;
-		constexpr static openmode append = append;
-		constexpr static openmode create = create;
-		constexpr static openmode exclusive = exclusive;
-		constexpr static openmode truncate = truncate;
-		constexpr static openmode sync_all_on_write = sync_all_on_write;
-		constexpr static openmode direct = sync_all_on_write;
+		constexpr static openmode read_only = sek::read_only;
+		constexpr static openmode write_only = sek::write_only;
+		constexpr static openmode read_write = sek::read_write;
+		constexpr static openmode append = sek::append;
+		constexpr static openmode create = sek::create;
+		constexpr static openmode exclusive = sek::exclusive;
+		constexpr static openmode truncate = sek::truncate;
+		constexpr static openmode sync_all_on_write = sek::sync_all_on_write;
+		constexpr static openmode direct = sek::sync_all_on_write;
 
-		constexpr static seek_basis seek_cur = seek_cur;
-		constexpr static seek_basis seek_end = seek_end;
-		constexpr static seek_basis seek_set = seek_set;
+		constexpr static seek_basis seek_cur = sek::seek_cur;
+		constexpr static seek_basis seek_end = sek::seek_end;
+		constexpr static seek_basis seek_set = sek::seek_set;
 
 	protected:
 		using path_char = typename std::filesystem::path::value_type;

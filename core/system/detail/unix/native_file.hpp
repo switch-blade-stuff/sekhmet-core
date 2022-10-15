@@ -4,9 +4,11 @@
 
 #pragma once
 
-#if defined(SEK_OS_UNIX)
+#include "../../expected.hpp"
+#include "../file_mode.hpp"
+#include <system_error>
 
-#include "../../define.h"
+#if defined(SEK_OS_UNIX)
 
 namespace sek::detail
 {

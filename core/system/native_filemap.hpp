@@ -19,9 +19,9 @@ namespace sek
 		typedef mapmode mapmode;
 		/** Enable copy-on-write for mapped pages. Any changes will not be committed to the backing file.
 		 * @note Source file must be open for reading. */
-		constexpr static mapmode map_copy = map_copy;
+		constexpr static mapmode map_copy = sek::map_copy;
 		/** Pre-populate mapped pages. */
-		constexpr static mapmode map_populate = map_populate;
+		constexpr static mapmode map_populate = sek::map_populate;
 
 	public:
 		native_filemap(const native_filemap &) = delete;

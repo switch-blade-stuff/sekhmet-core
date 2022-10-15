@@ -51,7 +51,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib CACHE STRING "")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE STRING "")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE STRING "")
 
-add_library(${SEK_CORE_PROJECT} SHARED)
+add_library(${SEK_CORE_PROJECT} SHARED core/system/detail/file_mode.hpp core/system/detail/unix/file_common.hpp)
 
 # Set compiler options
 if (MSVC)

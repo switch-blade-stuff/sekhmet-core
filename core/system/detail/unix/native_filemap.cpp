@@ -2,10 +2,11 @@
  * Created by switchblade on 12/09/22
  */
 
-#if defined(SEK_OS_UNIX)
-
 #include "native_filemap.hpp"
 
+#if defined(SEK_OS_UNIX)
+
+#include "file_common.hpp"
 #include <sys/mman.h>
 
 namespace sek::detail
@@ -13,6 +14,7 @@ namespace sek::detail
 	// clang-format off
 	expected<void, std::error_code> native_filemap_handle::map(const native_file_handle &file, std::uint64_t off,
 															   std::uint64_t n, openmode fm, mapmode mm) noexcept
+	// clang-format on
 	{
 		if (is_mapped() || !file.is_open()) [[unlikely]]
 			return unexpected{std::make_error_code(std::errc::invalid_argument)};
@@ -33,7 +35,7 @@ namespace sek::detail
 
 		const auto size_diff = off % page_size();
 		const auto map_size = static_cast<std::size_t>(n + size_diff);
-		const auto map_off = static_cast<OFF_T>(off - size_diff);
+		const auto map_off = static_cast<off_t>(off - size_diff);
 
 		const auto result = MMAP(nullptr, map_size, prot, flags, fd, map_off);
 		if (result == MAP_FAILED) [[unlikely]]
@@ -54,7 +56,6 @@ namespace sek::detail
 			return unexpected{current_error()};
 		return {};
 	}
-	// clang-format on
 }	 // namespace sek::detail
 
 #endif

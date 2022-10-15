@@ -4,9 +4,9 @@
 
 #pragma once
 
-#if defined(SEK_OS_UNIX)
-
 #include "native_file.hpp"
+
+#if defined(SEK_OS_UNIX)
 
 namespace sek::detail
 {
@@ -20,7 +20,7 @@ namespace sek::detail
 
 		// clang-format off
 		SEK_CORE_PUBLIC expected<void, std::error_code> map(const native_file_handle &file, std::uint64_t off,
-													std::uint64_t n, openmode fm, mapmode mm) noexcept;
+															std::uint64_t n, openmode fm, mapmode mm) noexcept;
 		SEK_CORE_PUBLIC expected<void, std::error_code> unmap() noexcept;
 		// clang-format on
 

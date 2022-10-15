@@ -42,9 +42,8 @@ namespace sek
 
 		struct module_data
 		{
-			module_data(const module_path_char *path, module_handle handle) : handle(handle), path(path) {}
-			module_data(const std::filesystem::path &path, module_handle handle) : handle(handle), path(path) {}
-			module_data(std::filesystem::path &&path, module_handle handle) : handle(handle), path(std::move(path)) {}
+			module_data(module_handle handle, const module_path_char *path) : handle(handle), path(path) {}
+			module_data(module_handle handle, std::filesystem::path &&path) : handle(handle), path(std::move(path)) {}
 
 			module_handle handle;
 
@@ -63,6 +62,42 @@ namespace sek
 			};
 
 			using data_table = sparse_hash_table<module_handle, module_data, hash_t, cmp_t, key_get, alloc_t>;
+
+			[[nodiscard]] static expected<module_handle, std::error_code> load(const module_path_char *path) noexcept
+			{
+				module_handle res;
+#if defined(SEK_OS_WIN)
+				if (path != nullptr) [[likely]]
+				{
+					// clang-format off
+				const auto flags = LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+								   LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32 |
+								   LOAD_LIBRARY_SEARCH_USER_DIRS;
+					// clang-format on
+					res = LoadLibraryExW(path, nullptr, flags);
+				}
+				else
+					res = GetModuleHandleW(nullptr);
+
+				if (res == nullptr) [[unlikely]]
+					return unexpected{make_errc()};
+#elif defined(SEK_OS_UNIX)
+				if ((res = dlopen(path, RTLD_NOW | RTLD_GLOBAL)) == nullptr) [[unlikely]]
+					return unexpected{get_error_code()};
+#endif
+				return res;
+			}
+			[[nodiscard]] static expected<void, std::error_code> unload(module_handle handle) noexcept
+			{
+#if defined(SEK_OS_WIN)
+				if (!FreeLibrary(handle)) [[unlikely]]
+					return unexpected{get_error_code()};
+#elif defined(SEK_OS_UNIX)
+				if (dlclose(handle)) [[unlikely]]
+					return unexpected{get_error_code()};
+#endif
+				return {};
+			}
 
 			[[nodiscard]] static std::filesystem::path main_path() noexcept
 			{
@@ -110,7 +145,7 @@ namespace sek
 			}
 			[[nodiscard]] static module_handle main_lib() noexcept
 			{
-				const auto res = open_module(nullptr);
+				const auto res = load(nullptr);
 				if (!res.has_value()) [[unlikely]]
 				{
 					// clang-format off
@@ -129,103 +164,73 @@ namespace sek
 				return {instance, instance.mtx};
 			}
 
-			module_db() { main = table.emplace(main_path(), main_lib()).first.get(); }
+			module_db() { main = table.emplace(main_lib(), main_path()).first.get(); }
+
+			expected<module_data *, std::error_code> open(const module_path_char *path)
+			{
+				module_data *result;
+				if (path == nullptr) [[unlikely]]
+					result = main;
+				else
+				{
+					const auto handle = load(path);
+					if (handle.has_value()) [[unlikely]]
+						return unexpected{handle.error()};
+
+					/* If such entry does not exist yet, create it. */
+					auto iter = table.find(*handle);
+					if (iter == table.end()) [[likely]]
+						iter = table.emplace(*handle, path).first;
+
+					/* Always increment use counter for non-main modules. */
+					result = iter.get();
+					++result->ref_ctr;
+				}
+				return result;
+			}
+			expected<void, std::error_code> close(module_data *data)
+			{
+				if (data != main) [[likely]]
+				{
+					/* Erase the table entry if it's reference counter has reached 0. */
+					if (--data->ref_ctr == 0) [[unlikely]]
+					{
+						const auto target = table.find(data->handle);
+						SEK_ASSERT(target != table.end(), "Invalid module data entry");
+						table.erase(target);
+					}
+					return unload(data->handle);
+				}
+			}
 
 			std::mutex mtx;
-
-			const module_data *main;
 			data_table table;
+			module_data *main;
 		};
-
-		expected<module_handle, std::error_code> open_module(const module_path_char *path)
-		{
-			module_handle res;
-#if defined(SEK_OS_WIN)
-			if (path != nullptr) [[likely]]
-			{
-				// clang-format off
-				const auto flags = LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
-								   LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32 |
-								   LOAD_LIBRARY_SEARCH_USER_DIRS;
-				// clang-format on
-				res = LoadLibraryExW(path, nullptr, flags);
-			}
-			else
-				res = GetModuleHandleW(nullptr);
-
-			if (res == nullptr) [[unlikely]]
-				return unexpected{make_errc()};
-#elif defined(SEK_OS_UNIX)
-			if ((res = dlopen(path, RTLD_NOW | RTLD_GLOBAL)) == nullptr) [[unlikely]]
-				return unexpected{get_error_code()};
-#endif
-			return res;
-		}
-		expected<void, std::error_code> close_module(module_handle handle)
-		{
-#if defined(SEK_OS_WIN)
-			if (!FreeLibrary(handle)) [[unlikely]]
-				return unexpected{get_error_code()};
-#elif defined(SEK_OS_UNIX)
-			if (dlclose(handle)) [[unlikely]]
-				return unexpected{get_error_code()};
-#endif
-			return {};
-		}
 	}	 // namespace detail
 
-	constexpr module::module(data_t *data) noexcept : m_data(data) { ++data->ref_ctr; }
+	module module::main() { return module{detail::module_db::instance()->main}; }
 
-	expected<module, std::error_code> module::open(std::nothrow_t, const path_char *path)
+	module::~module()
 	{
-		if (path == nullptr) [[unlikely]]
-			return module{};
-
-		const auto handle = detail::open_module(path);
-		if (!handle.has_value()) [[unlikely]]
-			return unexpected{handle.error()};
-
-		const auto db = detail::module_db::instance().access();
-		auto iter = db->table.find(*handle);
-		if (iter == db->table.end()) [[likely]]
-			iter = db->table.emplace(path, *handle).first;
-		return module{iter.get()};
-	}
-	expected<void, std::error_code> module::close(std::nothrow_t, module &mod)
-	{
-		if (const auto data = mod.m_data; data != nullptr) [[likely]]
-			if (const auto db = detail::module_db::instance().access(); db->main != data) [[likely]]
-			{
-				if (--data->ref_ctr == 0) [[unlikely]]
-					db->table.erase(data->handle);
-				return native_close(data->handle);
-			}
-		return {};
+		if (is_open()) close();
 	}
 
-	module module::open(const module_path_char *path) { return return_if(open(std::nothrow, path)); }
-	void module::close(sek::module &mod) { return_if(close(std::nothrow, mod)); }
-
-	module::module() :m_data(module_db::instance()->main) {}
-	module::module(const module_path_char *path)
+	expected<void, std::error_code> module::open(std::nothrow_t, const path_char *path)
 	{
-		if (const auto db = module_db::instance().access(); path == nullptr) [[unlikely]]
-			m_data = db->main;
-		else
-		{
-			const auto handle = native_open(path);
-			if (!handle.has_value()) [[unlikely]]
-				throw std::system_error(handle.error());
-
-			auto iter = db->table.find(*handle);
-			if (iter == db->table.end()) [[likely]]
-				iter = db->table.emplace(path, *handle).first;
-
-			m_data = iter.get();
-			m_data->ref_ctr++;
-		}
+		auto result = detail::module_db::instance()->open(path);
+		if (result.has_value()) [[likely]]
+			m_data = *result;
+		return std::move(result);
 	}
-	module::~module() { close(*this); }
+	expected<void, std::error_code> module::close(std::nothrow_t)
+	{
+		return detail::module_db::instance()->close(std::exchange(m_data, nullptr));
+	}
 
-	typename module::native_module_handleype module::native_handle() const noexcept { return m_data->handle; }
+	void module::open(const path_char *path) { return_if(open(std::nothrow, path)); }
+	void module::close() { return_if(close(std::nothrow)); }
+
+	const std::filesystem::path &module::path() const noexcept { return m_data->path; }
+	detail::module_handle module::native_handle() const noexcept { return m_data->handle; }
 }	 // namespace sek
