@@ -7,7 +7,7 @@
 #include <iterator>
 #include <stdexcept>
 
-#include "assert.hpp"
+#include "debug/assert.hpp"
 #include "detail/dense_hash_table.hpp"
 #include "detail/table_util.hpp"
 
@@ -449,7 +449,10 @@ namespace sek
 			m_table.max_load_factor = f;
 		}
 
-		[[nodiscard]] constexpr allocator_type get_allocator() const noexcept { return m_table.allocator(); }
+		[[nodiscard]] constexpr allocator_type get_allocator() const noexcept
+		{
+			return allocator_type{m_table.allocator()};
+		}
 
 		[[nodiscard]] constexpr hash_type hash_function() const noexcept { return m_table.get_hash(); }
 		[[nodiscard]] constexpr key_equal key_eq() const noexcept { return m_table.get_comp(); }
