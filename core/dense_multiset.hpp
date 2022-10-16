@@ -84,15 +84,8 @@ namespace sek
 		using sparse_alloc = typename std::allocator_traits<Alloc>::template rebind_alloc<sparse_entry>;
 		using sparse_data = std::vector<sparse_entry, sparse_alloc>;
 
-		class dense_entry
+		struct dense_entry
 		{
-		public:
-			typedef std::size_t size_type;
-			typedef std::ptrdiff_t difference_type;
-
-			constexpr static size_type npos = std::numeric_limits<size_type>::max();
-
-		public:
 			constexpr dense_entry() = default;
 			constexpr dense_entry(const dense_entry &) = default;
 			constexpr dense_entry &operator=(const dense_entry &) = default;
@@ -431,6 +424,61 @@ namespace sek
 			value_vector().clear();
 		}
 
+		/** Re-hashes the set for the specified minimal capacity. */
+		constexpr void rehash(size_type capacity)
+		{
+			using std::max;
+
+			/* Adjust the capacity to be at least large enough to fit the current size. */
+			const auto load_cap = static_cast<size_type>(static_cast<float>(size()) / m_max_load_factor);
+			capacity = max(max(load_cap, capacity), initial_capacity);
+
+			/* Don't do anything if the capacity did not change after the adjustment. */
+			if (capacity != bucket_vector().capacity()) [[likely]]
+				rehash_impl(capacity);
+		}
+		/** Resizes the internal storage to have space for at least n elements. */
+		constexpr void reserve(size_type n)
+		{
+			value_vector().reserve(n);
+			rehash(static_cast<size_type>(static_cast<float>(n) / m_max_load_factor));
+		}
+
+		/** Constructs a value (of value_type) in-place, replacing any elements with conflicting keys.
+		 * @param args Arguments used to construct the value object.
+		 * @return Pair where first element is the iterator to the inserted element and second is the number
+		 * of conflicting elements replaced (`0` if none were replaced). */
+		template<typename... Args>
+		constexpr std::pair<iterator, size_type> emplace(Args &&...args)
+		{
+			return insert_impl(std::forward<Args>(args)...);
+		}
+
+		/** Inserts a value (of value_type) into the set, replacing any elements with conflicting keys.
+		 * @param value Value to insert.
+		 * @return Pair where first element is the iterator to the inserted element and second is the number
+		 * of conflicting elements replaced (`0` if none were replaced). */
+		constexpr std::pair<iterator, size_type> insert(value_type &&value)
+		{
+			return insert_impl(std::forward<value_type>(value));
+		}
+		/** @copydoc insert */
+		constexpr std::pair<iterator, size_type> insert(const value_type &value) { return insert_impl(value); }
+		/** @copydetails insert
+		 * @param hint Hint for where to insert the value.
+		 * @param value Value to insert.
+		 * @return Iterator to the inserted element.
+		 * @note Hint is required for compatibility with STL algorithms and is ignored. */
+		constexpr iterator insert([[maybe_unused]] const_iterator hint, value_type &&value)
+		{
+			return insert(std::forward<value_type>(value)).first;
+		}
+		/** @copydoc insert */
+		constexpr iterator insert([[maybe_unused]] const_iterator hint, const value_type &value)
+		{
+			return insert(value).first;
+		}
+
 		/** Returns current amount of elements in the set. */
 		[[nodiscard]] constexpr size_type size() const noexcept { return value_vector().size(); }
 		/** Returns current capacity of the set. */
@@ -473,6 +521,12 @@ namespace sek
 
 		[[nodiscard]] constexpr hash_type hash_function() const noexcept { return get_hash(); }
 		[[nodiscard]] constexpr key_equal key_eq() const noexcept { return get_comp(); }
+
+		[[nodiscard]] constexpr bool operator==(const dense_multiset &other) const noexcept
+			requires(requires(const_iterator a, const_iterator b) { std::equal_to<>{}(*a, *b); })
+		{
+			return std::is_permutation(begin(), end(), other.begin(), other.end());
+		}
 
 		constexpr void swap(dense_multiset &other) noexcept
 		{
@@ -527,6 +581,147 @@ namespace sek
 					idx = &entry.next[I];
 			}
 			return value_vector().size();
+		}
+
+		template<size_type... Is>
+		constexpr void move_entry(std::index_sequence<Is...>, size_type from, size_type to) noexcept
+		{
+			auto &src = value_vector()[from];
+			auto &dst = value_vector()[to];
+
+			/* Update every bucket chain to reflect the modification. */
+			const auto move_chain = [&]<size_type I>(index_selector_t<I>)
+			{
+				/* Find the chain offset pointing to the old position & replace it with the new position. */
+				for (auto *chain_idx = get_chain<I>(src.hash[I]); *chain_idx != npos;
+					 chain_idx = &(value_vector()[*chain_idx].next[I]))
+					if (*chain_idx == from)
+					{
+						*chain_idx = to;
+						break;
+					}
+			};
+			(move_chain(index_selector<Is>), ...);
+			dst = std::move(src);
+		}
+
+		template<typename... Args>
+		[[nodiscard]] constexpr std::pair<iterator, size_type> insert_impl(Args &&...args)
+		{
+			return insert_impl(std::make_index_sequence<key_size>{}, std::forward<Args>(args)...);
+		}
+		template<size_type... Is, typename... Args>
+		[[nodiscard]] constexpr std::pair<iterator, size_type> insert_impl(std::index_sequence<Is...>, Args &&...args)
+		{
+			auto insert_pos = value_vector().size(); /* Position could be modified during replacement. */
+			auto *entry_ptr = &value_vector().emplace_back(std::forward<Args>(args)...);
+
+			/* Remove & re-insert the entry for every bucket chain. */
+			const auto replace_key = [&]<size_type I>(index_selector_t<I>) -> size_type
+			{
+				const auto &key = entry_ptr->template key<I>();
+				const auto hash = entry_ptr->hash[I] = key_hash(key);
+
+				/* If a conflicting entry within the chain is found, swap it with the last entry & pop the stack. */
+				auto *chain_idx = get_chain<I>(hash);
+				while (*chain_idx != npos)
+				{
+					const auto conflict_pos = *chain_idx;
+					auto conflict_entry = value_vector().data()[conflict_pos];
+					if (conflict_entry.hash[I] == hash && key_comp(key, conflict_entry.template key<I>()))
+					{
+						/* Save the target index pointer and the old next index. */
+						const auto old_next = conflict_entry.next[I];
+						auto *target_idx = chain_idx;
+
+						/* If the conflicting entry is not at the end, swap it with the last entry. */
+						if (const auto end_pos = size() - 1; conflict_pos != end_pos)
+						{
+							move_entry(std::make_index_sequence<key_size>{}, end_pos, conflict_pos);
+
+							/* If the inserted entry is the same as the swapped-with entry, update the index. */
+							if (insert_pos == end_pos) [[unlikely]]
+							{
+								entry_ptr = &value_vector()[conflict_pos];
+								insert_pos = conflict_pos;
+							}
+						}
+
+						/* Replace the target index with the inserted position. */
+						entry_ptr->next[I] = old_next;
+						*target_idx = insert_pos;
+
+						/* Pop the erased entry. */
+						value_vector().pop_back();
+						return 1;
+					}
+					chain_idx = &(conflict_entry.next[I]);
+				}
+
+				/* If there is no conflicting entry for the current bucket chain, insert it at the end. */
+				entry_ptr->next[I] = *chain_idx;
+				*chain_idx = insert_pos;
+				return 0;
+			};
+
+			const auto conflicts = (replace_key(index_selector<Is>) + ...);
+			return {iterator{entry_ptr}, conflicts};
+		}
+
+		constexpr auto erase_impl(size_type pos) { erase_impl(std::make_index_sequence<key_size>{}, pos); }
+		template<size_type... Is>
+		constexpr auto erase_impl(std::index_sequence<Is...>, size_type pos)
+		{
+			const auto chain_erase = [&]<size_type I>(index_selector_t<I>)
+			{
+				auto &entry = value_vector()[pos];
+				const auto &key = entry.template key<I>();
+				const auto hash = entry.hash[I];
+				for (auto *chain_idx = get_chain<I>(hash); *chain_idx != npos;)
+				{
+					const auto pos = *chain_idx;
+					auto entry_ptr = value_vector().data() + static_cast<difference_type>(pos);
+
+					/* Un-link the entry from the chain. */
+					if (entry_ptr->hash[I] == hash && key_comp(key, entry_ptr->template key<I>()))
+					{
+						*chain_idx = entry_ptr->next[I];
+						break;
+					}
+					chain_idx = &(entry_ptr->next[I]);
+				}
+			};
+
+			/* Remove the entry from every bucket chain. */
+			(chain_erase(index_selector<Is>), ...);
+			/* If the entry is not at the end, swap it with the last entry. */
+			if (const auto end_pos = size() - 1; pos != end_pos)
+			{
+				move_entry(std::index_sequence<Is...>{}, end_pos, pos);
+				value_vector().pop_back();
+			}
+			return begin() + static_cast<difference_type>(pos);
+		}
+
+		constexpr void maybe_rehash()
+		{
+			if (load_factor() > m_max_load_factor) [[unlikely]]
+				rehash(bucket_count() * 2);
+		}
+		constexpr void rehash_impl(size_type new_cap) { rehash_impl(std::make_index_sequence<key_size>{}, new_cap); }
+		template<size_type... Is>
+		constexpr void rehash_impl(std::index_sequence<Is...>, size_type new_cap)
+		{
+			/* Clear & reserve the vector filled with npos. */
+			bucket_vector().clear();
+			bucket_vector().resize(new_cap, sparse_entry{npos});
+
+			/* Go through each entry & re-insert it. */
+			for (size_type i = 0; i < value_vector().size(); ++i)
+			{
+				auto &entry = value_vector()[i];
+				(chain_insert<Is>(entry, i), ...);
+			}
 		}
 
 		packed_pair<dense_data, key_equal> m_dense_data;

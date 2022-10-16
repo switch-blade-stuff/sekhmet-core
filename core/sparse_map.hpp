@@ -212,32 +212,31 @@ namespace sek
 		constexpr iterator find(const key_type &key) noexcept { return m_table.find(key); }
 		/** @copydoc find */
 		constexpr const_iterator find(const key_type &key) const noexcept { return m_table.find(key); }
+		/** Checks if the map contains an element with specific key.
+		 * @param key Key to search for. */
+		constexpr bool contains(const key_type &key) const noexcept { return find(key) != end(); }
+
+		// clang-format off
 		/** @copydoc find
 		 * @note This overload participates in overload resolution only
 		 * if both key hasher and key comparator are transparent. */
-		constexpr const_iterator find(const auto &key) noexcept
-			requires transparent_key
+		constexpr const_iterator find(const auto &key) noexcept requires transparent_key
 		{
 			return m_table.find(key);
 		}
 		/** @copydoc find */
-		constexpr const_iterator find(const auto &key) const noexcept
-			requires transparent_key
+		constexpr const_iterator find(const auto &key) const noexcept requires transparent_key
 		{
 			return m_table.find(key);
 		}
-
-		/** Checks if the map contains an element with specific key.
-		 * @param key Key to search for. */
-		constexpr bool contains(const key_type &key) const noexcept { return find(key) != end(); }
 		/** @copydoc contains
 		 * @note This overload participates in overload resolution only
 		 * if both key hasher and key comparator are transparent. */
-		constexpr bool contains(const auto &key) noexcept
-			requires transparent_key
+		constexpr bool contains(const auto &key) const noexcept requires transparent_key
 		{
 			return find(key) != end();
 		}
+		// clang-format on
 
 		/** Returns reference to object mapped to the specific key.
 		 * @param key Key to search for.
@@ -261,11 +260,11 @@ namespace sek
 			else
 				throw std::out_of_range("Specified key is not present within the map");
 		}
+		// clang-format off
 		/** @copydoc at
 		 * @note This overload participates in overload resolution only
 		 * if both key hasher and key comparator are transparent. */
-		constexpr mapped_type &at(const auto &key)
-			requires transparent_key
+		constexpr mapped_type &at(const auto &key) requires transparent_key
 		{
 			if (auto iter = find(key); iter != end()) [[likely]]
 				return iter->second;
@@ -273,14 +272,14 @@ namespace sek
 				throw std::out_of_range("Specified key is not present within the map");
 		}
 		/** @copydoc at */
-		constexpr const mapped_type &at(const auto &key) const
-			requires transparent_key
+		constexpr const mapped_type &at(const auto &key) const requires transparent_key
 		{
 			if (auto iter = find(key); iter != end()) [[likely]]
 				return iter->second;
 			else
 				throw std::out_of_range("Specified key is not present within the map");
 		}
+		// clang-format on
 
 		/** Returns reference to object at the specific key or inserts a new value if it does not exist.
 		 * @param key Key to search for.
@@ -296,14 +295,15 @@ namespace sek
 		{
 			return try_emplace(std::forward<key_type>(key), mapped_type{}).first->second;
 		}
+		// clang-format off
 		/** @copydoc operator[]
 		 * @note This overload participates in overload resolution only
 		 * if both key hasher and key comparator are transparent. */
-		constexpr mapped_type &operator[](const auto &key)
-			requires transparent_key
+		constexpr mapped_type &operator[](const auto &key) requires transparent_key
 		{
 			return try_emplace(key, mapped_type{}).first->second;
 		}
+		// clang-format on
 
 		/** Empties the map's contents. */
 		constexpr void clear() { m_table.clear(); }
@@ -330,16 +330,18 @@ namespace sek
 		{
 			return m_table.try_emplace(key, std::forward<Args>(args)...);
 		}
+		// clang-format off
 		/** @copydoc try_emplace
 		 * @note This overload participates in overload resolution only
 		 * if both key hasher and key comparator are transparent. */
 		template<typename... Args>
-		constexpr std::pair<iterator, bool> try_emplace(const auto &key, Args &&...args)
-			requires transparent_key
+		constexpr std::pair<iterator, bool> try_emplace(const auto &key, Args &&...args) requires transparent_key
 		{
 			return m_table.try_emplace(key, std::forward<Args>(args)...);
 		}
-		/** Constructs a value (of element_t) in-place.
+		// clang-format on
+
+		/** Constructs a value (of value_type) in-place.
 		 * If a value for the constructed key is already present within the map, replaces that value.
 		 * @param args Arguments used to construct the value object.
 		 * @return Pair where first element is the iterator to the inserted element
@@ -350,8 +352,7 @@ namespace sek
 			return m_table.emplace(std::forward<Args>(args)...);
 		}
 
-		/** Attempts to insert a value into the map.
-		 * If a value with the same key is already present within the map, does not replace it.
+		/** @brief Attempts to insert a value into the map. If a value with the same key is already present within the map, does not replace it.
 		 * @param value Value to insert.
 		 * @return Pair where first element is the iterator to the potentially inserted element
 		 * and second is boolean indicating whether the element was inserted (`true` if inserted, `false` otherwise). */
@@ -361,7 +362,7 @@ namespace sek
 		}
 		/** @copydoc try_insert */
 		constexpr std::pair<iterator, bool> try_insert(const value_type &value) { return m_table.try_insert(value); }
-		/** @copydetails try_insert
+		/** @copybrief try_insert
 		 * @param hint Hint for where to insert the value.
 		 * @param value Value to insert.
 		 * @return Iterator to the potentially inserted element or the element that prevented insertion.
@@ -375,7 +376,7 @@ namespace sek
 		{
 			return try_insert(value).first;
 		}
-		/** Attempts to insert a sequence of values (of element_t) into the map.
+		/** Attempts to insert a sequence of values (of value_type) into the map.
 		 * If values with the same key are already present within the map, does not replace them.
 		 * @param first Iterator to the start of the value sequence.
 		 * @param first Iterator to the end of the value sequence.
@@ -385,7 +386,7 @@ namespace sek
 		{
 			return m_table.try_insert(first, last);
 		}
-		/** Attempts to insert a sequence of values (of element_t) specified by the initializer list into the map.
+		/** Attempts to insert a sequence of values (of value_type) specified by the initializer list into the map.
 		 * If values with the same key are already present within the map, does not replace them.
 		 * @param il Initializer list containing the values.
 		 * @return Amount of elements inserted. */
@@ -394,8 +395,7 @@ namespace sek
 			return try_insert(il.begin(), il.end());
 		}
 
-		/** Inserts a value (of element_t) into the map.
-		 * If a value with the same key is already present within the map, replaces that value.
+		/** @brief Inserts a value (of value_type) into the map. If a value with the same key is already present within the map, replaces that value.
 		 * @param value Value to insert.
 		 * @return Pair where first element is the iterator to the inserted element
 		 * and second is boolean indicating whether the element was inserted or replaced (`true` if inserted new, `false` if replaced). */
@@ -405,7 +405,7 @@ namespace sek
 		}
 		/** @copydoc insert */
 		constexpr std::pair<iterator, bool> insert(const value_type &value) { return m_table.insert(value); }
-		/** @copydetails insert
+		/** @copybrief insert
 		 * @param hint Hint for where to insert the value.
 		 * @param value Value to insert.
 		 * @return Iterator to the inserted element.
@@ -419,7 +419,7 @@ namespace sek
 		{
 			return insert(value).first;
 		}
-		/** Inserts a sequence of values (of element_t) into the map.
+		/** Inserts a sequence of values (of value_type) into the map.
 		 * If values with the same key are already present within the map, replaces them.
 		 * @param first Iterator to the start of the value sequence.
 		 * @param first Iterator to the end of the value sequence.
@@ -429,7 +429,7 @@ namespace sek
 		{
 			return m_table.insert(first, last);
 		}
-		/** Inserts a sequence of values (of element_t) specified by the initializer list into the map.
+		/** Inserts a sequence of values (of value_type) specified by the initializer list into the map.
 		 * If values with the same key are already present within the map, replaces them.
 		 * @param il Initializer list containing the values.
 		 * @return Amount of new elements inserted. */
@@ -457,12 +457,12 @@ namespace sek
 			else
 				return false;
 		}
+		// clang-format off
 		/** @copydoc erase
 		 * @note This overload participates in overload resolution only
 		 * if both key hasher and key comparator are transparent. */
 		template<typename... Args>
-		constexpr bool erase(const auto &key)
-			requires transparent_key
+		constexpr bool erase(const auto &key) requires transparent_key
 		{
 			if (auto target = m_table.find(key); target != m_table.end())
 			{
@@ -472,6 +472,7 @@ namespace sek
 			else
 				return false;
 		}
+		// clang-format on
 
 		/** Extracts the specified node from the map.
 		 * @param where Iterator to the target node.
@@ -487,20 +488,21 @@ namespace sek
 			else
 				return {};
 		}
+
+		// clang-format off
 		/** @copydoc extract
 		 * @note This overload participates in overload resolution only
 		 * if both key hasher and key comparator are transparent. */
-		constexpr node_handle extract(const auto &key)
-			requires transparent_key
+		constexpr node_handle extract(const auto &key) requires transparent_key
 		{
 			if (auto target = m_table.find(key); target != m_table.end())
 				return m_table.extract_node(target);
 			else
 				return {};
 		}
+		// clang-format on
 
-		/** Inserts the specified node into the map.
-		 * If a value with the same key is already present within the map, replaces that value.
+		/** @brief Inserts the specified node into the map. If a value with the same key is already present within the map, replaces that value.
 		 * @param node Node to insert.
 		 * @return Pair where first element is the iterator to the inserted node
 		 * and second is boolean indicating whether the node was inserted or replaced (`true` if inserted new, `false` if replaced). */
@@ -508,7 +510,7 @@ namespace sek
 		{
 			return m_table.insert_node(std::forward<node_handle>(node));
 		}
-		/** @copydetails insert
+		/** @copybrief insert
 		 * @param hint Hint for where to insert the node.
 		 * @param node Node to insert.
 		 * @return Iterator to the inserted node.
@@ -517,9 +519,7 @@ namespace sek
 		{
 			return insert(std::forward<node_handle>(node)).first;
 		}
-		/** Attempts to insert the specified node into t`he map.
-		 * If a value with the same key is already present within the map, does
-		 * not replace it.
+		/** @brief Attempts to insert the specified node into t`he map. If a value with the same key is already present within the map, does not replace it.
 		 * @param node Node to insert.
 		 * @return Pair where first element is the iterator to the potentially inserted node
 		 * and second is boolean indicating whether the node was inserted (`true` if inserted, `false` otherwise). */
@@ -527,7 +527,7 @@ namespace sek
 		{
 			return m_table.try_insert_node(std::forward<node_handle>(node));
 		}
-		/** @copydetails try_insert
+		/** @copybrief try_insert
 		 * @param hint Hint for where to insert the node.
 		 * @param node Node to insert.
 		 * @return Iterator to the potentially inserted node or the node that prevented insertion.

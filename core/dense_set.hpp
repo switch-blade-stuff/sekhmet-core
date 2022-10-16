@@ -218,25 +218,25 @@ namespace sek
 		 * @param key Key to search for.
 		 * @return Iterator to the element with the specified key. */
 		constexpr const_iterator find(const key_type &key) const noexcept { return m_table.find(key); }
-		/** @copydoc find
-		 * @note This overload participates in overload resolution only
-		 * if both key hasher and key comparator are transparent. */
-		constexpr const_iterator find(const auto &key) const noexcept
-			requires transparent_key
-		{
-			return m_table.find(key);
-		}
 		/** Checks if the set contains a specific element.
 		 * @param key Key to search for. */
 		constexpr bool contains(const key_type &key) const noexcept { return find(key) != end(); }
+		// clang-format off
+		/** @copydoc find
+		 * @note This overload participates in overload resolution only
+		 * if both key hasher and key comparator are transparent. */
+		constexpr const_iterator find(const auto &key) const noexcept requires transparent_key
+		{
+			return m_table.find(key);
+		}
 		/** @copydoc contains
 		 * @note This overload participates in overload resolution only
 		 * if both key hasher and key comparator are transparent. */
-		constexpr bool contains(const auto &key) const noexcept
-			requires transparent_key
+		constexpr bool contains(const auto &key) const noexcept requires transparent_key
 		{
 			return find(key) != end();
 		}
+		// clang-format on
 
 		/** Empties the set's contents. */
 		constexpr void clear() { m_table.clear(); }
@@ -246,7 +246,7 @@ namespace sek
 		/** Resizes the internal storage to have space for at least n elements. */
 		constexpr void reserve(size_type n) { m_table.reserve(n); }
 
-		/** Constructs a value (of element_t) in-place.
+		/** Constructs a value (of value_type) in-place.
 		 * If the same value is already present within the set, replaces that value.
 		 * @param args Arguments used to construct the value object.
 		 * @return Pair where first element is the iterator to the inserted element
@@ -257,8 +257,7 @@ namespace sek
 			return m_table.emplace(std::forward<Args>(args)...);
 		}
 
-		/** Attempts to insert a value into the set.
-		 * If the same value is already present within the set, does not replace it.
+		/** @brief Attempts to insert a value into the set. If the same value is already present within the set, does not replace it.
 		 * @param value Value to insert.
 		 * @return Pair where first element is the iterator to the potentially inserted element
 		 * and second is boolean indicating whether the element was inserted (`true` if inserted, `false` otherwise). */
@@ -268,7 +267,7 @@ namespace sek
 		}
 		/** @copydoc try_insert */
 		constexpr std::pair<iterator, bool> try_insert(const value_type &value) { return m_table.try_insert(value); }
-		/** @copydetails try_insert
+		/** @copybrief try_insert
 		 * @param hint Hint for where to insert the value.
 		 * @param value Value to insert.
 		 * @return Iterator to the potentially inserted element or the element that prevented insertion.
@@ -282,7 +281,7 @@ namespace sek
 		{
 			return try_insert(value).first;
 		}
-		/** Attempts to insert a sequence of values (of element_t) into the set.
+		/** Attempts to insert a sequence of values (of value_type) into the set.
 		 * If same values are already present within the set, does not replace them.
 		 * @param first Iterator to the start of the value sequence.
 		 * @param first Iterator to the end of the value sequence.
@@ -292,7 +291,7 @@ namespace sek
 		{
 			return m_table.try_insert(first, last);
 		}
-		/** Attempts to insert a sequence of values (of element_t) specified by the initializer list into the set.
+		/** Attempts to insert a sequence of values (of value_type) specified by the initializer list into the set.
 		 * If same values are already present within the set, does not replace them.
 		 * @param il Initializer list containing the values.
 		 * @return Amount of elements inserted. */
@@ -301,8 +300,7 @@ namespace sek
 			return try_insert(il.begin(), il.end());
 		}
 
-		/** Inserts a value (of element_t) into the set.
-		 * If the same value is already present within the set, replaces that value.
+		/** @brief Inserts a value (of value_type) into the set. If the same value is already present within the set, replaces that value.
 		 * @param value Value to insert.
 		 * @return Pair where first element is the iterator to the inserted element
 		 * and second is boolean indicating whether the element was inserted or replaced (`true` if inserted new, `false` if replaced). */
@@ -312,7 +310,7 @@ namespace sek
 		}
 		/** @copydoc insert */
 		constexpr std::pair<iterator, bool> insert(const value_type &value) { return m_table.insert(value); }
-		/** @copydetails insert
+		/** @copybrief insert
 		 * @param hint Hint for where to insert the value.
 		 * @param value Value to insert.
 		 * @return Iterator to the inserted element.
@@ -326,7 +324,7 @@ namespace sek
 		{
 			return insert(value).first;
 		}
-		/** Inserts a sequence of values (of element_t) into the set.
+		/** Inserts a sequence of values (of value_type) into the set.
 		 * If same values are already present within the set, replaces them.
 		 * @param first Iterator to the start of the value sequence.
 		 * @param first Iterator to the end of the value sequence.
@@ -336,7 +334,7 @@ namespace sek
 		{
 			return m_table.insert(first, last);
 		}
-		/** Inserts a sequence of values (of element_t) specified by the initializer list into the set.
+		/** Inserts a sequence of values (of value_type) specified by the initializer list into the set.
 		 * If same values are already present within the set, replaces them.
 		 * @param il Initializer list containing the values.
 		 * @return Amount of new elements inserted. */
@@ -364,11 +362,11 @@ namespace sek
 			else
 				return false;
 		}
+		// clang-format off
 		/** @copydoc erase
 		 * @note This overload participates in overload resolution only
 		 * if both key hasher and key comparator are transparent. */
-		constexpr bool erase(const auto &value)
-			requires transparent_key
+		constexpr bool erase(const auto &value) requires transparent_key
 		{
 			if (auto target = m_table.find(value); m_table.end() != target)
 			{
@@ -378,6 +376,7 @@ namespace sek
 			else
 				return false;
 		}
+		// clang-format on
 
 		/** Returns current amount of elements in the set. */
 		[[nodiscard]] constexpr size_type size() const noexcept { return m_table.size(); }
@@ -415,14 +414,15 @@ namespace sek
 		}
 		/** Returns the index of the bucket associated with a key. */
 		[[nodiscard]] constexpr size_type bucket(const key_type &key) const noexcept { return m_table.bucket(key); }
+		// clang-format off
 		/** @copydoc bucket
 		 * @note This overload participates in overload resolution only
 		 * if both key hasher and key comparator are transparent. */
-		[[nodiscard]] constexpr size_type bucket(const auto &key) const noexcept
-			requires transparent_key
+		[[nodiscard]] constexpr size_type bucket(const auto &key) const noexcept requires transparent_key
 		{
 			return m_table.bucket(key);
 		}
+		// clang-format on
 		/** Returns the index of the bucket containing the pointed-to element. */
 		[[nodiscard]] constexpr size_type bucket(const_iterator iter) const noexcept { return m_table.bucket(iter); }
 

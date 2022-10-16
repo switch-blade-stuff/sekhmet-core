@@ -67,14 +67,13 @@ namespace sek::detail
 		typedef Hash hash_type;
 
 		typedef dense_table_entry<Value, KeyGet> entry_type;
-		typedef std::size_t size_type;
-		typedef std::ptrdiff_t difference_type;
+		typedef typename entry_type::size_type size_type;
+		typedef typename entry_type::difference_type difference_type;
 
 		[[nodiscard]] constexpr static decltype(auto) get_key(const auto &v) { return KeyGet{}(v); }
 
 		constexpr static float initial_load_factor = .875f;
-
-		constexpr static size_type npos = std::numeric_limits<size_type>::max();
+		constexpr static size_type npos = entry_type::npos;
 		constexpr static size_type initial_capacity = 8;
 	};
 
@@ -579,7 +578,7 @@ namespace sek::detail
 		}
 
 		template<typename... Args>
-		[[nodiscard]] constexpr iterator insert_new(hash_t h, auto *chain_idx, Args &&...args) noexcept
+		[[nodiscard]] constexpr iterator insert_new(hash_t h, auto *chain_idx, Args &&...args)
 		{
 			const auto pos = *chain_idx = size();
 			value_vector().emplace_back(std::forward<Args>(args)...).hash = h;
@@ -588,7 +587,7 @@ namespace sek::detail
 			return begin() + static_cast<difference_type>(pos);
 		}
 		template<typename T>
-		[[nodiscard]] constexpr std::pair<iterator, bool> insert_impl(const auto &key, T &&value) noexcept
+		[[nodiscard]] constexpr std::pair<iterator, bool> insert_impl(const auto &key, T &&value)
 		{
 			/* See if we can replace any entry. */
 			const auto h = key_hash(key);
@@ -614,7 +613,7 @@ namespace sek::detail
 			return {insert_new(h, chain_idx, std::forward<T>(value)), true};
 		}
 		template<typename... Args>
-		[[nodiscard]] constexpr std::pair<iterator, bool> try_insert_impl(const auto &key, Args &&...args) noexcept
+		[[nodiscard]] constexpr std::pair<iterator, bool> try_insert_impl(const auto &key, Args &&...args)
 		{
 			/* See if an entry already exists. */
 			const auto h = key_hash(key);
