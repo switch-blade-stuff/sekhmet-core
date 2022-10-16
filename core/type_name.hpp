@@ -10,19 +10,28 @@ namespace sek
 {
 	namespace detail
 	{
-		/* TODO: Strip out cv-qualifiers, struct, class & union keywords and stray spaces */
 		template<basic_static_string Src, std::size_t J, std::size_t I, std::size_t Last, std::size_t N>
-		consteval auto format_type_name(basic_static_string<char, N> result) noexcept
+		consteval auto format_type_name(basic_static_string<char, N> str) noexcept
 		{
 			if constexpr (I == Last)
 			{
-				result[J] = '\0';
-				return result;
+				str[J] = '\0';
+				return basic_static_string<char, J + 1>{str};
 			}
+			else if constexpr (Src.starts_with("struct "))
+				return format_type_name<Src, J, I + 7, Last>(basic_static_string<char, N - 7>{str});
+			else if constexpr (Src.starts_with("class "))
+				return format_type_name<Src, J, I + 6, Last>(basic_static_string<char, N - 6>{str});
+			else if constexpr (Src.starts_with("union "))
+				return format_type_name<Src, J, I + 6, Last>(basic_static_string<char, N - 6>{str});
+			else if constexpr (Src.starts_with("enum "))
+				return format_type_name<Src, J, I + 5, Last>(basic_static_string<char, N - 5>{str});
+			else if constexpr (Src[I] == ' ' || Src[I] == '\t')
+				return format_type_name<Src, J, I + 1, Last>(basic_static_string<char, N - 1>{str});
 			else
 			{
-				result[J] = static_cast<typename decltype(result)::value_type>(Src[I]);
-				return format_type_name<Src, J + 1, I + 1, Last>(result);
+				str[J] = Src[I];
+				return format_type_name<Src, J + 1, I + 1, Last>(str);
 			}
 		}
 		template<basic_static_string Src, std::size_t J, std::size_t I, std::size_t Last, std::size_t N>
@@ -59,7 +68,7 @@ namespace sek
 	}	 // namespace detail
 
 	/** Returns name of the specified type.
-	 * @warning Consistency of generated type names across different compilers is not guaranteed.
+	 * @warning Consistency of auto-generated type names across different compilers is not guaranteed.
 	 * To generate consistent type names, overload this function for the desired type. */
 	template<typename T>
 	[[nodiscard]] constexpr std::string_view type_name() noexcept

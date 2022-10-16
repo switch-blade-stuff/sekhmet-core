@@ -207,286 +207,321 @@ namespace sek
 		/** Checks if the string is empty. */
 		[[nodiscard]] constexpr bool empty() const noexcept { return size() == 0; }
 
-		/** Returns a string copy of this interned string. */
-		template<typename Alloc = std::allocator<C>>
-		[[nodiscard]] constexpr std::basic_string<C, Traits, Alloc> str() const noexcept
-		{
-			if (m_header) [[likely]]
-				return std::basic_string<C, Traits, Alloc>{data(), size()};
-			else
-				return {};
-		}
-		/** @copydoc str */
-		template<typename Alloc = std::allocator<C>>
-		[[nodiscard]] constexpr operator std::basic_string<C, Traits, Alloc>() const noexcept
-		{
-			return str<Alloc>();
-		}
 		/** Converts the interned string to a string view. */
-		[[nodiscard]] constexpr std::basic_string_view<C, Traits> sv() const noexcept
+		[[nodiscard]] constexpr operator std::basic_string_view<C, Traits>() const noexcept
 		{
 			if (m_header) [[likely]]
 				return m_header->sv();
 			else
 				return {};
 		}
-		/** @copydoc sv */
-		[[nodiscard]] constexpr operator std::basic_string_view<C, Traits>() const noexcept { return sv(); }
-
-		/** Finds left-most location of a sequence of character within the string. */
-		template<forward_iterator_for<value_type> Iterator>
-		[[nodiscard]] constexpr size_type find_first(Iterator first, Iterator last) const
+		/** Returns a string copy of this interned string. */
+		template<typename Alloc = std::allocator<C>>
+		[[nodiscard]] constexpr operator std::basic_string<C, Traits, Alloc>() const noexcept
 		{
-			return detail::find_first<npos>(begin(), end(), first, last);
-		}
-		/** Finds left-most location of a raw character array within the string. */
-		[[nodiscard]] constexpr size_type find_first(const value_type *str, size_type len) const noexcept
-		{
-			return find_first(str, str + len);
-		}
-		/** Finds left-most location of a c-style substring within the string. */
-		[[nodiscard]] constexpr size_type find_first(const value_type *str) const noexcept
-		{
-			return find_first(str, detail::str_length(str));
-		}
-		/** Finds left-most location of a character range within the string. */
-		template<forward_range_for<value_type> R>
-		[[nodiscard]] constexpr size_type find_first(const R &r) const
-		{
-			return find_first(std::ranges::begin(r), std::ranges::end(r));
-		}
-		/** Finds left-most location of a character within the string. */
-		[[nodiscard]] constexpr size_type find_first(value_type c) const noexcept
-		{
-			for (auto character = begin(), last = end(); character != last; character++)
-				if (*character == c) return static_cast<size_type>(character - begin());
-			return npos;
+			if (m_header) [[likely]]
+				return std::basic_string<C, Traits, Alloc>{data(), size()};
+			else
+				return {};
 		}
 
-		/** Finds right-most location of a sequence of character within the string. */
-		template<forward_iterator_for<value_type> Iterator>
-		[[nodiscard]] constexpr size_type find_last(Iterator first, Iterator last) const
+		// clang-format off
+		/** Finds left-most location of a substring within the string.
+		 * @param c Substring to search for.
+		 * @param pos Position to start the search at. */
+		template<typename S>
+		[[nodiscard]] constexpr size_type find(const S &str, size_type pos = 0) const noexcept
+			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
 		{
-			return detail::find_last<npos>(begin(), end(), first, last);
+			const std::basic_string_view<C, Traits> sv = str;
+			return std::basic_string_view<C, Traits>{*this}.find(sv, pos);
 		}
-		/** Finds right-most location of a raw character array within the string. */
-		[[nodiscard]] constexpr size_type find_last(const value_type *str, size_type len) const noexcept
+		// clang-format on
+		/** @copydoc find */
+		[[nodiscard]] constexpr size_type find(const value_type *str, size_type pos = 0) const noexcept
 		{
-			return find_last(str, str + len);
+			return find(std::basic_string_view<C, Traits>{str}, pos);
 		}
-		/** Finds right-most location of a c-style substring within the string. */
-		[[nodiscard]] constexpr size_type find_last(const value_type *str) const noexcept
+		/** @copydoc find
+		 * @param count Length of the substring. */
+		[[nodiscard]] constexpr size_type find(const value_type *str, size_type pos, size_type count) const noexcept
 		{
-			return find_last(str, detail::str_length(str));
+			return find(std::basic_string_view<C, Traits>{str, count}, pos);
 		}
-		/** Finds right-most location of a character range within the string. */
-		template<forward_range_for<value_type> R>
-		[[nodiscard]] constexpr size_type find_last(const R &r) const
+		/** Finds left-most location of a character within the string.
+		 * @param c Character to search for.
+		 * @param pos Position to start the search at. */
+		[[nodiscard]] constexpr size_type find(value_type c, size_type pos = 0) const noexcept
 		{
-			return find_last(std::ranges::begin(r), std::ranges::end(r));
-		}
-		/** Finds right-most location of a character within the string. */
-		[[nodiscard]] constexpr size_type find_last(value_type c) const noexcept
-		{
-			for (auto first = begin(), character = end(); character != first;)
-				if (*(--character) == c) return static_cast<size_type>(character - begin());
-			return npos;
-		}
-
-		/** Finds left-most location of a character from a sequence within the string. */
-		template<forward_iterator_for<value_type> Iterator>
-		[[nodiscard]] constexpr size_type find_first_of(Iterator first, Iterator last) const
-		{
-			return detail::find_first_of<npos>(begin(), end(), first, last);
-		}
-		/** Finds left-most location of a character from an initializer list within the string. */
-		[[nodiscard]] constexpr size_type find_first_of(std::initializer_list<value_type> list) const noexcept
-		{
-			return find_first_of(list.begin(), list.end());
-		}
-		/** Finds left-most location of a character from a raw character array within the string. */
-		[[nodiscard]] constexpr size_type find_first_of(const value_type *str, size_type len) const noexcept
-		{
-			return find_first_of(str, str + len);
-		}
-		/** Finds left-most location of a character from a c-style string within the string. */
-		[[nodiscard]] constexpr size_type find_first_of(const value_type *str) const noexcept
-		{
-			return find_first_of(str, detail::str_length(str));
-		}
-		/** Finds left-most location of a character from a range within the string. */
-		template<forward_range_for<value_type> R>
-		[[nodiscard]] constexpr size_type find_first_of(const R &r) const
-		{
-			return find_first_of(std::ranges::begin(r), std::ranges::end(r));
+			return find(std::basic_string_view<C, Traits>{std::addressof(c), 1}, pos);
 		}
 
-		/** Finds right-most location of a character from a sequence within the string. */
-		template<forward_iterator_for<value_type> Iterator>
-		[[nodiscard]] constexpr size_type find_last_of(Iterator first, Iterator last) const
+		// clang-format off
+		/** Finds right-most location of a substring within the string. */
+		template<typename S>
+		[[nodiscard]] constexpr size_type rfind(const S &str, size_type pos = 0) const noexcept
+			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
 		{
-			return detail::find_last_of<npos>(begin(), end(), first, last);
+			const std::basic_string_view<C, Traits> sv = str;
+			return std::basic_string_view<C, Traits>{*this}.rfind(sv, pos);
 		}
-		/** Finds right-most location of a character from an initializer list within the string. */
-		[[nodiscard]] constexpr size_type find_last_of(std::initializer_list<value_type> list) const noexcept
+		// clang-format on
+		/** @copydoc rfind */
+		[[nodiscard]] constexpr size_type rfind(const value_type *str, size_type pos = 0) const noexcept
 		{
-			return find_last_of(list.begin(), list.end());
+			return rfind(std::basic_string_view<C, Traits>{str}, pos);
 		}
-		/** Finds right-most location of a character from a raw character array within the string. */
-		[[nodiscard]] constexpr size_type find_last_of(const value_type *str, size_type len) const noexcept
+		/** @copydoc rfind
+		 * @param count Length of the substring. */
+		[[nodiscard]] constexpr size_type rfind(const value_type *str, size_type pos, size_type count) const noexcept
 		{
-			return find_last_of(str, str + len);
+			return rfind(std::basic_string_view<C, Traits>{str, count}, pos);
 		}
-		/** Finds right-most location of a character from a c-style string within the string. */
-		[[nodiscard]] constexpr size_type find_last_of(const value_type *str) const noexcept
+		/** Finds left-most location of a character within the string.
+		 * @param c Character to search for.
+		 * @param pos Position to start the search at. */
+		[[nodiscard]] constexpr size_type rfind(value_type c, size_type pos = 0) const noexcept
 		{
-			return find_last_of(str, detail::str_length(str));
-		}
-		/** Finds right-most location of a character from a range within the string. */
-		template<forward_range_for<value_type> R>
-		[[nodiscard]] constexpr size_type find_last_of(const R &r) const
-		{
-			return find_last_of(std::ranges::begin(r), std::ranges::end(r));
-		}
-
-		/** Finds left-most location of a character not from a sequence within the string. */
-		template<forward_iterator_for<value_type> Iterator>
-		[[nodiscard]] constexpr size_type find_first_not_of(Iterator first, Iterator last) const
-		{
-			return detail::find_first_not_of<npos>(begin(), end(), first, last);
-		}
-		/** Finds left-most location of a character not from an initializer list within the string. */
-		[[nodiscard]] constexpr size_type find_first_not_of(std::initializer_list<value_type> list) const noexcept
-		{
-			return find_first_not_of(list.begin(), list.end());
-		}
-		/** Finds left-most location of a character not from a c-style string within the string. */
-		[[nodiscard]] constexpr size_type find_first_not_of(const value_type *str) const noexcept
-		{
-			return find_first_not_of(str, detail::str_length(str));
-		}
-		/** Finds left-most location of a character not from a raw character array within the string. */
-		[[nodiscard]] constexpr size_type find_first_not_of(const value_type *str, size_type len) const noexcept
-		{
-			return find_first_not_of(str, str + len);
-		}
-		/** Finds left-most location of a character not from a range within the string. */
-		template<forward_range_for<value_type> R>
-		[[nodiscard]] constexpr size_type find_first_not_of(const R &r) const
-		{
-			return find_first_not_of(std::ranges::begin(r), std::ranges::end(r));
+			return rfind(std::basic_string_view<C, Traits>{std::addressof(c), 1}, pos);
 		}
 
-		/** Finds right-most location of a character not from a sequence within the string. */
-		template<forward_iterator_for<value_type> Iterator>
-		[[nodiscard]] constexpr size_type find_last_not_of(Iterator first, Iterator last) const
+		// clang-format off
+		/** Finds left-most location of a character present within a substring.
+		 * @param c Substring containing characters to search for.
+		 * @param pos Position to start the search at. */
+		template<typename S>
+		[[nodiscard]] constexpr size_type find_first_of(const S &str, size_type pos = 0) const noexcept
+			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
 		{
-			return detail::find_last_not_of<npos>(begin(), end(), first, last);
+			const std::basic_string_view<C, Traits> sv = str;
+			return std::basic_string_view<C, Traits>{*this}.find_first_of(sv, pos);
 		}
-		/** Finds right-most location of a character not from an initializer list within the string. */
-		[[nodiscard]] constexpr size_type find_last_not_of(std::initializer_list<value_type> list) const noexcept
+		// clang-format on
+		/** @copydoc find_first_of */
+		[[nodiscard]] constexpr size_type find_first_of(const value_type *str, size_type pos = 0) const noexcept
 		{
-			return find_last_not_of(list.begin(), list.end());
+			return find_first_of(std::basic_string_view<C, Traits>{str}, pos);
 		}
-		/** Finds right-most location of a character not from a c-style string within the string. */
-		[[nodiscard]] constexpr size_type find_last_not_of(const value_type *str) const noexcept
+		/** @copydoc find_first_of
+		 * @param count Length of the substring. */
+		[[nodiscard]] constexpr size_type find_first_of(const value_type *str, size_type pos, size_type count) const noexcept
 		{
-			return find_last_not_of(str, detail::str_length(str));
+			return find_first_of(std::basic_string_view<C, Traits>{str, count}, pos);
 		}
-		/** Finds right-most location of a character not from a raw character array within the string. */
-		[[nodiscard]] constexpr size_type find_last_not_of(const value_type *str, size_type len) const noexcept
+		/** Finds left-most location of a character within the string (equivalent to `find(c, pos)`).
+		 * @param c Character to search for.
+		 * @param pos Position to start the search at. */
+		[[nodiscard]] constexpr size_type find_first_of(value_type c, size_type pos = 0) const noexcept
 		{
-			return find_last_not_of(str, str + len);
-		}
-		/** Finds right-most location of a character not from a range within the string. */
-		template<forward_range_for<value_type> R>
-		[[nodiscard]] constexpr size_type find_last_not_of(const R &r) const
-		{
-			return find_last_not_of(std::ranges::begin(r), std::ranges::end(r));
+			return find(c, pos);
 		}
 
-		/** Checks if a substring is present within the string. */
-		template<forward_iterator_for<value_type> Iterator>
-		[[nodiscard]] constexpr bool contains(Iterator first, Iterator last) const
+		// clang-format off
+		/** Finds right-most location of a character present within a substring.
+		 * @param c Substring containing characters to search for.
+		 * @param pos Position to start the search at. */
+		template<typename S>
+		[[nodiscard]] constexpr size_type find_last_of(const S &str, size_type pos = 0) const noexcept
+			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
 		{
-			return find_first(first, last) != npos;
+			const std::basic_string_view<C, Traits> sv = str;
+			return std::basic_string_view<C, Traits>{*this}.find_last_of(sv, pos);
 		}
-		/** Checks if a substring is present within the string. */
-		[[nodiscard]] constexpr bool contains(const value_type *str, size_type len) const noexcept
+		// clang-format on
+		/** @copydoc find_last_of */
+		[[nodiscard]] constexpr size_type find_last_of(const value_type *str, size_type pos = 0) const noexcept
 		{
-			return contains(str, str + len);
+			return find_last_of(std::basic_string_view<C, Traits>{str}, pos);
 		}
-		/** Checks if a substring is present within the string. */
-		[[nodiscard]] constexpr bool contains(const value_type *str) const noexcept
+		/** @copydoc find_last_of
+		 * @param count Length of the substring. */
+		[[nodiscard]] constexpr size_type find_last_of(const value_type *str, size_type pos, size_type count) const noexcept
 		{
-			return contains(str, detail::str_length(str));
+			return find_last_of(std::basic_string_view<C, Traits>{str, count}, pos);
 		}
-		/** Checks if a range of characters is present within the string. */
-		template<forward_range_for<value_type> R>
-		[[nodiscard]] constexpr bool contains(const R &r) const
+		/** Finds right-most location of a character within the string (equivalent to `rfind(c, pos)`).
+		 * @param c Character to search for.
+		 * @param pos Position to start the search at. */
+		[[nodiscard]] constexpr size_type find_last_of(value_type c, size_type pos = 0) const noexcept
 		{
-			return contains(std::ranges::begin(r), std::ranges::end(r));
+			return rfind(c, pos);
 		}
-		/** Checks if a character is present within the string. */
-		[[nodiscard]] constexpr bool contains(value_type c) const noexcept { return find_first(c) != npos; }
 
-		/** Checks if a substring is located at the start of the string. */
-		template<forward_iterator_for<value_type> Iterator>
-		[[nodiscard]] constexpr bool has_prefix(Iterator first, Iterator last) const
+		// clang-format off
+		/** Finds left-most location of a character not present within a substring.
+		 * @param c Substring containing characters to search for.
+		 * @param pos Position to start the search at. */
+		template<typename S>
+		[[nodiscard]] constexpr size_type find_first_not_of(const S &str, size_type pos = 0) const noexcept
+			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
 		{
-			return detail::has_prefix(begin(), end(), first, last);
+			const std::basic_string_view<C, Traits> sv = str;
+			return std::basic_string_view<C, Traits>{*this}.find_first_not_of(sv, pos);
 		}
-		/** Checks if a substring is located at the start of the string. */
-		[[nodiscard]] constexpr bool has_prefix(const value_type *str) const noexcept
+		// clang-format on
+		/** @copydoc find_first_not_of */
+		[[nodiscard]] constexpr size_type find_first_not_of(const value_type *str, size_type pos = 0) const noexcept
 		{
-			return has_prefix(str, detail::str_length(str));
+			return find_first_not_of(std::basic_string_view<C, Traits>{str}, pos);
 		}
-		/** Checks if a substring is located at the start of the string. */
-		[[nodiscard]] constexpr bool has_prefix(const value_type *str, size_type len) const noexcept
+		/** @copydoc find_first_not_of
+		 * @param count Length of the substring. */
+		[[nodiscard]] constexpr size_type find_first_not_of(const value_type *str, size_type pos, size_type count) const noexcept
 		{
-			return has_prefix(str, str + len);
+			return find_first_not_of(std::basic_string_view<C, Traits>{str, count}, pos);
 		}
-		/** Checks if a range of characters is located at the start of the string. */
-		template<forward_range_for<value_type> R>
-		[[nodiscard]] constexpr bool has_prefix(const R &r) const
+		/** Finds left-most location of a character not equal to `c`.
+		 * @param c Character to search for.
+		 * @param pos Position to start the search at. */
+		[[nodiscard]] constexpr size_type find_first_not_of(value_type c, size_type pos = 0) const noexcept
 		{
-			return has_prefix(std::ranges::begin(r), std::ranges::end(r));
+			return find_first_not_of(std::basic_string_view<C, Traits>{std::addressof(c), 1}, pos);
 		}
-		/** Checks if a character is located at the start of the string. */
-		[[nodiscard]] constexpr bool has_prefix(value_type c) const noexcept { return front() == c; }
 
-		/** Checks if a substring is located at the end of the string. */
-		template<forward_iterator_for<value_type> Iterator>
-		[[nodiscard]] constexpr bool has_postfix(Iterator first, Iterator last) const
+		// clang-format off
+		/** Finds right-most location of a character not present within a substring.
+		 * @param c Substring containing characters to search for.
+		 * @param pos Position to start the search at. */
+		template<typename S>
+		[[nodiscard]] constexpr size_type find_last_not_of(const S &str, size_type pos = 0) const noexcept
+			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
 		{
-			return detail::has_postfix(begin(), end(), first, last);
+			const std::basic_string_view<C, Traits> sv = str;
+			return std::basic_string_view<C, Traits>{*this}.find_last_not_of(sv, pos);
 		}
-		/** Checks if a substring is located at the end of the string. */
-		[[nodiscard]] constexpr bool has_postfix(const value_type *str) const noexcept
+		// clang-format on
+		/** @copydoc find_last_not_of */
+		[[nodiscard]] constexpr size_type find_last_not_of(const value_type *str, size_type pos = 0) const noexcept
 		{
-			return has_postfix(str, detail::str_length(str));
+			return find_last_not_of(std::basic_string_view<C, Traits>{str}, pos);
 		}
-		/** Checks if a substring is located at the end of the string. */
-		[[nodiscard]] constexpr bool has_postfix(const value_type *str, size_type len) const noexcept
+		/** @copydoc find_last_not_of
+		 * @param count Length of the substring. */
+		[[nodiscard]] constexpr size_type find_last_not_of(const value_type *str, size_type pos, size_type count) const noexcept
 		{
-			return has_postfix(str, str + len);
+			return find_last_not_of(std::basic_string_view<C, Traits>{str, count}, pos);
 		}
-		/** Checks if a range of characters is located at the end of the string. */
-		template<forward_range_for<value_type> R>
-		[[nodiscard]] constexpr bool has_postfix(const R &r) const
+		/** Finds right-most location of a character not equal to `c`.
+		 * @param c Character to search for.
+		 * @param pos Position to start the search at. */
+		[[nodiscard]] constexpr size_type find_last_not_of(value_type c, size_type pos = 0) const noexcept
 		{
-			return has_postfix(std::ranges::begin(r), std::ranges::end(r));
+			return find_last_not_of(std::basic_string_view<C, Traits>{std::addressof(c), 1}, pos);
 		}
-		/** Checks if a character is located at the end of the string. */
-		[[nodiscard]] constexpr bool has_postfix(value_type c) const noexcept { return back() == c; }
+
+		// clang-format off
+		/** Checks if the string contains a substring.
+		 * @param c Substring to search for. */
+		template<typename S>
+		[[nodiscard]] constexpr size_type contains(const S &str) const noexcept requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
+		{
+			return find(str) != npos;
+		}
+		// clang-format on
+		/** @copydoc contains */
+		[[nodiscard]] constexpr size_type contains(const value_type *str) const noexcept { return find(str) != npos; }
+		/** Checks if the string contains a character.
+		 * @param c Character to search for. */
+		[[nodiscard]] constexpr size_type contains(value_type c) const noexcept { return find(c) != npos; }
+
+		// clang-format off
+		/** Checks if the string starts with a substring.
+		 * @param c Substring to search for. */
+		template<typename S>
+		[[nodiscard]] constexpr size_type starts_with(const S &str) const noexcept requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
+		{
+			const std::basic_string_view<C, Traits> sv = str;
+			return std::basic_string_view<C, Traits>{*this}.starts_with(sv);
+		}
+		// clang-format on
+		/** @copydoc starts_with */
+		[[nodiscard]] constexpr size_type starts_with(const value_type *str) const noexcept
+		{
+			return std::basic_string_view<C, Traits>{*this}.starts_with(str);
+		}
+		/** Checks if the string starts with a character.
+		 * @param c Character to search for. */
+		[[nodiscard]] constexpr size_type starts_with(value_type c) const noexcept
+		{
+			return std::basic_string_view<C, Traits>{*this}.starts_with(c);
+		}
+
+		// clang-format off
+		/** Checks if the string ends with a substring.
+		 * @param c Substring to search for. */
+		template<typename S>
+		[[nodiscard]] constexpr size_type ends_with(const S &str) const noexcept requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
+		{
+			const std::basic_string_view<C, Traits> sv = str;
+			return std::basic_string_view<C, Traits>{*this}.ends_with(sv);
+		}
+		// clang-format on
+		/** @copydoc starts_with */
+		[[nodiscard]] constexpr size_type ends_with(const value_type *str) const noexcept
+		{
+			return std::basic_string_view<C, Traits>{*this}.ends_with(str);
+		}
+		/** Checks if the string ends with a character.
+		 * @param c Character to search for. */
+		[[nodiscard]] constexpr size_type ends_with(value_type c) const noexcept
+		{
+			return std::basic_string_view<C, Traits>{*this}.ends_with(c);
+		}
+
+		// clang-format off
+		/** Compares the string with another.
+		 * @param str String to compare with. */
+		template<typename S>
+		[[nodiscard]] constexpr int compare(const S &str) const noexcept
+			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
+		{
+			const std::basic_string_view<C, Traits> sv = str;
+			return std::basic_string_view<C, Traits>{*this}.compare(sv);
+		}
+		/** @copydoc compare */
+		[[nodiscard]] constexpr int compare(const value_type *str) const noexcept
+		{
+			return std::basic_string_view<C, Traits>{*this}.compare(str);
+		}
+		/** @copydoc compare
+		 * @param pos1 Position of the first character from this string to compare.
+		 * @param count1 Amount of characters from this string to compare. */
+		template<typename S>
+		[[nodiscard]] constexpr int compare(size_type pos1, size_type count1, const S &str) const noexcept
+			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
+		{
+			const std::basic_string_view<C, Traits> sv = str;
+			return std::basic_string_view<C, Traits>{*this}.compare(pos1, count1, sv);
+		}
+		/** @copydoc compare */
+		[[nodiscard]] constexpr int compare(size_type pos1, size_type count1, const value_type *str) const noexcept
+		{
+			return std::basic_string_view<C, Traits>{*this}.compare(pos1, count1, str);
+		}
+		/** @copydoc compare
+		 * @param pos2 Position of the first character from the other string to compare.
+		 * @param count2 Amount of characters from the other string to compare. */
+		template<typename S>
+		[[nodiscard]] constexpr int compare(size_type pos1, size_type count1, size_type pos2, size_type count2, const S &str) const noexcept
+			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
+		{
+			const std::basic_string_view<C, Traits> sv = str;
+			return std::basic_string_view<C, Traits>{*this}.compare(pos1, count1, pos2, count2, sv);
+		}
+		/** @copydoc compare */
+		[[nodiscard]] constexpr int compare(size_type pos1, size_type count1, size_type pos2, size_type count2, const value_type *str) const noexcept
+		{
+			return std::basic_string_view<C, Traits>{*this}.compare(pos1, count1, pos2, count2, str);
+		}
+		// clang-format on
 
 		[[nodiscard]] friend constexpr auto operator<=>(const basic_interned_string &a, const basic_interned_string &b) noexcept
 		{
-			return a.sv() <=> b.sv();
+			return std::basic_string_view<C, Traits>{a} <=> std::basic_string_view<C, Traits>{b};
 		}
 		[[nodiscard]] friend constexpr bool operator==(const basic_interned_string &a, const basic_interned_string &b) noexcept
 		{
-			return a.sv() == b.sv();
+			return std::basic_string_view<C, Traits>{a} == std::basic_string_view<C, Traits>{b};
 		}
 
 		constexpr void swap(basic_interned_string &other) noexcept

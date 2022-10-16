@@ -28,6 +28,8 @@
 
 namespace sek
 {
+	template class SEK_API_EXPORT plugin_group<core_plugin_interface>;
+
 	namespace detail
 	{
 		[[nodiscard]] inline static std::error_code current_error() noexcept
@@ -233,4 +235,6 @@ namespace sek
 
 	const std::filesystem::path &module::path() const noexcept { return m_data->path; }
 	detail::module_handle module::native_handle() const noexcept { return m_data->handle; }
+
+	core_plugin_interface::~core_plugin_interface() = default;
 }	 // namespace sek

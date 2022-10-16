@@ -8,19 +8,135 @@
 #include <vector>
 
 #include "expected.hpp"
+#include "type_name.hpp"
 
 namespace sek
 {
+	template<typename>
+	class plugin_group;
+	template<template_instance<plugin_group>>
+	class plugin_ptr;
+	template<basic_static_string, template_instance<plugin_group>>
+	class plugin;
+
 	namespace detail
 	{
 		using module_path_char = typename std::filesystem::path::value_type;
 		using module_handle = void *;
 		struct module_data;
+
+		struct plugin_data
+		{
+			/* Helper used for registration via a macro. */
+			template<typename P>
+			static P instance;
+
+			template<typename P, typename I = typename P::group_type::interface_type>
+			constexpr plugin_data(P *ptr) noexcept : name(ptr->name()), ptr(static_cast<I *>(ptr))
+			{
+			}
+
+			std::string_view name;
+			void *ptr;
+		};
 	}	 // namespace detail
+
+	/** @brief Pointer-like structure used to reference an instance of a plugin.
+	 * @tparam Group An instance of `plugin_group`, used to define a group the referenced plugin belongs to. */
+	template<template_instance<plugin_group> Group>
+	class plugin_ptr
+	{
+		friend class module;
+		template<typename>
+		friend class plugin_group;
+
+	public:
+		typedef typename Group::interface_type element_type;
+		typedef typename Group::interface_type interface_type;
+
+	private:
+		using data_t = detail::plugin_data;
+
+		constexpr explicit plugin_ptr(const data_t *data) noexcept : m_data(data) {}
+
+	public:
+		/** Initializes an empty plugin pointer. */
+		constexpr plugin_ptr() noexcept = default;
+
+		/** Checks if the plugin pointer references a plugin instance. */
+		[[nodiscard]] constexpr bool empty() const noexcept { return m_data == nullptr; }
+		/** @copydoc empty */
+		[[nodiscard]] constexpr operator bool() const noexcept { return !empty(); }
+
+		/** Returns the name of the referenced plugin. */
+		[[nodiscard]] constexpr std::string_view name() const noexcept { return m_data->name; }
+
+		/** Returns an interface pointer to the referenced plugin instance. */
+		[[nodiscard]] constexpr interface_type *get() const noexcept
+		{
+			return static_cast<interface_type *>(m_data->ptr);
+		}
+		/** @copydoc get */
+		[[nodiscard]] constexpr interface_type *operator->() const noexcept { return get(); }
+		/** Returns an interface reference to the referenced plugin instance. */
+		[[nodiscard]] constexpr interface_type &operator*() const noexcept { return *get(); }
+
+		// clang-format off
+		[[nodiscard]] constexpr auto operator<=>(const plugin_ptr &other) const noexcept { return get() <=> other.get(); }
+		[[nodiscard]] constexpr bool operator==(const plugin_ptr &other) const noexcept { return get() == other.get(); }
+		// clang-format on
+
+		constexpr void swap(plugin_ptr &other) noexcept { std::swap(m_data, other.m_data); }
+		friend constexpr void swap(plugin_ptr &a, plugin_ptr &b) noexcept { a.swap(b); }
+
+	private:
+		const data_t *m_data = nullptr;
+	};
+
+	/** @brief Base type used to implement plugins.
+	 * @tparam Group An instance of `plugin_group`, used to define a group this plugin belongs to.
+	 * @tparam Name Display name of the plugin.
+	 * @note Child plugin types must publicly inherit from `plugin`.
+	 * @note Child plugin types must be instantiated via `SEK_PLUGIN_INSTANCE`,
+	 * or via manually creating a static instance within a module. */
+	template<basic_static_string Name, template_instance<plugin_group> Group>
+	class plugin : public Group::interface_type
+	{
+		static_assert(std::same_as<typename std::remove_cvref_t<decltype(Name)>::value_type, char>,
+					  "Plugin name must be a string of `char`");
+
+		using base_t = typename Group::interface_type;
+
+	public:
+		typedef Group group_type;
+
+	public:
+		plugin();
+		virtual ~plugin();
+
+		/** Returns the name of the plugin. */
+		[[nodiscard]] constexpr std::string_view name() const noexcept { return Name; };
+	};
+
+	/** @brief Structure used to implement and interface with plugin groups.
+	 * @tparam Pb Base interface for plugins of this group. */
+	template<typename I>
+	class plugin_group
+	{
+	public:
+		typedef I interface_type;
+
+	public:
+		/* TODO: Implement a static function to get plugin instances of this group for all modules. */
+		/* TODO: Implement a static function to invoke an interface member function for every instance. */
+	};
 
 	/** @brief Handle used to reference a native dynamic library which contains one or multiple plugins. */
 	class module
 	{
+		template<basic_static_string, template_instance<plugin_group>>
+		friend class plugin;
+
 	public:
 		typedef detail::module_handle native_handle_type;
 
@@ -33,6 +149,10 @@ namespace sek
 		[[nodiscard]] static SEK_CORE_PUBLIC module main();
 
 	private:
+		/* TODO: Register a type-erased plugin instance for the current module. */
+		static SEK_CORE_PUBLIC void register_plugin(std::string_view group, detail::plugin_data data) noexcept;
+		static SEK_CORE_PUBLIC void unregister_plugin(std::string_view group, detail::plugin_data data) noexcept;
+
 		template<typename T>
 		inline static T return_if(expected<T, std::error_code> &&exp)
 		{
@@ -103,6 +223,8 @@ namespace sek
 		/** @copydoc is_open */
 		[[nodiscard]] constexpr operator bool() const noexcept { return is_open(); }
 
+		/* TODO: Implement a static function to get plugin instances for a specific group. */
+
 		/** Returns the underlying native library handle. */
 		[[nodiscard]] SEK_CORE_PUBLIC native_handle_type native_handle() const noexcept;
 		/** Returns path to the underlying native library. */
@@ -117,4 +239,66 @@ namespace sek
 	protected:
 		data_t *m_data = nullptr;
 	};
+
+	template<basic_static_string N, template_instance<plugin_group> G>
+	plugin<N, G>::plugin() : base_t()
+	{
+		module::register_plugin(type_name<G>(), detail::plugin_data{this});
+	}
+	template<basic_static_string N, template_instance<plugin_group> G>
+	plugin<N, G>::~plugin()
+	{
+		module::unregister_plugin(type_name<G>(), detail::plugin_data{this});
+	}
+
+	/** @brief Plugin interface used for the core plugin group. */
+	class SEK_CORE_PUBLIC core_plugin_interface
+	{
+	public:
+		core_plugin_interface() noexcept = default;
+		virtual ~core_plugin_interface() = 0;
+
+		/** Function invoked when a plugin is enabled. */
+		virtual void enable() = 0;
+		/** Function invoked when a plugin is disabled. */
+		virtual void disable() = 0;
+	};
+
+	extern template class SEK_API_IMPORT plugin_group<core_plugin_interface>;
+
+	/** @brief Core plugin group type (alias for `plugin_group<core_plugin_interface>`). */
+	using core_plugin_group = plugin_group<core_plugin_interface>;
+	/** @brief Core plugin base type (alias for `plugin<core_plugin_group, Name>`).
+	 * @tparam Name Display name of the plugin. */
+	template<basic_static_string Name>
+	using core_plugin = plugin<Name, core_plugin_group>;
+
+	template<>
+	[[nodiscard]] constexpr std::string_view type_name<core_plugin_group>() noexcept
+	{
+		return "sek::core_plugin_group";
+	}
 }	 // namespace sek
+
+// clang-format off
+/** @brief Macro used to instantiate & register a plugin of type `T` during static initialization of a module.
+ * Any additional arguments are passed to the constructor ot `T`.
+ *
+ * @example
+ * @code{cpp}
+ * // my_core_plugin.hpp
+ * struct my_core_plugin : sek::core_plugin<"My Core Plugin">
+ * {
+ * 	my_core_plugin(int i);
+ *
+ * 	// Function called when a plugin is enabled.
+ * 	void enable() override;
+ * 	// Function called when a plugin is disabled.
+ * 	void disable() override;
+ * };
+ *
+ * // my_core_plugin.cpp
+ * SEK_PLUGIN_INSTANCE(my_core_plugin, 1)
+ * @endcode */
+#define SEK_PLUGIN_INSTANCE(T, ...) template<> T sek::detail::plugin_data::instance<T> = T(__VA_ARGS__);
+// clang-format on
