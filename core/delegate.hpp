@@ -35,7 +35,7 @@ namespace sek
 		{
 		};
 		template<typename SignD, typename SignF>
-		constexpr auto is_delegate_compatible_v = is_delegate_compatible<SignD, SignF>::value;
+		constexpr inline auto is_delegate_compatible_v = is_delegate_compatible<SignD, SignF>::value;
 
 		template<auto, typename>
 		struct is_delegate_func : std::false_type {};
@@ -52,7 +52,7 @@ namespace sek
 		template<typename RF, typename I, typename... ArgsF, RF (I::*F)(ArgsF...) const volatile, typename RD, typename... ArgsD>
 		struct is_delegate_func<F, RD(ArgsD...)> : is_delegate_compatible<RD(ArgsD...), RF(ArgsF...)> {};
 		template<auto F, typename Sign>
-		constexpr auto is_delegate_func_v = is_delegate_func<F, Sign>::value;
+		constexpr inline auto is_delegate_func_v = is_delegate_func<F, Sign>::value;
 		// clang-format on
 	}	 // namespace detail
 
@@ -86,7 +86,7 @@ namespace sek
 
 	/** Instance of the `delegate_func_t` helper type. */
 	template<auto F>
-	constexpr auto delegate_func = delegate_func_t<F>{};
+	constexpr inline auto delegate_func = delegate_func_t<F>{};
 
 	template<typename>
 	class delegate;

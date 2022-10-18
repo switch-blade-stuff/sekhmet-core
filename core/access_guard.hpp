@@ -184,6 +184,9 @@ namespace sek
 	template<typename T, typename M>
 	access_guard(const T &, const M &) -> access_guard<T, M>;
 
+	/** @brief Type alias used to define an `access_guard` that uses an `std::recursive_mutex` as its mutex type. */
+	template<typename T>
+	using recursive_guard = access_guard<T, std::recursive_mutex>;
 	/** @brief Type alias used to define an `access_guard` that uses an `std::shared_mutex` as its mutex type. */
 	template<typename T>
 	using shared_guard = access_guard<T, std::shared_mutex>;

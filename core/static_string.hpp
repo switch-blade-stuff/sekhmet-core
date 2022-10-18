@@ -428,6 +428,16 @@ namespace sek
 		return static_string_cast<To, ToT>(basic_static_string<From, N>{str});
 	}
 
+	template<typename C, typename T = std::char_traits<C>, std::size_t N, std::size_t M>
+	[[nodiscard]] constexpr basic_static_string<C, N + M, T> operator+(const basic_static_string<C, N, T> &a,
+																	   const basic_static_string<C, M, T> &b) noexcept
+	{
+		basic_static_string<C, N + M, T> result;
+		std::copy_n(a.data(), a.size(), result.data());
+		std::copy_n(b.data(), b.size(), result.data() + a.size());
+		return result;
+	}
+
 	template<typename C, std::size_t N, typename T>
 	constexpr void swap(basic_static_string<C, N, T> &a, basic_static_string<C, N, T> &b) noexcept
 	{

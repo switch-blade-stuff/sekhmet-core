@@ -67,64 +67,67 @@ namespace sek
 		}
 	}	 // namespace detail
 
-	/** Returns name of the specified type.
+	/** @brief Helper type used to generate a type name string for the specified type.
 	 * @warning Consistency of auto-generated type names across different compilers is not guaranteed.
-	 * To generate consistent type names, overload this function for the desired type. */
+	 * To generate consistent type names, overload `type_name` for the desired type. */
 	template<typename T>
-	[[nodiscard]] constexpr std::string_view type_name() noexcept
+	struct type_name
 	{
-		return detail::generate_type_name<T>();
-	}
+		constexpr static std::string_view value = detail::generate_type_name<T>();
+	};
+	/** @brief Alias for `type_name<T>::value`. */
+	template<typename T>
+	constexpr inline std::string_view type_name_v = type_name<T>::value;
 
 	/* Type name overloads for "default" string types. */
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<std::basic_string<char>>() noexcept
+	struct type_name<std::basic_string<char>>
 	{
-		return "std::string";
-	}
+		constexpr static std::string_view value = "std::string";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<std::basic_string<wchar_t>>() noexcept
+	struct type_name<std::basic_string<wchar_t>>
 	{
-		return "std::wstring";
-	}
+		constexpr static std::string_view value = "std::wstring";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<std::basic_string<char8_t>>() noexcept
+	struct type_name<std::basic_string<char8_t>>
 	{
-		return "std::u8string";
-	}
+		constexpr static std::string_view value = "std::u8string";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<std::basic_string<char16_t>>() noexcept
+	struct type_name<std::basic_string<char16_t>>
 	{
-		return "std::u16string";
-	}
+		constexpr static std::string_view value = "std::u16string";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<std::basic_string<char32_t>>() noexcept
+	struct type_name<std::basic_string<char32_t>>
 	{
-		return "std::u32string";
-	}
+		constexpr static std::string_view value = "std::u32string";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<std::basic_string_view<char>>() noexcept
+	struct type_name<std::basic_string_view<char>>
 	{
-		return "std::string_view";
-	}
+		constexpr static std::string_view value = "std::string_view";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<std::basic_string_view<wchar_t>>() noexcept
+	struct type_name<std::basic_string_view<wchar_t>>
 	{
-		return "std::wstring_view";
-	}
+		constexpr static std::string_view value = "std::wstring_view";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<std::basic_string_view<char8_t>>() noexcept
+	struct type_name<std::basic_string_view<char8_t>>
 	{
-		return "std::u8string_view";
-	}
+		constexpr static std::string_view value = "std::u8string_view";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<std::basic_string_view<char16_t>>() noexcept
+	struct type_name<std::basic_string_view<char16_t>>
 	{
-		return "std::u16string_view";
-	}
+		constexpr static std::string_view value = "std::u16string_view";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<std::basic_string_view<char32_t>>() noexcept
+	struct type_name<std::basic_string_view<char32_t>>
 	{
-		return "std::u32string_view";
-	}
+		constexpr static std::string_view value = "std::u32string_view";
+	};
 }	 // namespace sek

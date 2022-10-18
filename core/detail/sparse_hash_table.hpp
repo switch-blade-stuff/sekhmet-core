@@ -11,7 +11,6 @@
 #include "../math/utility.hpp"
 #include "alloc_util.hpp"
 #include "ebo_base_helper.hpp"
-#include "flagged_ptr.hpp"
 #include "table_util.hpp"
 
 namespace sek::detail
@@ -315,7 +314,7 @@ namespace sek::detail
 		}
 
 	public:
-		constexpr sparse_hash_table() noexcept(nothrow_alloc_default_construct<allocator_type, bucket_allocator_type>) = default;
+		constexpr sparse_hash_table() noexcept(nothrow_alloc_construct<allocator_type, bucket_allocator_type>) = default;
 
 		constexpr sparse_hash_table(size_type capacity, const key_equal &key_compare, const hash_type &key_hash, const allocator_type &alloc)
 			: value_ebo_base(alloc),
@@ -328,8 +327,8 @@ namespace sek::detail
 		}
 
 		constexpr sparse_hash_table(const sparse_hash_table &other)
-			: value_ebo_base(make_alloc_copy(other.get_allocator())),
-			  bucket_ebo_base(make_alloc_copy(other.get_bucket_allocator())),
+			: value_ebo_base(alloc_copy(other.get_allocator())),
+			  bucket_ebo_base(alloc_copy(other.get_bucket_allocator())),
 			  compare_ebo_base(other.get_comp()),
 			  hash_ebo_base(other.get_hash())
 		{
@@ -344,8 +343,7 @@ namespace sek::detail
 			insert(other.begin(), other.end());
 		}
 
-		constexpr sparse_hash_table(sparse_hash_table &&other, const allocator_type &alloc) noexcept(
-			nothrow_alloc_copy_move_transfer<allocator_type, bucket_allocator_type>)
+		constexpr sparse_hash_table(sparse_hash_table &&other, const allocator_type &alloc) noexcept(nothrow_alloc_transfer<allocator_type, bucket_allocator_type>)
 			: value_ebo_base(alloc),
 			  bucket_ebo_base(std::move(other.get_bucket_allocator())),
 			  compare_ebo_base(std::move(other.get_comp())),
@@ -762,7 +760,9 @@ namespace sek::detail
 		template<typename... Args>
 		constexpr bucket_type make_bucket(Args &&...args)
 		{
-			auto *value = std::construct_at(get_allocator().allocate(1), std::forward<Args>(args)...);
+			auto &alloc = get_allocator();
+			auto *value = alloc.allocate(1);
+			alloc_traits::construct(alloc, value, std::forward<Args>(args)...);
 			auto hash = get_hash()(key_extract(*value));
 
 			return bucket_type{value, hash};

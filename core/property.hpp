@@ -108,7 +108,7 @@ namespace sek
 	};
 	/** @brief Instance of the `accessor_t` helper type. */
 	template<auto... Funcs>
-	constexpr auto accessor = accessor_t<Funcs...>{};
+	constexpr inline auto accessor = accessor_t<Funcs...>{};
 
 	// clang-format off
 	template<auto>
@@ -143,10 +143,10 @@ namespace sek
 
 	/** @brief Instance of the `member_get_t` helper type. */
 	template<auto M>
-	constexpr auto member_get = member_get_t<M>{};
+	constexpr inline auto member_get = member_get_t<M>{};
 	/** @brief Instance of the `member_set_t` helper type. */
 	template<auto M>
-	constexpr auto member_set = member_set_t<M>{};
+	constexpr inline auto member_set = member_set_t<M>{};
 
 	// clang-format off
 	/** @brief Property wrapper used to invoke get & set functors when the underlying value is accessed.

@@ -4,12 +4,11 @@
 
 #include "../plugin.hpp"
 
-#include <cstdlib>
+#include <atomic>
 
-#include "../access_guard.hpp"
 #include "../debug/assert.hpp"
 #include "../debug/logger.hpp"
-#include "../detail/sparse_hash_table.hpp"
+#include "../sparse_map.hpp"
 
 #if defined(SEK_OS_WIN)
 #include <errhandlingapi.h>
@@ -44,28 +43,62 @@ namespace sek
 
 		struct module_data
 		{
-			module_data(module_handle handle, const module_path_char *path) : handle(handle), path(path) {}
+			module_data() noexcept = default;
+			module_data(std::filesystem::path &&path) : path(std::move(path)) {}
 			module_data(module_handle handle, std::filesystem::path &&path) : handle(handle), path(std::move(path)) {}
 
-			module_handle handle;
+			std::atomic<std::size_t> ref_ctr = 0;
 
 			std::filesystem::path path;
-			std::size_t ref_ctr = 0;
+			module_handle handle;
 		};
 		struct module_db
 		{
-			using alloc_t = std::allocator<module_data>;
-			using cmp_t = std::equal_to<>;
-			using hash_t = default_hash;
-
+			struct key_hash
+			{
+				constexpr auto operator()(const std::basic_string_view<module_path_char> &path) const noexcept
+				{
+					return fnv1a(path.data(), path.size());
+				}
+				constexpr auto operator()(const std::filesystem::path &path) const noexcept
+				{
+					return operator()(std::basic_string_view{path.c_str()});
+				}
+			};
+			struct key_cmp
+			{
+				constexpr bool operator()(const std::basic_string_view<module_path_char> &a,
+										  const std::basic_string_view<module_path_char> &b) const noexcept
+				{
+					return a == b;
+				}
+				constexpr bool operator()(const std::filesystem::path &a,
+										  const std::basic_string_view<module_path_char> &b) const noexcept
+				{
+					return operator()(std::basic_string_view{a.c_str()}, b);
+				}
+				constexpr bool operator()(const std::basic_string_view<module_path_char> &a,
+										  const std::filesystem::path &b) const noexcept
+				{
+					return operator()(a, std::basic_string_view{b.c_str()});
+				}
+				constexpr bool operator()(const std::filesystem::path &a, const std::filesystem::path &b) const noexcept
+				{
+					return operator()(std::basic_string_view{a.c_str()}, std::basic_string_view{b.c_str()});
+				}
+			};
 			struct key_get
 			{
-				constexpr auto operator()(const module_data &data) const noexcept { return data.handle; }
+				constexpr auto operator()(const module_data &data) const noexcept
+				{
+					return std::basic_string_view{data.path.c_str()};
+				}
 			};
+			using alloc_t = std::allocator<module_data>;
 
-			using data_table = sparse_hash_table<module_handle, module_data, hash_t, cmp_t, key_get, alloc_t>;
+			using data_table = sparse_hash_table<module_handle, module_data, key_hash, key_cmp, key_get, alloc_t>;
 
-			[[nodiscard]] static expected<module_handle, std::error_code> load(const module_path_char *path) noexcept
+			[[nodiscard]] static expected<module_handle, std::error_code> load_native(const module_path_char *path) noexcept
 			{
 				module_handle res;
 #if defined(SEK_OS_WIN)
@@ -82,18 +115,18 @@ namespace sek
 					res = GetModuleHandleW(nullptr);
 
 				if (res == nullptr) [[unlikely]]
-					return unexpected{make_errc()};
+					return unexpected{current_error()};
 #elif defined(SEK_OS_UNIX)
 				if ((res = dlopen(path, RTLD_NOW | RTLD_GLOBAL)) == nullptr) [[unlikely]]
 					return unexpected{current_error()};
 #endif
 				return res;
 			}
-			[[nodiscard]] static expected<void, std::error_code> unload(module_handle handle) noexcept
+			[[nodiscard]] static expected<void, std::error_code> unload_native(module_handle handle) noexcept
 			{
 #if defined(SEK_OS_WIN)
-				if (!FreeLibrary(handle)) [[unlikely]]
-					return unexpected{get_error_code()};
+				if (!FreeLibrary(static_cast<HMODULE>(handle))) [[unlikely]]
+					return unexpected{current_error()};
 #elif defined(SEK_OS_UNIX)
 				if (dlclose(handle)) [[unlikely]]
 					return unexpected{current_error()};
@@ -111,8 +144,8 @@ namespace sek
 				for (;;)
 					if ((n = GetModuleFileNameW(nullptr, buff.data(), buff.size())) == 0) [[unlikely]]
 					{
-						const auto code = get_error_code();
-						if (code == 0x7A /* ERROR_INSUFFICIENT_BUFFER */) [[likely]]
+						const auto code = current_error();
+						if (code.value() == 0x7A /* ERROR_INSUFFICIENT_BUFFER */) [[likely]]
 							buff.resize(buff.size() * 2, '\0');
 						else
 						{
@@ -147,7 +180,7 @@ namespace sek
 			}
 			[[nodiscard]] static module_handle main_lib() noexcept
 			{
-				const auto res = load(nullptr);
+				const auto res = load_native(nullptr);
 				if (!res.has_value()) [[unlikely]]
 				{
 					// clang-format off
@@ -160,81 +193,135 @@ namespace sek
 				return *res;
 			}
 
-			[[nodiscard]] static access_guard<module_db> instance()
+			[[nodiscard]] static recursive_guard<module_db> instance()
 			{
-				static module_db instance;
-				return {instance, instance.mtx};
+				static module_db value;
+				return {value, value.mtx};
 			}
 
-			module_db() { main = table.emplace(main_lib(), main_path()).first.get(); }
-
-			expected<module_data *, std::error_code> open(const module_path_char *path)
+			module_db()
 			{
-				module_data *result;
+				main = current = table.emplace(main_lib(), main_path()).first.get();
+
+				/* The main module must never be unloaded. */
+				main->ref_ctr.store(1, std::memory_order_relaxed);
+			}
+
+			expected<module_data *, std::error_code> load(const module_path_char *path)
+			{
 				if (path == nullptr) [[unlikely]]
-					result = main;
-				else
+					return main;
+
+				/* RAII guard used to automatically reset current module pointer. */
+				struct current_ptr_guard
 				{
-					const auto handle = load(path);
+					current_ptr_guard(module_db *db, module_data *data) noexcept
+						: ptr(std::exchange(db->current, data)), db(db)
+					{
+					}
+					~current_ptr_guard() { db->current = ptr; }
+
+					module_data *ptr;
+					module_db *db;
+				};
+
+				/* Convert the path to canonical form for table indexing. */
+				std::filesystem::path canonical;
+				{
+					std::error_code err;
+					canonical = std::filesystem::canonical(path, err);
+					if (err) [[unlikely]]
+						return unexpected{err};
+				}
+
+				/* Check if the module is already loaded. */
+				auto entry = table.find(canonical);
+				if (entry == table.end()) [[unlikely]]
+				{
+					/* No module with the same path exists yet, create an empty entry. */
+					entry = table.emplace(std::move(canonical)).first;
+					current_ptr_guard g{this, entry.get()};
+
+					/* Load the module library. */
+					const auto handle = load_native(path);
 					if (handle.has_value()) [[unlikely]]
 						return unexpected{handle.error()};
+					entry->handle = *handle;
+				}
+				return entry.get();
+			}
+			expected<void, std::error_code> unload(module_data *data)
+			{
+				expected<void, std::error_code> result;
+				if (data != main) [[likely]]
+				{
+					/* Unload the module library & erase the module entry. */
+					const auto entry = table.find(data->path);
+					SEK_ASSERT(entry != table.end(), "Invalid module data entry");
 
-					/* If such entry does not exist yet, create it. */
-					auto iter = table.find(*handle);
-					if (iter == table.end()) [[likely]]
-						iter = table.emplace(*handle, path).first;
-
-					/* Always increment use counter for non-main modules. */
-					result = iter.get();
-					++result->ref_ctr;
+					result = unload_native(data->handle);
+					table.erase(entry);
 				}
 				return result;
 			}
-			expected<void, std::error_code> close(module_data *data)
-			{
-				if (data != main) [[likely]]
-				{
-					/* Erase the table entry if it's reference counter has reached 0. */
-					if (--data->ref_ctr == 0) [[unlikely]]
-					{
-						const auto target = table.find(data->handle);
-						SEK_ASSERT(target != table.end(), "Invalid module data entry");
-						table.erase(target);
-					}
-					return unload(data->handle);
-				}
-			}
 
-			std::mutex mtx;
-			data_table table;
+			std::recursive_mutex mtx;
+			module_data *current;
 			module_data *main;
+			data_table table;
 		};
 	}	 // namespace detail
 
 	module module::main() { return module{detail::module_db::instance()->main}; }
-
-	module::~module()
+	std::vector<module> module::all()
 	{
-		if (is_open()) close();
+		auto db = detail::module_db::instance().access();
+
+		std::vector<module> result;
+		result.reserve(db->table.size());
+		for (auto &data : db->table) result.emplace_back(&data);
+		return result;
 	}
 
-	expected<void, std::error_code> module::open(std::nothrow_t, const path_char *path)
+	void module::copy_init(const module &other)
 	{
-		auto result = detail::module_db::instance()->open(path);
+		if ((m_data = other.m_data) != nullptr) [[likely]]
+			++m_data->ref_ctr;
+	}
+	module::module(const module &other) { copy_init(other); }
+	module &module::operator=(const module &other)
+	{
+		if (this != &other) [[likely]]
+		{
+			unload();
+			copy_init(other);
+		}
+		return *this;
+	}
+
+	expected<void, std::error_code> module::load(std::nothrow_t, const path_char *path)
+	{
+		auto result = detail::module_db::instance()->load(path);
 		if (result.has_value()) [[likely]]
-			m_data = *result;
+			(m_data = *result)->ref_ctr++;
 		return std::move(result);
 	}
-	expected<void, std::error_code> module::close(std::nothrow_t)
+	expected<void, std::error_code> module::unload(std::nothrow_t)
 	{
-		return detail::module_db::instance()->close(std::exchange(m_data, nullptr));
+		if (const auto data = std::exchange(m_data, nullptr); data && --data->ref_ctr == 0) [[unlikely]]
+			return detail::module_db::instance()->unload(data);
+		return {};
 	}
 
-	void module::open(const path_char *path) { return_if(open(std::nothrow, path)); }
-	void module::close() { return_if(close(std::nothrow)); }
+	void module::load(const path_char *path) { return_if(load(std::nothrow, path)); }
+	void module::unload() { return_if(unload(std::nothrow)); }
 
 	const std::filesystem::path &module::path() const noexcept { return m_data->path; }
 	detail::module_handle module::native_handle() const noexcept { return m_data->handle; }
+
+	plugin_interface::~plugin_interface() = default;
+	void plugin_interface::enable() { m_enabled = true; }
+	void plugin_interface::disable() { m_enabled = false; }
 
 	core_plugin_interface::~core_plugin_interface() = default;
 }	 // namespace sek

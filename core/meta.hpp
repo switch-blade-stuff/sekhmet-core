@@ -37,7 +37,7 @@ namespace sek
 	};
 	/** @brief Alias for `is_in<T, Ts...>::value`. */
 	template<typename T, typename... Ts>
-	constexpr auto is_in_v = is_in<T, Ts...>::value;
+	constexpr inline auto is_in_v = is_in<T, Ts...>::value;
 
 	namespace detail
 	{
@@ -74,7 +74,7 @@ namespace sek
 	};
 	/** @brief Alias for `is_template_instance<T, U>::value`. */
 	template<typename T, template<typename...> typename U>
-	constexpr auto is_template_instance_v = is_template_instance<T, U>::value;
+	constexpr inline auto is_template_instance_v = is_template_instance<T, U>::value;
 	// clang-format on
 
 	/** @brief Concept used to check if type `T` is an instance of template `U`. */
@@ -129,7 +129,7 @@ namespace sek
 	};
 	/** @brief Instance of `index_selector_t<T>`. */
 	template<std::size_t I>
-	constexpr auto index_selector = index_selector_t<I>{};
+	constexpr inline auto index_selector = index_selector_t<I>{};
 
 	/** @brief Helper type used to group a sequence of types into a single type. */
 	template<typename... Ts>
@@ -141,10 +141,10 @@ namespace sek
 
 	/** @brief Instance of `type_seq_t<Ts...>`. */
 	template<typename... Ts>
-	constexpr auto type_seq = type_seq_t<Ts...>{};
+	constexpr inline auto type_seq = type_seq_t<Ts...>{};
 	/** @brief Alias for `type_seq_t<Ts...>::size`. */
 	template<typename... Ts>
-	constexpr auto type_seq_size = type_seq_t<Ts...>::size;
+	constexpr inline auto type_seq_size = type_seq_t<Ts...>::size;
 
 	namespace detail
 	{
@@ -193,7 +193,7 @@ namespace sek
 	};
 	/** @brief Alias for `is_in_seq<T, S>::value`. */
 	template<typename T, template_instance<type_seq_t> S>
-	constexpr auto is_in_seq_v = is_in_seq<T, S>::value;
+	constexpr inline auto is_in_seq_v = is_in_seq<T, S>::value;
 
 	namespace detail
 	{
@@ -279,7 +279,7 @@ namespace sek
 	};
 	/** @brief Alias for `type_seq_index<T, S>::value` */
 	template<typename T, template_instance<type_seq_t> S>
-	constexpr auto type_seq_index_v = type_seq_index<T, S>::value;
+	constexpr inline auto type_seq_index_v = type_seq_index<T, S>::value;
 
 	namespace detail
 	{
@@ -430,7 +430,7 @@ namespace sek
 	};
 	/** @brief Alias for `is_preserving_cv_cast<From, To>::value`. */
 	template<typename From, typename To>
-	constexpr auto is_preserving_cv_cast_v = is_preserving_cv_cast<From, To>::value;
+	constexpr inline auto is_preserving_cv_cast_v = is_preserving_cv_cast<From, To>::value;
 
 	// clang-format off
 	/** @brief Concept used to check if type `T` is tuple-like (has a well-formed `std::tuple_size` overload). */

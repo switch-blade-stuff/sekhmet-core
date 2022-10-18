@@ -1,5 +1,5 @@
 //
-// Created by switch_blade on 2022-10-03.
+// Created by switchblade on 2022-10-03.
 //
 
 #pragma once
@@ -25,7 +25,7 @@ namespace sek
 			 * originally reflected the type is unloaded. As such, type data needs to be reset to its original state. */
 			result.reset = +[](type_data *ptr) -> void { *ptr = make_instance<T>(); };
 
-			result.name = type_name<T>();
+			result.name = type_name_v<T>;
 			result.is_empty = std::is_empty_v<T>;
 			result.is_nullptr = std::same_as<T, std::nullptr_t>;
 
@@ -101,7 +101,7 @@ namespace sek
 		template<typename T>
 		static void reset() noexcept
 		{
-			reset(type_name<std::remove_cvref_t<T>>());
+			reset(type_name_v<std::remove_cvref_t<T>>);
 		}
 
 	public:
@@ -367,20 +367,20 @@ namespace sek
 
 	/* Type names for reflection types. */
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<any>() noexcept
+	struct type_name<any>
 	{
-		return "sek::any";
-	}
+		constexpr static std::string_view value = "sek::any";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<any_ref>() noexcept
+	struct type_name<any_ref>
 	{
-		return "sek::any_ref";
-	}
+		constexpr static std::string_view value = "sek::any_ref";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<type_info>() noexcept
+	struct type_name<type_info>
 	{
-		return "sek::type_info";
-	}
+		constexpr static std::string_view value = "sek::type_info";
+	};
 
 	/** Returns the type info of an object's type. Equivalent to `type_info::get<T>()`. */
 	template<typename T>

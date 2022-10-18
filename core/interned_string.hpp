@@ -768,30 +768,30 @@ namespace sek
 	using interned_u32string = basic_interned_string<char32_t>;
 
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<basic_interned_string<char>>() noexcept
+	struct type_name<basic_interned_string<char>>
 	{
-		return "sek::interned_string";
-	}
+		constexpr static std::string_view value = "sek::interned_string";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<basic_interned_string<wchar_t>>() noexcept
+	struct type_name<basic_interned_string<wchar_t>>
 	{
-		return "sek::interned_wstring";
-	}
+		constexpr static std::string_view value = "sek::interned_wstring";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<basic_interned_string<char8_t>>() noexcept
+	struct type_name<basic_interned_string<char8_t>>
 	{
-		return "sek::interned_u8string";
-	}
+		constexpr static std::string_view value = "sek::interned_u8string";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<basic_interned_string<char16_t>>() noexcept
+	struct type_name<basic_interned_string<char16_t>>
 	{
-		return "sek::interned_u16string";
-	}
+		constexpr static std::string_view value = "sek::interned_u16string";
+	};
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<basic_interned_string<char32_t>>() noexcept
+	struct type_name<basic_interned_string<char32_t>>
 	{
-		return "sek::interned_u32string";
-	}
+		constexpr static std::string_view value = "sek::interned_u32string";
+	};
 }	 // namespace sek
 
 template<typename C, typename T>

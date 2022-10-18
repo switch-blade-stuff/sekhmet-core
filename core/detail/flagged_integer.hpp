@@ -11,41 +11,38 @@
 namespace sek
 {
 	/** @brief Helper structure used to store an integer and a flag in one of it's bits. */
-	template<std::integral IntType>
+	template<std::integral I>
 	class flagged_integer_t
 	{
-		constexpr static IntType mask = std::numeric_limits<IntType>::max() << 1;
+		constexpr static I mask = std::numeric_limits<I>::max() << 1;
 
 	public:
 		constexpr flagged_integer_t() noexcept = default;
-		constexpr explicit flagged_integer_t(IntType v, bool f = false) noexcept
-		{
-			set_value(v);
-			set_flag(f);
-		}
+		constexpr explicit flagged_integer_t(I v, bool f = false) noexcept { m_data = (v * 2) | (f & 1); }
 
-		[[nodiscard]] constexpr IntType get_value() const noexcept { return m_data / 2; }
-		constexpr IntType set_value(IntType value) noexcept
+		[[nodiscard]] constexpr I value() const noexcept { return m_data / 2; }
+		constexpr I value(I value) noexcept
 		{
 			m_data = (value * 2) | (m_data & 1);
 			return value;
 		}
-		[[nodiscard]] constexpr bool get_flag() const noexcept { return m_data & 1; }
-		constexpr bool set_flag(bool value) noexcept
+
+		[[nodiscard]] constexpr bool flag() const noexcept { return m_data & 1; }
+		constexpr bool flag(bool value) noexcept
 		{
 			m_data = (m_data & mask) | value;
 			return value;
 		}
-		constexpr void toggle_flag() noexcept { m_data ^= 1; }
+		constexpr void toggle() noexcept { m_data ^= 1; }
 
 		[[nodiscard]] constexpr bool operator==(const flagged_integer_t &) const noexcept = default;
 
 	private:
-		IntType m_data = 0;
+		I m_data = 0;
 	};
 
-	template<std::unsigned_integral I>
+	template<std::integral I>
 	flagged_integer_t(I) -> flagged_integer_t<I>;
-	template<std::unsigned_integral I>
+	template<std::integral I>
 	flagged_integer_t(I, bool) -> flagged_integer_t<I>;
 }	 // namespace sek

@@ -19,7 +19,7 @@ namespace sek
 		explicit unexpect_t() = default;
 	};
 	/** @brief Pre-C++23 implementation of `unexpect`. */
-	constexpr auto unexpect = unexpect_t{};
+	constexpr inline auto unexpect = unexpect_t{};
 
 	/** @brief Pre-C++23 implementation of `bad_expected_access`. */
 	template<typename E>
@@ -915,7 +915,7 @@ namespace sek
 	/** Convenience alias for `std::unexpect_t` */
 	using unexpect_t = std::unexpect_t;
 	/** Convenience alias for `std::unexpect` */
-	constexpr auto unexpect = std::unexpect;
+	constexpr inline auto unexpect = std::unexpect;
 
 	/** Convenience alias for `std::unexpected` */
 	template<typename E>

@@ -23,17 +23,17 @@ target_sources(${PROJECT_NAME} INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/string_util.hpp
 
         ${CMAKE_CURRENT_LIST_DIR}/owned_ptr.hpp
-        ${CMAKE_CURRENT_LIST_DIR}/flagged_integer.hpp
-        ${CMAKE_CURRENT_LIST_DIR}/flagged_ptr.hpp)
+        ${CMAKE_CURRENT_LIST_DIR}/flagged_integer.hpp)
 
 target_sources(${PROJECT_NAME} PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}/plugin.cpp
+
         ${CMAKE_CURRENT_LIST_DIR}/assets.cpp
         ${CMAKE_CURRENT_LIST_DIR}/config.cpp
         ${CMAKE_CURRENT_LIST_DIR}/delegate_error.cpp
         ${CMAKE_CURRENT_LIST_DIR}/expected.cpp
         ${CMAKE_CURRENT_LIST_DIR}/intern.cpp
         ${CMAKE_CURRENT_LIST_DIR}/object.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/plugin.cpp
         ${CMAKE_CURRENT_LIST_DIR}/resources.cpp
         ${CMAKE_CURRENT_LIST_DIR}/service.cpp
         ${CMAKE_CURRENT_LIST_DIR}/thread_pool.cpp

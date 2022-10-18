@@ -1,5 +1,5 @@
 //
-// Created by switch_blade on 2022-10-03.
+// Created by switchblade on 2022-10-03.
 //
 
 #pragma once
@@ -11,10 +11,10 @@ namespace sek
 	class object;
 
 	template<>
-	[[nodiscard]] constexpr std::string_view type_name<object>() noexcept
+	struct type_name<object>
 	{
-		return "sek::object";
-	}
+		constexpr static std::string_view value = "sek::object";
+	};
 
 	/** @brief Base interface used to attach runtime type information to a polymorphic inheritance tree. */
 	class SEK_CORE_PUBLIC object

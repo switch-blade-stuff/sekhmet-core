@@ -4,8 +4,6 @@
 
 #pragma once
 
-#if defined(SEK_OS_UNIX)
-
 #include <memory>
 #include <utility>
 
@@ -169,5 +167,3 @@ namespace sek
 		pointer m_ptr = nullptr;
 	};
 }	 // namespace sek
-
-#endif

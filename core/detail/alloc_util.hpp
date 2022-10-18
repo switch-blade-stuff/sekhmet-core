@@ -17,24 +17,35 @@ namespace sek::detail
 	template<typename Alloc>
 	[[nodiscard]] constexpr bool alloc_eq(const Alloc &a, const Alloc &b) noexcept
 	{
+		// clang-format off
 		if constexpr (std::allocator_traits<Alloc>::is_always_equal::value)
 			return true;
-		else if constexpr (requires {
-							   {
-								   a == b
-							   };
-						   })
+		else if constexpr (requires { { a == b }; })
 			return a == b;
 		else
 			return false;
+		// clang-format on
 	}
+
 	template<typename Alloc>
-	[[nodiscard]] constexpr Alloc make_alloc_copy(const Alloc &alloc)
+	[[nodiscard]] constexpr Alloc alloc_copy(const Alloc &alloc)
 	{
 		return std::allocator_traits<Alloc>::select_on_container_copy_construction(alloc);
 	}
+
 	template<typename Alloc>
-	void alloc_assert_swap([[maybe_unused]] const Alloc &lhs, [[maybe_unused]] const Alloc &rhs) noexcept
+	constexpr void alloc_move_assign(Alloc &lhs, Alloc &rhs) noexcept
+	{
+		if constexpr (std::allocator_traits<Alloc>::propagate_on_container_move_assignment::value) lhs = std::move(rhs);
+	}
+	template<typename Alloc>
+	constexpr void alloc_copy_assign(Alloc &lhs, const Alloc &rhs) noexcept
+	{
+		if constexpr (std::allocator_traits<Alloc>::propagate_on_container_copy_assignment::value) lhs = rhs;
+	}
+
+	template<typename Alloc>
+	constexpr void alloc_assert_swap([[maybe_unused]] const Alloc &lhs, [[maybe_unused]] const Alloc &rhs) noexcept
 	{
 		SEK_ASSERT(std::allocator_traits<Alloc>::propagate_on_container_swap::value || alloc_eq(lhs, rhs));
 	}
@@ -47,32 +58,24 @@ namespace sek::detail
 			swap(lhs, rhs);
 		}
 	}
-	template<typename Alloc>
-	constexpr void alloc_move_assign(Alloc &lhs, Alloc &rhs) noexcept
-	{
-		if constexpr (std::allocator_traits<Alloc>::propagate_on_container_move_assignment::value) lhs = std::move(rhs);
-	}
-	template<typename Alloc>
-	constexpr void alloc_copy_assign(Alloc &lhs, const Alloc &rhs) noexcept
-	{
-		if constexpr (std::allocator_traits<Alloc>::propagate_on_container_copy_assignment::value) lhs = rhs;
-	}
 
-	template<typename... Allocs>
-	constexpr bool nothrow_alloc_default_construct = std::conjunction_v<std::is_nothrow_default_constructible<Allocs>...>;
-	template<typename... Allocs>
-	constexpr bool nothrow_alloc_copy_construct = std::conjunction_v<std::is_nothrow_copy_constructible<Allocs>...>;
-	template<typename... Allocs>
-	constexpr bool nothrow_alloc_copy_transfer =
-		std::conjunction_v<std::bool_constant<std::is_nothrow_copy_constructible_v<Allocs> && std::allocator_traits<Allocs>::is_always_equal::value>...>;
-	template<typename Alloc0, typename Alloc1>
-	constexpr bool nothrow_alloc_copy_move_transfer =
-		nothrow_alloc_copy_transfer<Alloc0> && std::is_nothrow_move_constructible_v<Alloc1>;
-	template<typename... Allocs>
-	constexpr bool nothrow_alloc_move_construct = std::conjunction_v<std::is_nothrow_move_constructible<Allocs>...>;
-	template<typename... Allocs>
-	constexpr bool nothrow_alloc_move_assign =
-		std::conjunction_v<std::bool_constant<(std::allocator_traits<Allocs>::propagate_on_container_move_assignment::value &&
-											   std::is_nothrow_move_assignable_v<Allocs>) ||
-											  std::allocator_traits<Allocs>::is_always_equal::value>...>;
+	template<typename... As>
+	constexpr bool nothrow_alloc_construct = std::conjunction_v<std::is_nothrow_default_constructible<As>...>;
+
+	// clang-format off
+	template<typename... As>
+	constexpr bool nothrow_alloc_copy = std::conjunction_v<std::bool_constant<std::allocator_traits<As>::is_always_equal::value &&
+																			  std::is_nothrow_copy_constructible_v<As>>...>;
+	template<typename A0, typename A1>
+	constexpr bool nothrow_alloc_transfer = nothrow_alloc_copy<A0> && std::is_nothrow_move_constructible_v<A1>;
+	// clang-format on
+
+	template<typename... As>
+	constexpr bool nothrow_alloc_move_construct = std::conjunction_v<std::is_nothrow_move_constructible<As>...>;
+	// clang-format off
+	template<typename... As>
+	constexpr bool nothrow_alloc_move_assign = std::conjunction_v<std::bool_constant<
+			(std::allocator_traits<As>::propagate_on_container_move_assignment::value && std::is_nothrow_move_assignable_v<As>) ||
+			std::allocator_traits<As>::is_always_equal::value>...>;
+	// clang-format on
 }	 // namespace sek::detail

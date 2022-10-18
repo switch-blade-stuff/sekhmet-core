@@ -374,7 +374,7 @@ namespace sek
 			 * @note Instance name and id are generated from the type name */
 			template<typename T>
 			constexpr implements_service(type_factory<T> &factory) noexcept
-				requires std::is_base_of_v<S, T> : implements_service(factory, type_name<T>(), type_name<T>())
+				requires std::is_base_of_v<S, T> : implements_service(factory, type_name_v<T>, type_name_v<T>)
 			{
 			}
 			/** Initializes an `implements_service` attribute for type `T`.
@@ -382,7 +382,7 @@ namespace sek
 			 * @note Instance id is generated from the type name */
 			template<typename T>
 			constexpr implements_service(type_factory<T> &factory, std::string_view name) noexcept
-				requires std::is_base_of_v<S, T> : implements_service(factory, name, type_name<T>())
+				requires std::is_base_of_v<S, T> : implements_service(factory, name, type_name_v<T>)
 			{
 			}
 			// clang-format on
