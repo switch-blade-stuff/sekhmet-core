@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <stdexcept>
 
 #include "detail/alloc_util.hpp"
@@ -591,10 +592,10 @@ namespace sek
 				}
 
 				/* Move extra elements. */
-				relocate_n(other_data + rel_pos, rel_n, this_data + rel_pos);
+				relocate_n(src_data + rel_pos, rel_n, dst_data + rel_pos);
 
 				/* Swap the rest. */
-				for (size_type i = 0; i < rel_pos; ++i) swap(this_data[i], other_data[i]);
+				for (size_type i = 0; i < rel_pos; ++i) swap(dst_data[i], src_data[i]);
 			}
 			else if (this_local != other_local)
 			{
@@ -706,7 +707,7 @@ namespace sek
 		template<typename... Args>
 		constexpr void resize_impl(size_type n, Args &&...args)
 		{
-			if (i >= max_size()) [[unlikely]]
+			if (n >= max_size()) [[unlikely]]
 				throw std::length_error("`buffered_vector` size exceeds maximum allowed limit");
 
 			if (const auto old_size = size(); n < old_size)

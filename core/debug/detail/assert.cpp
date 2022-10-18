@@ -5,6 +5,7 @@
 #include "../assert.hpp"
 
 #include <cstdio>
+#include <cstdlib>
 
 namespace sek::detail
 {

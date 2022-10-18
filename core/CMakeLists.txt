@@ -1,5 +1,6 @@
 
 include(${CMAKE_CURRENT_LIST_DIR}/detail/CMakeLists.txt)
+include(${CMAKE_CURRENT_LIST_DIR}/debug/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/system/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/math/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/serialization/CMakeLists.txt)
