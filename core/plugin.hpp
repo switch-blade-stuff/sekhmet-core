@@ -10,6 +10,7 @@
 #include "access_guard.hpp"
 #include "expected.hpp"
 #include "type_name.hpp"
+#include "version.hpp"
 
 namespace sek
 {
@@ -18,7 +19,7 @@ namespace sek
 	class plugin_group;
 	template<template_instance<plugin_group>>
 	class plugin_ptr;
-	template<basic_static_string, template_instance<plugin_group>>
+	template<basic_static_string, version, template_instance<plugin_group>>
 	class plugin;
 
 	namespace detail
@@ -35,7 +36,7 @@ namespace sek
 	/** @brief Structure used to implement common base functionality for all plugin interfaces. */
 	class SEK_CORE_PUBLIC plugin_interface
 	{
-		template<basic_static_string, template_instance<plugin_group>>
+		template<basic_static_string, version, template_instance<plugin_group>>
 		friend class plugin;
 		template<template_instance<plugin_group>>
 		friend class plugin_ptr;
@@ -46,6 +47,10 @@ namespace sek
 
 		/** Checks if the plugin is enabled. */
 		[[nodiscard]] constexpr bool is_enabled() const noexcept { return m_enabled; }
+		/** Returns the version of `sekhmet-core` the plugin was built for. */
+		[[nodiscard]] constexpr version core_ver() const noexcept { return m_core_ver; }
+		/** Returns the version of `sekhmet-core` the plugin was built for. */
+		[[nodiscard]] constexpr version plugin_ver() const noexcept { return m_core_ver; }
 		/** Returns the display name of the plugin. */
 		[[nodiscard]] constexpr std::string_view name() const noexcept { return m_name; }
 
@@ -58,9 +63,12 @@ namespace sek
 	private:
 		/* Mutex used to reference the plugin via a `plugin_ptr`. */
 		std::recursive_mutex m_mtx;
+		bool m_enabled = false;
+
+		version m_core_ver = SEK_CORE_VERSION;
+		version m_plugin_ver;
 
 		std::string_view m_name;
-		bool m_enabled = false;
 	};
 
 	/** @brief Pointer-like structure used to reference an instance of a plugin.
@@ -114,9 +122,10 @@ namespace sek
 	/** @brief Base type used to implement plugins.
 	 * @tparam Group An instance of `plugin_group`, used to define a group this plugin belongs to.
 	 * @tparam Name Display name of the plugin.
+	 * @tparam Version Version of the plugin.
 	 * @note Child plugin types must publicly inherit from `plugin`.
 	 * @note Child plugin types must be instantiated via `SEK_PLUGIN_INSTANCE`. */
-	template<basic_static_string Name, template_instance<plugin_group> Group>
+	template<basic_static_string Name, version Version, template_instance<plugin_group> Group>
 	class plugin : public Group::interface_type
 	{
 	public:
@@ -159,7 +168,7 @@ namespace sek
 	/** @brief Handle used to reference a native dynamic library which contains one or multiple plugins. */
 	class module
 	{
-		template<basic_static_string, template_instance<plugin_group>>
+		template<basic_static_string, version, template_instance<plugin_group>>
 		friend class plugin;
 
 	public:
@@ -267,6 +276,20 @@ namespace sek
 		data_t *m_data = nullptr;
 	};
 
+	template<basic_static_string N, version V, template_instance<plugin_group> G>
+	plugin<N, V, G>::plugin()
+	{
+		plugin_interface::m_name = static_string_cast<char>(N);
+		plugin_interface::m_plugin_ver = V;
+
+		/* TODO: Register plugin instance. */
+	}
+	template<basic_static_string N, version V, template_instance<plugin_group> G>
+	plugin<N, V, G>::~plugin()
+	{
+		/* TODO: Unregister plugin instance. */
+	}
+
 	/** @brief Plugin interface used for the core plugin group. */
 	class SEK_CORE_PUBLIC core_plugin_interface : public plugin_interface
 	{
@@ -291,9 +314,10 @@ namespace sek
 	/** @brief Core plugin group type (alias for `plugin_group<core_plugin_interface>`). */
 	using core_plugin_group = plugin_group<core_plugin_interface>;
 	/** @brief Core plugin base type (alias for `plugin<core_plugin_group, Name>`).
-	 * @tparam Name Display name of the plugin. */
-	template<basic_static_string Name>
-	using core_plugin = plugin<Name, core_plugin_group>;
+	 * @tparam Name Display name of the plugin.
+	 * @tparam Version Version of the plugin. */
+	template<basic_static_string Name, version Version>
+	using core_plugin = plugin<Name, Version, core_plugin_group>;
 }	 // namespace sek
 
 // clang-format off
@@ -303,7 +327,7 @@ namespace sek
  * @example
  * @code{cpp}
  * // my_core_plugin.hpp
- * struct my_core_plugin : sek::core_plugin<"My Core Plugin">
+ * struct my_core_plugin : sek::core_plugin<"My Core Plugin", "1.0.0">
  * {
  * 	my_core_plugin(int i);
  *
