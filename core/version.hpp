@@ -24,8 +24,8 @@ namespace sek
 			for (std::iter_value_t<Iter> c; first != second && (c = *first++) != '\0' && c != '.';)
 			{
 				/* Keep parsing this component until a separator. */
-				const auto a = parse_version_char<U>(c);
-				const auto b = cmp * 10;
+				const U a = parse_version_char<U>(c);
+				const U b = cmp * 10;
 				cmp = a + b;
 			}
 			if constexpr (sizeof...(Us) != 0) parse_version<I + 1>(first, second, cmps...);
@@ -163,12 +163,22 @@ namespace sek
 	template<std::size_t I>
 	[[nodiscard]] constexpr auto &get(version &v) noexcept
 	{
-		return v.template component<I>();
+		if constexpr (I == 0)
+			return v.major;
+		else if constexpr (I == 1)
+			return v.minor;
+		else
+			return v.patch;
 	}
 	template<std::size_t I>
 	[[nodiscard]] constexpr auto &get(const version &v) noexcept
 	{
-		return v.template component<I>();
+		if constexpr (I == 0)
+			return v.major;
+		else if constexpr (I == 1)
+			return v.minor;
+		else
+			return v.patch;
 	}
 
 	[[nodiscard]] constexpr hash_t hash(const version &v) noexcept { return hash(v.as_uint64()); }
