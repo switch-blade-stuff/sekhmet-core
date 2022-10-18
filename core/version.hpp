@@ -11,30 +11,49 @@
 
 namespace sek
 {
-	namespace detail
+	/** @brief Structure holding 3 integers representing a "semantic" version number or a compatible version format. */
+	struct version
 	{
-		template<typename U, typename C>
-		[[nodiscard]] constexpr U parse_version_char(C c)
-		{
-			return c >= '0' && c <= '9' ? static_cast<U>(c - '0') : throw std::runtime_error("Invalid version string");
-		}
+	private:
 		template<std::size_t I, std::forward_iterator Iter, typename U, typename... Us>
-		constexpr void parse_version(Iter first, Iter second, U &cmp, Us &...cmps) noexcept
+		constexpr static void parse(Iter first, Iter second, U &cmp, Us &...cmps) noexcept
 		{
 			for (std::iter_value_t<Iter> c; first != second && (c = *first++) != '\0' && c != '.';)
 			{
 				/* Keep parsing this component until a separator. */
-				const U a = parse_version_char<U>(c);
+				const U a = parse<U>(c);
 				const U b = cmp * 10;
 				cmp = a + b;
 			}
-			if constexpr (sizeof...(Us) != 0) parse_version<I + 1>(first, second, cmps...);
+			if constexpr (sizeof...(Us) != 0) parse<I + 1>(first, second, cmps...);
 		}
-	}	 // namespace detail
+		template<typename U, typename C>
+		[[nodiscard]] constexpr static U parse(C c)
+		{
+			return c >= '0' && c <= '9' ? static_cast<U>(c - '0') : throw std::runtime_error("Invalid version string");
+		}
+		template<typename C, typename I, typename T>
+		constexpr static void to_string(I &out, T val)
+		{
+			if constexpr (std::is_signed_v<T>)
+				if (val < 0)
+				{
+					*out++ = '-';
+					val = -val;
+				}
 
-	/** @brief Structure holding 3 integers representing a "semantic" version number or a compatible version format. */
-	struct version
-	{
+			T div = 1;
+			T digits = 1;
+			for (; div <= val / 10; ++digits) div *= 10;
+			for (; digits > 0; --digits)
+			{
+				*out++ = alphabet<C>[val / div];
+				val %= div;
+				div /= 10;
+			}
+		}
+
+	public:
 		constexpr version() noexcept = default;
 		/** Initializes a version from the major, minor & patch components.
 		 * @param major Major component.
@@ -50,7 +69,7 @@ namespace sek
 		template<std::forward_iterator Iter>
 		constexpr version(Iter first, Iter last)
 		{
-			detail::parse_version<0>(first, last, major, minor, patch);
+			parse<0>(first, last, major, minor, patch);
 		}
 		/** @copydoc uuid */
 		template<std::ranges::forward_range R>
@@ -93,7 +112,11 @@ namespace sek
 		template<typename C, std::output_iterator<C> Iter>
 		constexpr void to_string(Iter out) const
 		{
-			to_string_impl<C, 0>(out);
+			to_string<C>(out, major);
+			*out++ = '.';
+			to_string<C>(out, minor);
+			*out++ = '.';
+			to_string<C>(out, patch);
 		}
 		/** Writes the version as a string to the output iterator.
 		 * @param out Iterator to write the characters to.
@@ -128,36 +151,6 @@ namespace sek
 	private:
 		template<typename C>
 		constexpr static C alphabet[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
-
-		template<typename C, typename Iter, typename T>
-		constexpr void component_to_string(Iter &out, T val) const
-		{
-			if constexpr (std::is_signed_v<T>)
-				if (val < 0)
-				{
-					*out++ = '-';
-					val = -val;
-				}
-
-			T div = 1;
-			T digits = 1;
-			for (; div <= val / 10; ++digits) div *= 10;
-			for (; digits > 0; --digits)
-			{
-				*out++ = alphabet<C>[val / div];
-				val %= div;
-				div /= 10;
-			}
-		}
-		template<typename C, std::size_t I, typename Iter>
-		constexpr void to_string_impl(Iter &out) const
-		{
-			component_to_string<C>(out, major);
-			*out++ = '.';
-			component_to_string<C>(out, minor);
-			*out++ = '.';
-			component_to_string<C>(out, patch);
-		}
 	};
 
 	template<std::size_t I>
