@@ -21,6 +21,7 @@ target_sources(${PROJECT_NAME} INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/uuid.hpp
         ${CMAKE_CURRENT_LIST_DIR}/version.hpp
 
+        ${CMAKE_CURRENT_LIST_DIR}/buffered_vector.hpp
         ${CMAKE_CURRENT_LIST_DIR}/interned_string.hpp
         ${CMAKE_CURRENT_LIST_DIR}/dense_map.hpp
         ${CMAKE_CURRENT_LIST_DIR}/dense_set.hpp
