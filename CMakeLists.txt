@@ -1,16 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(sekhmet-core)
 
-# Set utility variables
-if (NOT ${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
-    set(SEK_TOP_LEVEL FALSE)
-else ()
-    set(SEK_TOP_LEVEL TRUE)
-endif ()
-if (UNIX AND NOT APPLE)
-    set(LINUX TRUE)
-endif ()
-
 # Handle pre C++20 ABI-freeze MSVC versions
 if (MSVC AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS_EQUAL 19.30)
     set(CMAKE_CXX_STANDARD 23) # /std:c++latest required for MSVC pre abi-freeze
@@ -25,6 +15,10 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebIn
     set(SEK_ENABLE_TESTS ON CACHE BOOL "Build unit tests" FORCE)
 endif ()
 
+# Find dependencies
+find_package(fmt CONFIG REQUIRED)
+find_package(asio CONFIG REQUIRED)
+
 # Set project-related variables & properties
 set(SEK_CORE_PROJECT ${PROJECT_NAME})
 set(SEK_CORE_LIBRARY_PATH $<TARGET_FILE:${SEK_CORE_PROJECT}>)
@@ -34,9 +28,17 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib CACHE STRING "")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE STRING "")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE STRING "")
 
-# Add project library target & include it's directories
+# Add project library target & include directories
 add_library(${SEK_CORE_PROJECT} SHARED)
+include_directories(${FMT_INCLUDE_DIR})
+include_directories(${ASIO_INCLUDE_DIR})
 include_directories(${CMAKE_CURRENT_LIST_DIR})
+
+# Set symbol visibility
+set_target_properties(${SEK_CORE_PROJECT} PROPERTIES C_VISIBILITY_PRESET hidden)
+set_target_properties(${SEK_CORE_PROJECT} PROPERTIES CXX_VISIBILITY_PRESET hidden)
+set_target_properties(${SEK_CORE_PROJECT} PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
+set_target_properties(${SEK_CORE_PROJECT} PROPERTIES DEFINE_SYMBOL "SEK_CORE_EXPORT")
 
 # Set compiler options
 if (MSVC)
@@ -74,13 +76,7 @@ if (SEK_ENABLE_IPO)
     endif ()
 endif ()
 
-# Set symbol visibility
-set_target_properties(${SEK_CORE_PROJECT} PROPERTIES C_VISIBILITY_PRESET hidden)
-set_target_properties(${SEK_CORE_PROJECT} PROPERTIES CXX_VISIBILITY_PRESET hidden)
-set_target_properties(${SEK_CORE_PROJECT} PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
-set_target_properties(${SEK_CORE_PROJECT} PROPERTIES DEFINE_SYMBOL "SEK_CORE_EXPORT")
-
-# Find & link thread library
+# Find & link threads
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 if (Threads_FOUND)
@@ -88,16 +84,11 @@ if (Threads_FOUND)
     target_link_libraries(${SEK_CORE_PROJECT} PUBLIC ${SEK_THREADS_LIBRARY})
 endif ()
 
+# Link dependencies
+target_link_libraries(${SEK_CORE_PROJECT} PUBLIC fmt::fmt asio::asio)
+
 # Include source tree
 include(${SEK_CORE_SOURCE_DIR}/CMakeLists.txt)
-
-# Find & link dependencies
-find_package(fmt CONFIG REQUIRED)
-find_package(asio CONFIG REQUIRED)
-
-target_include_directories(${SEK_CORE_PROJECT} PRIVATE ${FMT_INCLUDE_DIR})
-target_include_directories(${SEK_CORE_PROJECT} PRIVATE ${ASIO_INCLUDE_DIR})
-target_link_libraries(${SEK_CORE_PROJECT} PUBLIC fmt::fmt asio::asio)
 
 # Add unit test project
 if (SEK_ENABLE_TESTS)
