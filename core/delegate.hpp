@@ -41,8 +41,6 @@ namespace sek
 		struct is_delegate_func : std::false_type {};
 		template<typename RF, typename... ArgsF, RF (*F)(ArgsF...), typename RD, typename... ArgsD>
 		struct is_delegate_func<F, RD(ArgsD...)> : is_delegate_compatible<RD(ArgsD...), RF(ArgsF...)> {};
-		template<typename RF, typename... ArgsF, RF (&F)(ArgsF...), typename RD, typename... ArgsD>
-		struct is_delegate_func<F, RD(ArgsD...)> : is_delegate_compatible<RD(ArgsD...), RF(ArgsF...)> {};
 		template<typename RF, typename I, typename... ArgsF, RF (I::*F)(ArgsF...), typename RD, typename... ArgsD>
 		struct is_delegate_func<F, RD(ArgsD...)> : is_delegate_compatible<RD(ArgsD...), RF(ArgsF...)> {};
 		template<typename RF, typename I, typename... ArgsF, RF (I::*F)(ArgsF...) const, typename RD, typename... ArgsD>
@@ -60,10 +58,6 @@ namespace sek
 	template<auto F>
 	struct delegate_func_t;
 	template<typename R, typename... Args, R (*F)(Args...)>
-	struct delegate_func_t<F>
-	{
-	};
-	template<typename R, typename... Args, R (&F)(Args...)>
 	struct delegate_func_t<F>
 	{
 	};

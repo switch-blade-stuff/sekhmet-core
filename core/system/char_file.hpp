@@ -192,6 +192,8 @@ namespace sek
 			const auto c = get(std::nothrow);
 			if (!c) [[unlikely]]
 				return unexpected{c.error()};
+			else if (*c == sent)
+				break;
 
 			dst[i++] = T::to_char_type(*c);
 		}

@@ -105,7 +105,7 @@ namespace sek
 	{
 		/* `detail::service_impl_tag` is used to query all attribute types. */
 		auto type_db = type_database::instance().access_shared();
-		auto query = type_db->query().template with_attributes<detail::service_impl_tag>();
+		auto query = type_db->query().template with_attribute<detail::service_impl_tag>();
 
 		for (auto &type : query)
 			if (type.has_attribute(attr_type)) /* Check for the actual service attribute. */

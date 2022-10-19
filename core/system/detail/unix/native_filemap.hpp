@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include "native_file.hpp"
 
 #if defined(SEK_OS_UNIX)
@@ -27,8 +29,8 @@ namespace sek::detail
 		[[nodiscard]] constexpr std::uint64_t size() const noexcept { return m_data_size; }
 		[[nodiscard]] constexpr void *data() const noexcept
 		{
-			const auto bytes = std::bit_cast<std::byte *>(m_handle);
-			return std::bit_cast<void *>(bytes + m_data_offset);
+			const auto bytes = static_cast<std::byte *>(m_handle);
+			return static_cast<void *>(bytes + m_data_offset);
 		}
 
 		[[nodiscard]] constexpr bool is_mapped() const noexcept { return m_handle != nullptr; }

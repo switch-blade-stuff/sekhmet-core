@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "define.h"
 #include "detail/ebo_base_helper.hpp"
 
 namespace sek

@@ -7,6 +7,7 @@
 #include <fcntl.h>
 
 #include "../../../define.h"
+#include <sys/stat.h>
 #include <system_error>
 
 #if (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS >= 64) || (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L)
@@ -26,11 +27,14 @@
 #define USE_FSYNC
 #endif
 
-namespace sek::detail
+	namespace sek::detail
 {
 	constexpr auto access = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
 
-	[[nodiscard]] inline static std::error_code current_error() noexcept { return std::make_error_code(std::errc{errno}); }
+	[[nodiscard]] inline static std::error_code current_error() noexcept
+	{
+		return std::make_error_code(std::errc{errno});
+	}
 	[[nodiscard]] inline static std::uint64_t page_size() noexcept
 	{
 		const auto res = sysconf(_SC_PAGE_SIZE);

@@ -8,6 +8,7 @@
 #include <mutex>
 #include <thread>
 
+#include "define.h"
 #include "detail/ebo_base_helper.hpp"
 #include <condition_variable>
 

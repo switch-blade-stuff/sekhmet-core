@@ -66,14 +66,12 @@ namespace sek
 	/** @brief Handle used to reference a native dynamic library which contains one or multiple plugins. */
 	class module
 	{
-	public:
-		typedef detail::module_handle native_handle_type;
-
-	private:
 		using path_char = detail::module_path_char;
 		using data_t = detail::module_data;
 
 	public:
+		typedef detail::module_handle native_handle_type;
+
 		/** Returns module handle referencing the main (parent executable) module. */
 		[[nodiscard]] static SEK_CORE_PUBLIC module main();
 		/** Returns a vector of module handles to all currently opened modules. */
@@ -226,6 +224,9 @@ namespace sek
 	template<typename I>
 	class plugin_group : detail::group_data
 	{
+		template<basic_static_string, version, template_instance<plugin_group>>
+		friend class plugin;
+
 		static_assert(std::is_base_of_v<plugin_interface, I>, "Plugin interface must be a specialization of `plugin_interface`");
 
 		using node_t = detail::plugin_node;

@@ -225,7 +225,7 @@ namespace sek::detail
 		if constexpr (check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
 			out.simd = v;
 		else if constexpr (N == 2)
-			_mm_storeu_si64(v.data(), v);
+			_mm_storeu_si64(out.data(), v);
 		else if constexpr (N == 3)
 		{
 			const auto v64 = reinterpret_cast<__m64 *>(out.data());
@@ -233,7 +233,7 @@ namespace sek::detail
 			_mm_storeu_si32(out.data() + 2, v);
 		}
 		else
-			_mm_storeu_si128(reinterpret_cast<__m128i *>(v.data()), v);
+			_mm_storeu_si128(reinterpret_cast<__m128i *>(out.data()), v);
 	}
 
 	template<integral_of_size<4> T, std::size_t N, policy_t P, typename F>
@@ -395,7 +395,7 @@ namespace sek::detail
 		if constexpr (check_policy_v<P, policy_t::STORAGE_MASK, policy_t::ALIGNED>)
 			return v.simd;
 		else
-			return _mm_loadu_si128(reinterpret_cast<const __m128i *>(out.data()));
+			return _mm_loadu_si128(reinterpret_cast<const __m128i *>(v.data()));
 	}
 	template<integral_of_size<8> T, std::size_t N, policy_t P>
 	inline void x86_unpack(vector_data<T, 2, P> &out, __m128i v) noexcept

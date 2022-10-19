@@ -120,7 +120,7 @@ namespace sek
 		template<typename T>
 		[[nodiscard]] type_query &with_attribute()
 		{
-			return with_attributes(type_info::get<T>());
+			return with_attribute(type_info::get<T>());
 		}
 
 		/** Returns reference to the set of types that was matched by the query. */
