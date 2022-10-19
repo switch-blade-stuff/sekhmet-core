@@ -1,7 +1,7 @@
 
 include(${CMAKE_CURRENT_LIST_DIR}/type_info/CMakeLists.txt)
 
-target_sources(${PROJECT_NAME} INTERFACE
+list(APPEND SEK_CORE_INTERFACE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/arch.h
         ${CMAKE_CURRENT_LIST_DIR}/platform.h
 
@@ -23,7 +23,7 @@ target_sources(${PROJECT_NAME} INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/owned_ptr.hpp
         ${CMAKE_CURRENT_LIST_DIR}/flagged_integer.hpp)
 
-target_sources(${PROJECT_NAME} PRIVATE
+list(APPEND SEK_CORE_PRIVATE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/assert.cpp
         ${CMAKE_CURRENT_LIST_DIR}/expected.cpp
         ${CMAKE_CURRENT_LIST_DIR}/delegate_error.cpp

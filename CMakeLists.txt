@@ -11,13 +11,58 @@ endif ()
 # Project build options
 option(SEK_ENABLE_IPO "Enable IPO support" ON)
 option(SEK_ENABLE_TESTS "Build unit tests" OFF)
+option(SEK_BUILD_SHARED "Build shared library" ON)
+
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     set(SEK_ENABLE_TESTS ON CACHE BOOL "Build unit tests" FORCE)
 endif ()
 
-# Find dependencies
+# Project dependencies
+find_package(Threads REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(asio CONFIG REQUIRED)
+
+# Initialization macros
+macro(sek_core_build_options)
+    if (MSVC)
+        if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+            target_compile_options(${ARGV0} PUBLIC /W4 /wd4251)
+        else ()
+            target_compile_options(${ARGV0} PUBLIC /W3)
+        endif ()
+    elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+        # Enable all warnings & errors for the current project & children
+        target_compile_options(${ARGV0} PUBLIC "-Wall" "-Wextra" "-Wno-unknown-pragmas" "-Wconversion" "-Werror")
+
+        if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+            target_compile_options(${ARGV0} PUBLIC "-fconcepts-diagnostics-depth=32")
+        else ()
+            # Always set file prefix map to current directory to avoid exposing full directory tree in debug info
+            target_compile_options(${ARGV0} PUBLIC "-ffile-prefix-map=\"${CMAKE_CURRENT_LIST_DIR}/\"=\"\"")
+        endif ()
+    endif ()
+
+    if (SEK_ENABLE_IPO)
+        include(CheckIPOSupported OPTIONAL RESULT_VARIABLE IPO_MODULE)
+        if (NOT IPO_MODULE STREQUAL "NOTFOUND")
+            check_ipo_supported(RESULT IPO_FOUND OUTPUT IPO_ERR)
+            if (IPO_FOUND)
+                set_property(TARGET ${ARGV0} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+            else ()
+                message(WARNING "IPO is not supported by the toolchain: ${IPO_ERR}")
+            endif ()
+        else ()
+            message(WARNING "Failed to include IPO CMake module")
+        endif ()
+    endif ()
+endmacro()
+
+macro(sek_core_visibility)
+    set_target_properties(${ARGV0} PROPERTIES C_VISIBILITY_PRESET hidden)
+    set_target_properties(${ARGV0} PROPERTIES CXX_VISIBILITY_PRESET hidden)
+    set_target_properties(${ARGV0} PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
+    set_target_properties(${ARGV0} PROPERTIES DEFINE_SYMBOL "SEK_CORE_EXPORT")
+endmacro()
 
 # Set project-related variables & properties
 set(SEK_CORE_PROJECT ${PROJECT_NAME})
@@ -28,69 +73,44 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib CACHE STRING "")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE STRING "")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE STRING "")
 
-# Add project library target & include directories
-add_library(${SEK_CORE_PROJECT} SHARED)
+# Add project targets & include directories
+add_library(${SEK_CORE_PROJECT}-static STATIC)
+add_library(${SEK_CORE_PROJECT}-shared SHARED)
+if (SEK_BUILD_SHARED)
+    add_library(${SEK_CORE_PROJECT}-lib ALIAS ${SEK_CORE_PROJECT}-shared)
+else ()
+    add_library(${SEK_CORE_PROJECT}-lib ALIAS ${SEK_CORE_PROJECT}-static)
+endif ()
+add_library(${SEK_CORE_PROJECT} INTERFACE)
+
 include_directories(${FMT_INCLUDE_DIR})
 include_directories(${ASIO_INCLUDE_DIR})
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
 # Set symbol visibility
-set_target_properties(${SEK_CORE_PROJECT} PROPERTIES C_VISIBILITY_PRESET hidden)
-set_target_properties(${SEK_CORE_PROJECT} PROPERTIES CXX_VISIBILITY_PRESET hidden)
-set_target_properties(${SEK_CORE_PROJECT} PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
-set_target_properties(${SEK_CORE_PROJECT} PROPERTIES DEFINE_SYMBOL "SEK_CORE_EXPORT")
+sek_core_visibility(${SEK_CORE_PROJECT}-static)
+sek_core_visibility(${SEK_CORE_PROJECT}-shared)
 
 # Set compiler options
-if (MSVC)
-    if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-        target_compile_options(${SEK_CORE_PROJECT} PUBLIC /W4 /wd4251)
-    else ()
-        target_compile_options(${SEK_CORE_PROJECT} PUBLIC /W3)
-    endif ()
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    # Enable all warnings & errors for the current project & children
-    target_compile_options(${SEK_CORE_PROJECT} PUBLIC "-Wall" "-Wextra" "-Wno-unknown-pragmas" "-Wconversion" "-Werror")
-
-    if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-        target_compile_options(${SEK_CORE_PROJECT} PUBLIC "-fconcepts-diagnostics-depth=32")
-    else ()
-        # Always set file prefix map to current directory to avoid exposing full directory tree in debug info
-        target_compile_options(${SEK_CORE_PROJECT} PUBLIC "-ffile-prefix-map=\"${CMAKE_CURRENT_LIST_DIR}/\"=\"\"")
-    endif ()
-endif ()
-
+sek_core_build_options(${SEK_CORE_PROJECT}-static)
+sek_core_build_options(${SEK_CORE_PROJECT}-shared)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Enable IPO
-if (SEK_ENABLE_IPO)
-    include(CheckIPOSupported OPTIONAL RESULT_VARIABLE IPO_MODULE)
-    if (NOT IPO_MODULE STREQUAL "NOTFOUND")
-        check_ipo_supported(RESULT IPO_FOUND OUTPUT IPO_ERR)
-        if (IPO_FOUND)
-            set_property(TARGET ${SEK_CORE_PROJECT} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-        else ()
-            message(WARNING "IPO is not supported by the toolchain: ${IPO_ERR}")
-        endif ()
-    else ()
-        message(WARNING "Failed to include IPO CMake module")
-    endif ()
-endif ()
-
-# Find & link threads
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
-if (Threads_FOUND)
-    set(SEK_THREADS_LIBRARY ${CMAKE_THREAD_LIBS_INIT})
-    target_link_libraries(${SEK_CORE_PROJECT} PUBLIC ${SEK_THREADS_LIBRARY})
-endif ()
+# Include source tree & add sources
+include(${SEK_CORE_SOURCE_DIR}/CMakeLists.txt)
+target_sources(${SEK_CORE_PROJECT} INTERFACE ${SEK_CORE_INTERFACE_SOURCES})
+target_sources(${SEK_CORE_PROJECT}-static INTERFACE ${SEK_CORE_INTERFACE_SOURCES})
+target_sources(${SEK_CORE_PROJECT}-shared INTERFACE ${SEK_CORE_INTERFACE_SOURCES})
+target_sources(${SEK_CORE_PROJECT}-static PRIVATE ${SEK_CORE_PRIVATE_SOURCES})
+target_sources(${SEK_CORE_PROJECT}-shared PRIVATE ${SEK_CORE_PRIVATE_SOURCES})
+target_sources(${SEK_CORE_PROJECT}-static PUBLIC ${SEK_CORE_PUBLIC_SOURCES})
+target_sources(${SEK_CORE_PROJECT}-shared PUBLIC ${SEK_CORE_PUBLIC_SOURCES})
 
 # Link dependencies
-target_link_libraries(${SEK_CORE_PROJECT} PUBLIC fmt::fmt asio::asio)
+target_link_libraries(${SEK_CORE_PROJECT}-static PUBLIC fmt::fmt asio::asio ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(${SEK_CORE_PROJECT}-shared PUBLIC fmt::fmt asio::asio ${CMAKE_THREAD_LIBS_INIT})
 
-# Include source tree
-include(${SEK_CORE_SOURCE_DIR}/CMakeLists.txt)
-
-# Add unit test project
+# Add unit tests
 if (SEK_ENABLE_TESTS)
     add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/test test)
 endif ()

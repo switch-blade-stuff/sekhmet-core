@@ -1,3 +1,3 @@
 
-target_sources(${PROJECT_NAME} INTERFACE
+list(APPEND SEK_CORE_INTERFACE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/texture.hpp)

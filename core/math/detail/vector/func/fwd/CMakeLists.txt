@@ -1,5 +1,5 @@
 
-target_sources(${PROJECT_NAME} INTERFACE
+list(APPEND SEK_CORE_INTERFACE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/arithmetic.hpp
         ${CMAKE_CURRENT_LIST_DIR}/bitwise.hpp
         ${CMAKE_CURRENT_LIST_DIR}/category.hpp

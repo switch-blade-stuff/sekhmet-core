@@ -5,7 +5,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/math/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/serialization/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/rhi/CMakeLists.txt)
 
-target_sources(${PROJECT_NAME} INTERFACE
+list(APPEND SEK_CORE_INTERFACE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/define.h
         ${CMAKE_CURRENT_LIST_DIR}/assert.hpp
 

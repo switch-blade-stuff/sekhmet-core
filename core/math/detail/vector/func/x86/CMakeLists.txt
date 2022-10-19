@@ -1,5 +1,5 @@
 
-target_sources(${PROJECT_NAME} INTERFACE
+list(APPEND SEK_CORE_INTERFACE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/common.hpp
         ${CMAKE_CURRENT_LIST_DIR}/arithmetic.hpp
         ${CMAKE_CURRENT_LIST_DIR}/bitwise.hpp
@@ -23,7 +23,7 @@ target_sources(${PROJECT_NAME} INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/f32/trigonometric.hpp
         ${CMAKE_CURRENT_LIST_DIR}/f64/trigonometric.hpp)
 
-target_sources(${PROJECT_NAME} PRIVATE
+list(APPEND SEK_CORE_PRIVATE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/utility.cpp
         ${CMAKE_CURRENT_LIST_DIR}/f32/exponential.cpp
         ${CMAKE_CURRENT_LIST_DIR}/f32/trigonometric.cpp

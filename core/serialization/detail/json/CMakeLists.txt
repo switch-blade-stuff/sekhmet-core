@@ -1,5 +1,5 @@
 
-target_sources(${PROJECT_NAME} INTERFACE
+list(APPEND SEK_CORE_INTERFACE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/json_error.hpp
         ${CMAKE_CURRENT_LIST_DIR}/type.hpp
         ${CMAKE_CURRENT_LIST_DIR}/object.hpp
@@ -8,6 +8,6 @@ target_sources(${PROJECT_NAME} INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/ubj_reader.hpp
         ${CMAKE_CURRENT_LIST_DIR}/ubj_writer.hpp)
 
-target_sources(${PROJECT_NAME} PRIVATE
+list(APPEND SEK_CORE_PRIVATE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/json_error.cpp
         ${CMAKE_CURRENT_LIST_DIR}/object.cpp)

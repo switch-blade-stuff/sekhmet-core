@@ -1,7 +1,7 @@
 
 include(${CMAKE_CURRENT_LIST_DIR}/json/CMakeLists.txt)
 
-target_sources(${PROJECT_NAME} INTERFACE
+list(APPEND SEK_CORE_INTERFACE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/util.hpp
         ${CMAKE_CURRENT_LIST_DIR}/manipulators.hpp
         ${CMAKE_CURRENT_LIST_DIR}/traits.hpp
@@ -12,5 +12,5 @@ target_sources(${PROJECT_NAME} INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/archive_writer.hpp
         ${CMAKE_CURRENT_LIST_DIR}/binary_archive.hpp)
 
-target_sources(${PROJECT_NAME} PRIVATE
+list(APPEND SEK_CORE_PRIVATE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/archive_error.cpp)
