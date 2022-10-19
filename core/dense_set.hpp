@@ -7,7 +7,7 @@
 #include <iterator>
 #include <stdexcept>
 
-#include "debug/assert.hpp"
+#include "assert.hpp"
 #include "detail/dense_hash_table.hpp"
 #include "detail/table_util.hpp"
 

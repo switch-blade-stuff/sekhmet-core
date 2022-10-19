@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-#include "../debug/assert.hpp"
+#include "../assert.hpp"
 #include "../hash.hpp"
 #include "../math/utility.hpp"
 #include "alloc_util.hpp"

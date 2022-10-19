@@ -6,7 +6,7 @@
 
 #include <bit>
 
-#include "define.h"
+#include "../define.h"
 #include "packed_pair.hpp"
 
 namespace sek::detail

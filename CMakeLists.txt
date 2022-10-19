@@ -20,22 +20,6 @@ endif ()
 
 # Project build options
 option(SEK_ENABLE_IPO "Enable IPO support" ON)
-
-option(SEK_ENABLE_PROFILER "Enable profiling" ON)
-if (NOT SEK_ENABLE_SIMD)
-    add_compile_definitions(SEK_NO_PROFILER)
-endif ()
-
-option(SEK_ENABLE_SIMD "Enable SIMD-accelerated math" ON)
-if (NOT SEK_ENABLE_SIMD)
-    add_compile_definitions(SEK_NO_SIMD)
-endif ()
-
-option(SEK_ENABLE_WIN_PATH "Enable support for Windows drive letters and path separators" OFF)
-if (SEK_ENABLE_WIN_PATH)
-    add_compile_definitions(SEK_USE_WIN_PATH)
-endif ()
-
 option(SEK_ENABLE_TESTS "Build unit tests" OFF)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     set(SEK_ENABLE_TESTS ON CACHE BOOL "Build unit tests" FORCE)
@@ -45,7 +29,6 @@ endif ()
 set(SEK_CORE_PROJECT ${PROJECT_NAME})
 set(SEK_CORE_LIBRARY_PATH $<TARGET_FILE:${SEK_CORE_PROJECT}>)
 set(SEK_CORE_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/core)
-set(SEK_CORE_VERSION 0.0.1)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib CACHE STRING "")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin CACHE STRING "")
@@ -95,10 +78,6 @@ endif ()
 set_target_properties(${SEK_CORE_PROJECT} PROPERTIES C_VISIBILITY_PRESET hidden)
 set_target_properties(${SEK_CORE_PROJECT} PROPERTIES CXX_VISIBILITY_PRESET hidden)
 set_target_properties(${SEK_CORE_PROJECT} PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
-
-# Set compilation variables & definitions
-add_compile_definitions(SEK_CORE_VERSION="${SEK_CORE_VERSION}")
-add_compile_definitions(SEK_CORE_VERSION="${SEK_CORE_PROJECT}")
 set_target_properties(${SEK_CORE_PROJECT} PROPERTIES DEFINE_SYMBOL "SEK_CORE_EXPORT")
 
 # Find & link thread library
@@ -109,12 +88,18 @@ if (Threads_FOUND)
     target_link_libraries(${SEK_CORE_PROJECT} PUBLIC ${SEK_THREADS_LIBRARY})
 endif ()
 
-# Include core library subdirectory
+# Include source tree
 include(${SEK_CORE_SOURCE_DIR}/CMakeLists.txt)
-# Include third-party projects
-include(${CMAKE_CURRENT_LIST_DIR}/third-party/CMakeLists.txt)
 
-# Include test project
+# Find & link dependencies
+find_package(fmt CONFIG REQUIRED)
+find_package(asio CONFIG REQUIRED)
+
+target_include_directories(${SEK_CORE_PROJECT} PRIVATE ${FMT_INCLUDE_DIR})
+target_include_directories(${SEK_CORE_PROJECT} PRIVATE ${ASIO_INCLUDE_DIR})
+target_link_libraries(${SEK_CORE_PROJECT} PUBLIC fmt::fmt asio::asio)
+
+# Add unit test project
 if (SEK_ENABLE_TESTS)
     add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/test test)
 endif ()

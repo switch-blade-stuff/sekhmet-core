@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-#include "../debug/assert.hpp"
+#include "../assert.hpp"
 #include "packed_pair.hpp"
 #include "table_util.hpp"
 

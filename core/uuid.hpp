@@ -6,17 +6,18 @@
 
 #include <algorithm>
 #include <array>
-#include <stdexcept>
-#include <string>
 
-#include "define.h"
 #include "hash.hpp"
+#include <fmt/format.h>
 
 namespace sek
 {
 	/** @brief UUID Version 4 Variant 1. */
 	class uuid
 	{
+		template<typename, typename, typename>
+		friend struct fmt::formatter;
+
 		friend constexpr hash_t hash(const uuid &) noexcept;
 
 	public:
@@ -145,15 +146,6 @@ namespace sek
 		{
 			write_string<C>(out, upper);
 		}
-		/** Writes 36 characters of UUID string representation to the output iterator.
-		 * @param out Iterator to write the characters to.
-		 * @param upper If set to `true`, hex digits would be written using uppercase letters.
-		 * @note Output must have space for 36 characters. */
-		template<std::forward_iterator Iter>
-		constexpr void to_string(Iter out, bool upper = false) const
-		{
-			return to_string<std::iter_value_t<Iter>, Iter>(out, upper);
-		}
 
 		/** Returns array of bytes of this UUID. */
 		[[nodiscard]] constexpr std::array<std::byte, 16> bytes() const noexcept { return m_bytes; }
@@ -166,7 +158,7 @@ namespace sek
 
 	private:
 		template<typename Iter>
-		constexpr void parse_string(Iter first, Iter last) noexcept
+		constexpr void parse_string(Iter first, Iter last)
 		{
 			for (std::size_t i = 0; i < SEK_ARRAY_SIZE(m_bytes) * 2 && first != last; ++first)
 			{
@@ -178,7 +170,7 @@ namespace sek
 			}
 		}
 		template<typename C, typename Iter>
-		constexpr void write_string(Iter out, bool upper) const noexcept
+		constexpr Iter write_string(Iter out, bool upper) const
 		{
 			constexpr C alphabet_lower[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 			constexpr C alphabet_upper[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
@@ -194,6 +186,7 @@ namespace sek
 				*out++ = alphabet[top];
 				*out++ = alphabet[bottom];
 			}
+			return out;
 		}
 
 		alignas(std::uint64_t[2]) std::array<std::byte, 16> m_bytes = {};
@@ -232,4 +225,26 @@ template<>
 struct std::hash<sek::uuid>
 {
 	[[nodiscard]] constexpr sek::hash_t operator()(sek::uuid id) const noexcept { return sek::hash(id); }
+};
+
+template<typename C>
+struct fmt::formatter<sek::uuid, C>
+{
+	C presentation = 'l'; /* `l` - lowercase, `u` - uppercase. */
+
+	auto parse(format_parse_context &ctx) -> decltype(ctx.begin())
+	{
+		auto pos = ctx.begin(), end = ctx.end();
+		if (pos != end && (*pos == 'u' || *pos == 'l')) presentation = *pos++;
+
+		if (pos != end && *pos != '}') [[unlikely]]
+			throw format_error("invalid format");
+
+		return pos;
+	}
+	template<typename Ctx>
+	auto format(const sek::uuid &id, Ctx &ctx) const -> decltype(ctx.out())
+	{
+		return id.template write_string<C>(ctx.out, presentation == 'u');
+	}
 };

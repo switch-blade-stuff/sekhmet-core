@@ -178,12 +178,12 @@ namespace sek
 				return result;
 			}
 
-			void move_init(basic_any &other)
+			constexpr void move_init(basic_any &other)
 			{
 				m_type = std::exchange(other.m_type, nullptr);
 				m_storage = std::move(other.m_storage);
 			}
-			void move_assign(basic_any &other)
+			constexpr void move_assign(basic_any &other)
 			{
 				std::swap(m_type, other.m_type);
 				m_storage = std::move(other.m_storage);
@@ -247,7 +247,7 @@ namespace sek
 
 		/** Copy-constructs the managed object of `other`.
 		 * @throw type_error If the underlying type is not copy-constructable. */
-		any(const any &other) { copy_init(other); }
+		any(const any &other) : base_t() { copy_init(other); }
 		/** Copy-assigns the managed object of `other`.
 		 * @throw type_error If the underlying type is not copy-assignable or copy-constructable. */
 		any &operator=(const any &other)

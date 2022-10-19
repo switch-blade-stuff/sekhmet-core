@@ -45,8 +45,4 @@
 #define SEK_DEBUG
 #endif
 
-#ifdef SEK_EDITOR
-#define SEK_IF_EDITOR(x) x
-#else
-#define SEK_IF_EDITOR(...)
-#endif
+#define SEK_CORE_VERSION "0.0.1"

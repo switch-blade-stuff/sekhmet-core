@@ -4,9 +4,8 @@
 
 #pragma once
 
-#include "native_file.hpp"
-
 #include "detail/unix/native_filemap.hpp"
+#include "native_file.hpp"
 
 namespace sek
 {
@@ -16,7 +15,7 @@ namespace sek
 	public:
 		typedef typename detail::native_filemap_handle::native_handle_type native_handle_type;
 
-		typedef mapmode mapmode;
+		typedef sek::mapmode mapmode;
 		/** Enable copy-on-write for mapped pages. Any changes will not be committed to the backing file.
 		 * @note Source file must be open for reading. */
 		constexpr static mapmode map_copy = sek::map_copy;

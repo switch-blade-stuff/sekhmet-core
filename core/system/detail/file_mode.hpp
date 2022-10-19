@@ -7,9 +7,9 @@
 
 #include <asio/basic_file.hpp>
 
+#ifdef ASIO_HAS_FILE /* If ASIO file is available, openmode & seek_basis are defined via asio::file_base for compatibility */
 namespace sek
 {
-#ifdef ASIO_HAS_FILE /* If ASIO file is available, openmode & seek_basis are defined via asio::file_base for compatibility */
 	using openmode = asio::file_base::flags;
 	using seek_basis = asio::file_base::seek_basis;
 
@@ -25,9 +25,14 @@ namespace sek
 	constexpr seek_basis seek_cur = seek_basis::seek_cur;
 	constexpr seek_basis seek_end = seek_basis::seek_end;
 	constexpr seek_basis seek_set = seek_basis::seek_set;
+}	 // namespace sek
 #else
 
-#ifdef SEK_OS_WIN
+#include <cstdio>
+
+#if defined(SEK_OS_WIN)
+namespace sek
+{
 	using openmode = int;
 	constexpr openmode read_only = 1;
 	constexpr openmode write_only = 2;
@@ -37,7 +42,12 @@ namespace sek
 	constexpr openmode exclusive = 32;
 	constexpr openmode truncate = 64;
 	constexpr openmode sync_all_on_write = 128;
-#else
+}	 // namespace sek
+#elif defined(SEK_OS_UNIX)
+#include <fcntl.h>
+
+namespace sek
+{
 	using openmode = int;
 	constexpr openmode read_only = O_RDONLY;
 	constexpr openmode write_only = O_WRONLY;
@@ -47,14 +57,20 @@ namespace sek
 	constexpr openmode exclusive = O_EXCL;
 	constexpr openmode truncate = O_TRUNC;
 	constexpr openmode sync_all_on_write = O_SYNC;
+}	 // namespace sek
 #endif
 
+namespace sek
+{
 	using seek_basis = int;
 	constexpr seek_basis seek_cur = SEEK_SET;
 	constexpr seek_basis seek_end = SEEK_CUR;
 	constexpr seek_basis seek_set = SEEK_END;
+}	 // namespace sek
 #endif
 
+namespace sek
+{
 	typedef int mapmode;
 	constexpr mapmode map_copy = 1;
 	constexpr mapmode map_populate = 2;

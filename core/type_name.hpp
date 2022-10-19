@@ -34,26 +34,21 @@ namespace sek
 				return format_type_name<Src, J + 1, I + 1, Last>(str);
 			}
 		}
-		template<basic_static_string Src, std::size_t J, std::size_t I, std::size_t Last, std::size_t N>
-		consteval auto format_type_name() noexcept
-		{
-			return format_type_name<Src, J, I, Last, N>({});
-		}
 		template<basic_static_string Name>
 		consteval auto format_type_name() noexcept
 		{
 #if defined(__clang__) || defined(__GNUC__)
-			constexpr auto offset_start = Name.find_first('=') + 2;
-			constexpr auto offset_end = Name.find_last(']');
+			constexpr auto offset_start = Name.find('=') + 2;
+			constexpr auto offset_end = Name.rfind(']');
 			constexpr auto trimmed_length = offset_end - offset_start + 1;
 
-			return format_type_name<Name, 0, offset_start, offset_end, trimmed_length>();
+			return format_type_name<Name, 0, offset_start, offset_end, trimmed_length>({});
 #elif defined(_MSC_VER)
-			constexpr auto offset_start = Name.find_first('<') + 1;
-			constexpr auto offset_end = Name.find_last('>');
+			constexpr auto offset_start = Name.find('<') + 1;
+			constexpr auto offset_end = Name.rfind('>');
 			constexpr auto trimmed_length = offset_end - offset_start + 1;
 
-			return format_type_name<Name, 0, offset_start, offset_end, trimmed_length>();
+			return format_type_name<Name, 0, offset_start, offset_end, trimmed_length>({});
 #else
 			return Name;
 #endif

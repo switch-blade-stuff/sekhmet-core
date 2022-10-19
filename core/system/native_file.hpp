@@ -10,6 +10,7 @@
 #include "../expected.hpp"
 #include "detail/file_mode.hpp"
 #include "detail/unix/native_file.hpp"
+#include <asio/buffer.hpp>
 #include <system_error>
 
 namespace sek
@@ -24,8 +25,8 @@ namespace sek
 
 	public:
 		typedef typename handle_t::native_handle_type native_handle_type;
-		typedef seek_basis seek_basis;
-		typedef openmode openmode;
+		typedef sek::seek_basis seek_basis;
+		typedef sek::openmode openmode;
 
 		constexpr static openmode read_only = sek::read_only;
 		constexpr static openmode write_only = sek::write_only;

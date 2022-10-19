@@ -6,8 +6,8 @@
 
 #include <atomic>
 
-#include "../debug/assert.hpp"
-#include "../debug/logger.hpp"
+#include "../assert.hpp"
+#include "../logger.hpp"
 #include "../sparse_map.hpp"
 
 #if defined(SEK_OS_WIN)
@@ -21,8 +21,6 @@
 #if defined(SEK_OS_APPLE)
 #include <mach-o/dyld.h>
 #endif
-#else
-#error "Unknown OS"
 #endif
 
 namespace sek
@@ -45,7 +43,7 @@ namespace sek
 		{
 			module_data() noexcept = default;
 			module_data(std::filesystem::path &&path) : path(std::move(path)) {}
-			module_data(module_handle handle, std::filesystem::path &&path) : handle(handle), path(std::move(path)) {}
+			module_data(module_handle handle, std::filesystem::path &&path) : path(std::move(path)), handle(handle) {}
 
 			std::atomic<std::size_t> ref_ctr = 0;
 
@@ -56,40 +54,39 @@ namespace sek
 		{
 			struct key_hash
 			{
-				constexpr auto operator()(const std::basic_string_view<module_path_char> &path) const noexcept
+				auto operator()(const std::basic_string_view<module_path_char> &path) const noexcept
 				{
 					return fnv1a(path.data(), path.size());
 				}
-				constexpr auto operator()(const std::filesystem::path &path) const noexcept
+				auto operator()(const std::filesystem::path &path) const noexcept
 				{
 					return operator()(std::basic_string_view{path.c_str()});
 				}
 			};
 			struct key_cmp
 			{
-				constexpr bool operator()(const std::basic_string_view<module_path_char> &a,
-										  const std::basic_string_view<module_path_char> &b) const noexcept
+				// clang-format off
+				bool operator()(const std::basic_string_view<module_path_char> &a, const std::basic_string_view<module_path_char> &b) const noexcept
 				{
 					return a == b;
 				}
-				constexpr bool operator()(const std::filesystem::path &a,
-										  const std::basic_string_view<module_path_char> &b) const noexcept
+				bool operator()(const std::filesystem::path &a, const std::basic_string_view<module_path_char> &b) const noexcept
 				{
 					return operator()(std::basic_string_view{a.c_str()}, b);
 				}
-				constexpr bool operator()(const std::basic_string_view<module_path_char> &a,
-										  const std::filesystem::path &b) const noexcept
+				bool operator()(const std::basic_string_view<module_path_char> &a, const std::filesystem::path &b) const noexcept
 				{
 					return operator()(a, std::basic_string_view{b.c_str()});
 				}
-				constexpr bool operator()(const std::filesystem::path &a, const std::filesystem::path &b) const noexcept
+				bool operator()(const std::filesystem::path &a, const std::filesystem::path &b) const noexcept
 				{
 					return operator()(std::basic_string_view{a.c_str()}, std::basic_string_view{b.c_str()});
 				}
+				// clang-format on
 			};
 			struct key_get
 			{
-				constexpr auto operator()(const module_data &data) const noexcept
+				auto operator()(const module_data &data) const noexcept
 				{
 					return std::basic_string_view{data.path.c_str()};
 				}
@@ -97,6 +94,7 @@ namespace sek
 			using alloc_t = std::allocator<module_data>;
 
 			using data_table = sparse_hash_table<module_handle, module_data, key_hash, key_cmp, key_get, alloc_t>;
+			using group_table = sparse_map<std::string_view, group_data>;
 
 			[[nodiscard]] static expected<module_handle, std::error_code> load_native(const module_path_char *path) noexcept
 			{
@@ -201,8 +199,7 @@ namespace sek
 
 			module_db()
 			{
-				main = current = table.emplace(main_lib(), main_path()).first.get();
-
+				main = modules.emplace(main_lib(), main_path()).first.get();
 				/* The main module must never be unloaded. */
 				main->ref_ctr.store(1, std::memory_order_relaxed);
 			}
@@ -211,19 +208,6 @@ namespace sek
 			{
 				if (path == nullptr) [[unlikely]]
 					return main;
-
-				/* RAII guard used to automatically reset current module pointer. */
-				struct current_ptr_guard
-				{
-					current_ptr_guard(module_db *db, module_data *data) noexcept
-						: ptr(std::exchange(db->current, data)), db(db)
-					{
-					}
-					~current_ptr_guard() { db->current = ptr; }
-
-					module_data *ptr;
-					module_db *db;
-				};
 
 				/* Convert the path to canonical form for table indexing. */
 				std::filesystem::path canonical;
@@ -235,12 +219,11 @@ namespace sek
 				}
 
 				/* Check if the module is already loaded. */
-				auto entry = table.find(canonical);
-				if (entry == table.end()) [[unlikely]]
+				auto entry = modules.find(canonical);
+				if (entry == modules.end()) [[unlikely]]
 				{
 					/* No module with the same path exists yet, create an empty entry. */
-					entry = table.emplace(std::move(canonical)).first;
-					current_ptr_guard g{this, entry.get()};
+					entry = modules.emplace(std::move(canonical)).first;
 
 					/* Load the module library. */
 					const auto handle = load_native(path);
@@ -256,20 +239,60 @@ namespace sek
 				if (data != main) [[likely]]
 				{
 					/* Unload the module library & erase the module entry. */
-					const auto entry = table.find(data->path);
-					SEK_ASSERT(entry != table.end(), "Invalid module data entry");
+					const auto entry = modules.find(data->path);
+					SEK_ASSERT(entry != modules.end(), "Invalid module data entry");
 
 					result = unload_native(data->handle);
-					table.erase(entry);
+					modules.erase(entry);
 				}
 				return result;
 			}
 
 			std::recursive_mutex mtx;
-			module_data *current;
 			module_data *main;
-			data_table table;
+			data_table modules;
+			group_table groups;
 		};
+
+		group_data *group_data::instance(std::string_view t) noexcept
+		{
+			auto db = module_db::instance().access();
+			auto iter = db->groups.find(t);
+			if (iter == db->groups.end()) [[unlikely]]
+				iter = db->groups.emplace(std::piecewise_construct, std::forward_as_tuple(t), std::forward_as_tuple()).first;
+			return &iter->second;
+		}
+		void group_data::register_plugin(plugin_interface *ptr) noexcept
+		{
+			constexpr auto current_ver = version{SEK_CORE_VERSION};
+			const auto plugin_ver = ptr->plugin_ver();
+			const auto core_ver = ptr->core_ver();
+			const auto name = ptr->name();
+
+			if (current_ver.major != core_ver.major || current_ver.minor > core_ver.minor) [[unlikely]]
+			{
+				// clang-format off
+				logger::error()->log(fmt::format("Failed to register plugin \"{}\". "
+												 "Incompatible core version: {}",
+												 name, core_ver));
+				// clang-format on
+			}
+			else if (ptr->next || ptr->prev) [[unlikely]]
+				logger::error()->log(fmt::format("Failed to register plugin \"{}\". Already registered", name));
+			else
+			{
+				logger::info()->log(fmt::format("Registering plugin \"{}\" ver. {}", name, plugin_ver));
+				ptr->link(plugins);
+			}
+		}
+		void group_data::unregister_plugin(plugin_interface *ptr) noexcept
+		{
+			if (ptr->next || ptr->prev) [[likely]]
+			{
+				logger::info()->log(fmt::format("Unregistering plugin \"{}\"", ptr->name()));
+				ptr->unlink();
+			}
+		}
 	}	 // namespace detail
 
 	module module::main() { return module{detail::module_db::instance()->main}; }
@@ -278,8 +301,8 @@ namespace sek
 		auto db = detail::module_db::instance().access();
 
 		std::vector<module> result;
-		result.reserve(db->table.size());
-		for (auto &data : db->table) result.emplace_back(&data);
+		result.reserve(db->modules.size());
+		for (auto &data : db->modules) result.emplace_back(module{&data});
 		return result;
 	}
 

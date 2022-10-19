@@ -5,11 +5,12 @@
 #pragma once
 
 #include <algorithm>
+#include <cstring>
 #include <limits>
 
 #include "detail/contiguous_iterator.hpp"
-#include "detail/string_util.hpp"
 #include "hash.hpp"
+#include "meta.hpp"
 #include <string_view>
 
 namespace sek
@@ -33,6 +34,36 @@ namespace sek
 		typedef std::ptrdiff_t difference_type;
 
 		constexpr static size_type npos = std::basic_string_view<C, Traits>::npos;
+
+	private:
+		[[nodiscard]] constexpr static size_type str_length(const C *str, std::size_t max) noexcept
+		{
+			if (!std::is_constant_evaluated())
+			{
+				if constexpr (std::same_as<C, char>)
+					return static_cast<size_type>(strnlen(std::to_address(str), static_cast<size_type>(max)));
+				else if constexpr (std::same_as<C, wchar_t>)
+					return static_cast<size_type>(wcsnlen(std::to_address(str), static_cast<size_type>(max)));
+				else if constexpr (std::same_as<C, char8_t>)
+				{
+					const auto ptr = reinterpret_cast<const char *>(std::to_address(str));
+					return static_cast<std::size_t>(strnlen(ptr, static_cast<size_type>(max)));
+				}
+				else if constexpr (std::same_as<C, char16_t> && sizeof(char16_t) == sizeof(wchar_t))
+				{
+					const auto ptr = reinterpret_cast<const wchar_t *>(std::to_address(str));
+					return static_cast<size_type>(wcsnlen(std::to_address(str), static_cast<size_type>(max)));
+				}
+				else if constexpr (std::same_as<C, char32_t> && sizeof(char32_t) == sizeof(wchar_t))
+				{
+					const auto ptr = reinterpret_cast<const wchar_t *>(std::to_address(str));
+					return static_cast<size_type>(wcsnlen(std::to_address(str), static_cast<size_type>(max)));
+				}
+			}
+			size_type i = 0;
+			while (i < max && *str++ != '\0') ++i;
+			return i;
+		}
 
 	public:
 		constexpr basic_static_string() = default;
@@ -93,14 +124,11 @@ namespace sek
 		[[nodiscard]] constexpr const_reference back() const noexcept { return value[size() - 1]; }
 
 		/** Returns size of the string (amount of value_type units). */
-		[[nodiscard]] constexpr size_type size() const noexcept { return detail::str_length(value, N); }
+		[[nodiscard]] constexpr size_type size() const noexcept { return str_length(value, N); }
 		/** @copydoc size */
 		[[nodiscard]] constexpr size_type length() const noexcept { return size(); }
 		/** Returns maximum value for size. */
-		[[nodiscard]] constexpr size_type max_size() const noexcept
-		{
-			return std::numeric_limits<size_type>::max() - 1;
-		}
+		[[nodiscard]] constexpr size_type max_size() const noexcept { return npos; }
 		/** Checks if the string is empty. */
 		[[nodiscard]] constexpr bool empty() const noexcept { return size() == 0; }
 
@@ -138,13 +166,13 @@ namespace sek
 		 * @param pos Position to start the search at. */
 		[[nodiscard]] constexpr size_type find(value_type c, size_type pos = 0) const noexcept
 		{
-			return find(std::basic_string_view<C, Traits>{std::addressof(c), 1}, pos);
+			return std::basic_string_view<C, Traits>{*this}.find(c, pos);
 		}
 
 		// clang-format off
 		/** Finds right-most location of a substring within the string. */
 		template<typename S>
-		[[nodiscard]] constexpr size_type rfind(const S &str, size_type pos = 0) const noexcept
+		[[nodiscard]] constexpr size_type rfind(const S &str, size_type pos = npos) const noexcept
 			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
 		{
 			const std::basic_string_view<C, Traits> sv = str;
@@ -152,7 +180,7 @@ namespace sek
 		}
 		// clang-format on
 		/** @copydoc rfind */
-		[[nodiscard]] constexpr size_type rfind(const value_type *str, size_type pos = 0) const noexcept
+		[[nodiscard]] constexpr size_type rfind(const value_type *str, size_type pos = npos) const noexcept
 		{
 			return rfind(std::basic_string_view<C, Traits>{str}, pos);
 		}
@@ -165,9 +193,9 @@ namespace sek
 		/** Finds left-most location of a character within the string.
 		 * @param c Character to search for.
 		 * @param pos Position to start the search at. */
-		[[nodiscard]] constexpr size_type rfind(value_type c, size_type pos = 0) const noexcept
+		[[nodiscard]] constexpr size_type rfind(value_type c, size_type pos = npos) const noexcept
 		{
-			return rfind(std::basic_string_view<C, Traits>{std::addressof(c), 1}, pos);
+			return std::basic_string_view<C, Traits>{*this}.rfind(c, pos);
 		}
 
 		// clang-format off
@@ -198,7 +226,7 @@ namespace sek
 		 * @param pos Position to start the search at. */
 		[[nodiscard]] constexpr size_type find_first_of(value_type c, size_type pos = 0) const noexcept
 		{
-			return find(c, pos);
+			return std::basic_string_view<C, Traits>{*this}.find_first_of(c, pos);
 		}
 
 		// clang-format off
@@ -206,7 +234,7 @@ namespace sek
 		 * @param c Substring containing characters to search for.
 		 * @param pos Position to start the search at. */
 		template<typename S>
-		[[nodiscard]] constexpr size_type find_last_of(const S &str, size_type pos = 0) const noexcept
+		[[nodiscard]] constexpr size_type find_last_of(const S &str, size_type pos = npos) const noexcept
 			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
 		{
 			const std::basic_string_view<C, Traits> sv = str;
@@ -214,7 +242,7 @@ namespace sek
 		}
 		// clang-format on
 		/** @copydoc find_last_of */
-		[[nodiscard]] constexpr size_type find_last_of(const value_type *str, size_type pos = 0) const noexcept
+		[[nodiscard]] constexpr size_type find_last_of(const value_type *str, size_type pos = npos) const noexcept
 		{
 			return find_last_of(std::basic_string_view<C, Traits>{str}, pos);
 		}
@@ -227,9 +255,9 @@ namespace sek
 		/** Finds right-most location of a character within the string (equivalent to `rfind(c, pos)`).
 		 * @param c Character to search for.
 		 * @param pos Position to start the search at. */
-		[[nodiscard]] constexpr size_type find_last_of(value_type c, size_type pos = 0) const noexcept
+		[[nodiscard]] constexpr size_type find_last_of(value_type c, size_type pos = npos) const noexcept
 		{
-			return rfind(c, pos);
+			return std::basic_string_view<C, Traits>{*this}.find_last_of(c, pos);
 		}
 
 		// clang-format off
@@ -260,7 +288,7 @@ namespace sek
 		 * @param pos Position to start the search at. */
 		[[nodiscard]] constexpr size_type find_first_not_of(value_type c, size_type pos = 0) const noexcept
 		{
-			return find_first_not_of(std::basic_string_view<C, Traits>{std::addressof(c), 1}, pos);
+			return std::basic_string_view<C, Traits>{*this}.find_first_not_of(c, pos);
 		}
 
 		// clang-format off
@@ -268,7 +296,7 @@ namespace sek
 		 * @param c Substring containing characters to search for.
 		 * @param pos Position to start the search at. */
 		template<typename S>
-		[[nodiscard]] constexpr size_type find_last_not_of(const S &str, size_type pos = 0) const noexcept
+		[[nodiscard]] constexpr size_type find_last_not_of(const S &str, size_type pos = npos) const noexcept
 			requires std::convertible_to<const S, std::basic_string_view<C, Traits>>
 		{
 			const std::basic_string_view<C, Traits> sv = str;
@@ -276,7 +304,7 @@ namespace sek
 		}
 		// clang-format on
 		/** @copydoc find_last_not_of */
-		[[nodiscard]] constexpr size_type find_last_not_of(const value_type *str, size_type pos = 0) const noexcept
+		[[nodiscard]] constexpr size_type find_last_not_of(const value_type *str, size_type pos = npos) const noexcept
 		{
 			return find_last_not_of(std::basic_string_view<C, Traits>{str}, pos);
 		}
@@ -289,9 +317,9 @@ namespace sek
 		/** Finds right-most location of a character not equal to `c`.
 		 * @param c Character to search for.
 		 * @param pos Position to start the search at. */
-		[[nodiscard]] constexpr size_type find_last_not_of(value_type c, size_type pos = 0) const noexcept
+		[[nodiscard]] constexpr size_type find_last_not_of(value_type c, size_type pos = npos) const noexcept
 		{
-			return find_last_not_of(std::basic_string_view<C, Traits>{std::addressof(c), 1}, pos);
+			return std::basic_string_view<C, Traits>{*this}.find_last_not_of(c, pos);
 		}
 
 		// clang-format off

@@ -71,6 +71,8 @@ namespace sek
 			return type_factory<T>{reflect(type_info::handle<T>())};
 		}
 
+		/** Returns type info for the specified reflected type. */
+		[[nodiscard]] SEK_CORE_PUBLIC type_info get(std::string_view type);
 		/** Removes a previously reflected type from the internal database. */
 		SEK_CORE_PUBLIC void reset(std::string_view type);
 		/** @copydoc reset */
@@ -137,6 +139,7 @@ namespace sek
 	{
 		return type_database::instance()->template reflect<T>();
 	}
+	type_info type_info::get(std::string_view name) { return type_database::instance()->get(name); }
 	void type_info::reset(std::string_view name) { type_database::instance()->reset(name); }
 }	 // namespace sek
 

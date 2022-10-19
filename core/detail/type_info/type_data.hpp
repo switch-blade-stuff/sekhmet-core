@@ -235,9 +235,9 @@ namespace sek::detail
 	};
 
 	template<typename>
-	struct range_type_iterator;
+	class range_type_iterator;
 	template<typename>
-	struct table_type_iterator;
+	class table_type_iterator;
 
 	template<typename T>
 	struct type_iterator_ptr
@@ -259,6 +259,11 @@ namespace sek::detail
 		{
 		}
 
+		void reset()
+		{
+			delete m_ptr;
+			m_ptr = nullptr;
+		}
 		template<typename U>
 		void reset(U *ptr)
 		{

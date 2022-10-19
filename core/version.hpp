@@ -5,35 +5,39 @@
 #pragma once
 
 #include <compare>
-#include <string>
 
 #include "hash.hpp"
+#include <fmt/format.h>
 
 namespace sek
 {
 	/** @brief Structure holding 3 integers representing a "semantic" version number or a compatible version format. */
 	struct version
 	{
+		template<typename, typename, typename>
+		friend struct fmt::formatter;
+
 	private:
-		template<std::size_t I, std::forward_iterator Iter, typename U, typename... Us>
-		constexpr static void parse(Iter first, Iter second, U &cmp, Us &...cmps) noexcept
-		{
-			for (std::iter_value_t<Iter> c; first != second && (c = *first++) != '\0' && c != '.';)
-			{
-				/* Keep parsing this component until a separator. */
-				const U a = parse<U>(c);
-				const U b = cmp * 10;
-				cmp = a + b;
-			}
-			if constexpr (sizeof...(Us) != 0) parse<I + 1>(first, second, cmps...);
-		}
 		template<typename U, typename C>
-		[[nodiscard]] constexpr static U parse(C c)
+		[[nodiscard]] constexpr static U parse_char(C c)
 		{
 			return c >= '0' && c <= '9' ? static_cast<U>(c - '0') : throw std::runtime_error("Invalid version string");
 		}
-		template<typename C, typename I, typename T>
-		constexpr static void to_string(I &out, T val)
+
+		template<std::size_t I = 0, std::forward_iterator Iter, typename U, typename... Us>
+		constexpr static void parse_string(Iter first, Iter last, U &cmp, Us &...cmps) noexcept
+		{
+			for (std::iter_value_t<Iter> c; first != last && (c = *first++) != '\0' && c != '.';)
+			{
+				/* Keep parsing this component until a separator. */
+				const U a = parse_char<U>(c);
+				const U b = cmp * 10;
+				cmp = a + b;
+			}
+			if constexpr (sizeof...(Us) != 0) parse_string<I + 1>(first, last, cmps...);
+		}
+		template<typename C, typename Iter, typename T>
+		constexpr static Iter write_string(Iter out, T val)
 		{
 			if constexpr (std::is_signed_v<T>)
 				if (val < 0)
@@ -51,6 +55,7 @@ namespace sek
 				val %= div;
 				div /= 10;
 			}
+			return out;
 		}
 
 	public:
@@ -69,7 +74,7 @@ namespace sek
 		template<std::forward_iterator Iter>
 		constexpr version(Iter first, Iter last)
 		{
-			parse<0>(first, last, major, minor, patch);
+			parse_string(first, last, major, minor, patch);
 		}
 		/** @copydoc uuid */
 		template<std::ranges::forward_range R>
@@ -92,39 +97,6 @@ namespace sek
 		{
 			return (static_cast<std::uint64_t>(major) << 48) | (static_cast<std::uint64_t>(minor) << 32) |
 				   (static_cast<std::uint64_t>(patch));
-		}
-
-		/** Converts the version to string.
-		 * @tparam C Character type of the output sequence.
-		 * @tparam Traits Character traits of `C`.
-		 * @param alloc Allocator to use for the result string. */
-		template<typename C = char, typename Traits = std::char_traits<C>, typename A = std::allocator<C>>
-		[[nodiscard]] constexpr std::basic_string<C, Traits, A> to_string(const A &alloc = A{}) const
-		{
-			std::basic_string<C, Traits, A> result(alloc);
-			to_string<C>(std::back_inserter(result));
-			return result;
-		}
-		/** Writes the version as a string to the output iterator.
-		 * @tparam C Character type of the output sequence.
-		 * @param out Iterator to write the characters to.
-		 * @note Output must have enough space for the version string. */
-		template<typename C, std::output_iterator<C> Iter>
-		constexpr void to_string(Iter out) const
-		{
-			to_string<C>(out, major);
-			*out++ = '.';
-			to_string<C>(out, minor);
-			*out++ = '.';
-			to_string<C>(out, patch);
-		}
-		/** Writes the version as a string to the output iterator.
-		 * @param out Iterator to write the characters to.
-		 * @note Output must have enough space for the version string. */
-		template<std::forward_iterator Iter>
-		constexpr void to_string(Iter out) const
-		{
-			return to_string<std::iter_value_t<Iter>, Iter>(out);
 		}
 
 		constexpr void swap(version &other) noexcept
@@ -211,4 +183,25 @@ struct std::tuple_size<sek::version> : std::integral_constant<std::size_t, 3>
 {
 };
 
-#define SEK_VERSION(major, minor, patch) (::sek::version{(major), (minor), (patch)})
+template<typename C>
+struct fmt::formatter<sek::version, C>
+{
+	auto parse(format_parse_context &ctx) -> decltype(ctx.begin())
+	{
+		const auto pos = ctx.begin();
+		if (pos != ctx.end() && *pos != '}') [[unlikely]]
+			throw format_error("Invalid format");
+		return pos;
+	}
+	template<typename Ctx>
+	auto format(const sek::version &v, Ctx &ctx) const -> decltype(ctx.out())
+	{
+		auto out = ctx.out();
+		out = sek::version::write_string<C>(out, v.major);
+		*out++ = '.';
+		out = sek::version::write_string<C>(out, v.minor);
+		*out++ = '.';
+		out = sek::version::write_string<C>(out, v.patch);
+		return out;
+	}
+};

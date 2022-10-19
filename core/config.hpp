@@ -6,14 +6,14 @@
 
 #include <string>
 
-#include "../access_guard.hpp"
-#include "../dense_set.hpp"
-#include "../detail/basic_pool.hpp"
-#include "../serialization/json.hpp"
-#include "../service.hpp"
-#include "../system/native_file.hpp"
-#include "../type_info.hpp"
-#include "../uri.hpp"
+#include "access_guard.hpp"
+#include "dense_set.hpp"
+#include "detail/basic_pool.hpp"
+#include "serialization/json.hpp"
+#include "service.hpp"
+#include "system/native_file.hpp"
+#include "type_info.hpp"
+#include "uri.hpp"
 #include <shared_mutex>
 
 namespace sek
@@ -623,10 +623,7 @@ namespace sek
 		 * @param entry Full path of the entry.
 		 * @param tree Json data tree to store the serialized data in.
 		 * @return `true` on success, `false` on failure (entry does not exist). */
-		inline bool save(const cfg_path &entry, json_tree &tree) const
-		{
-			return save(find(entry), tree);
-		}
+		inline bool save(const cfg_path &entry, json_tree &tree) const { return save(find(entry), tree); }
 		/** @brief Saves an entry and all it's children to a Json file.
 		 * @param entry Full path of the entry.
 		 * @param path Path to a the file to write Json data to.
