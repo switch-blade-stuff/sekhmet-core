@@ -71,10 +71,8 @@ namespace sek
 			SEK_CORE_PUBLIC void operator()(uuid &) const noexcept final;
 		};
 
-		constexpr static version4_t version4 = {};
-
-		/** Returns a `nil` uuid. */
-		[[nodiscard]] constexpr static uuid nil() noexcept;
+		static const version4_t version4;
+		static const uuid nil;
 
 	private:
 		template<typename C>
@@ -160,18 +158,29 @@ namespace sek
 		template<typename Iter>
 		constexpr void parse_string(Iter first, Iter last)
 		{
-			for (std::size_t i = 0; i < SEK_ARRAY_SIZE(m_bytes) * 2 && first != last; ++first)
-			{
-				const auto c = *first;
-				if (c == '-') [[unlikely]]
-					continue;
-				auto idx = i++;
-				m_bytes[idx / 2] |= static_cast<std::byte>(parse_digit(c) << (idx % 2 ? 0 : 4));
-			}
+			using C = std::iter_value_t<Iter>;
+			constexpr C nil_str[] = {'n', 'i', 'l'};
+			if (std::ranges::equal(std::ranges::begin(nil_str), std::ranges::end(nil_str), first, last)) [[unlikely]]
+				m_bytes = {};
+			else
+				for (std::size_t i = 0; i < SEK_ARRAY_SIZE(m_bytes) * 2 && first != last; ++first)
+				{
+					const auto c = *first;
+					if (c == '-') [[unlikely]]
+						continue;
+					auto idx = i++;
+					m_bytes[idx / 2] |= static_cast<std::byte>(parse_digit(c) << (idx % 2 ? 0 : 4));
+				}
 		}
 		template<typename C, typename Iter>
 		constexpr Iter write_string(Iter out, bool upper) const
 		{
+			if (*this == uuid{}) [[unlikely]]
+			{
+				constexpr C nil_str[] = {'n', 'i', 'l'};
+				return std::ranges::copy(nil_str, out).out;
+			}
+
 			constexpr C alphabet_lower[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 			constexpr C alphabet_upper[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
@@ -192,7 +201,8 @@ namespace sek
 		alignas(std::uint64_t[2]) std::array<std::byte, 16> m_bytes = {};
 	};
 
-	constexpr uuid uuid::nil() noexcept { return uuid{}; }
+	constexpr uuid::version4_t uuid::version4;
+	constexpr uuid uuid::nil = {};
 
 	[[nodiscard]] constexpr hash_t hash(const uuid &id) noexcept { return fnv1a(id.m_bytes.data(), id.m_bytes.size()); }
 
