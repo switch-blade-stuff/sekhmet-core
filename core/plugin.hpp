@@ -184,7 +184,7 @@ namespace sek
 		/** Returns the version of core framework the plugin was built for. */
 		[[nodiscard]] constexpr version core_ver() const noexcept { return m_core_ver; }
 		/** Returns the version of the plugin instance. */
-		[[nodiscard]] constexpr version plugin_ver() const noexcept { return m_core_ver; }
+		[[nodiscard]] constexpr version plugin_ver() const noexcept { return m_plugin_ver; }
 		/** Returns the display name of the plugin. */
 		[[nodiscard]] constexpr std::string_view name() const noexcept { return m_name; }
 
