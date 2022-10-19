@@ -640,7 +640,7 @@ namespace sek
 			const auto this_local = local();
 			const auto this_size = size();
 
-			if (this_local && other_local)
+			if (this_local && other_local) /* If both are local, move the elements directly. */
 			{
 				size_type move_n;
 				if (this_size < other_size)
@@ -656,10 +656,30 @@ namespace sek
 					std::destroy_n(m_local.template get<T>() + move_n, diff);
 				}
 				std::move(other.m_local.template get<T>(), move_n, m_local.template get<T>());
+				m_size = other.m_size;
 			}
-			else if (other_local != this_local)
-				move_data(other);
-			else
+			else if (other_local) /* Move other's local buffer. */
+			{
+				/* Destroy the old heap buffer. */
+				std::destroy_n(m_heap.data, this_size);
+				alloc_traits::deallocate(alloc(), m_heap.data, m_heap.capacity);
+
+				/* Move-construct `other_size` elements. */
+				const auto src = other.m_local.template get<T>();
+				const auto dst = m_local.template get<T>();
+				std::uninitialized_move_n(src, other_size, dst);
+				m_size = other.m_size;
+			}
+			else if (this_local) /* Move other's heap buffer. */
+			{
+				/* Destroy the old local buffer. */
+				std::destroy_n(m_local.template get<T>(), this_size);
+
+				/* Take other's heap buffer. */
+				m_size = std::exchange(other.m_size, {});
+				m_heap = std::exchange(other.m_heap, {});
+			}
+			else /* Exchange both heap buffers. */
 			{
 				std::swap(m_size, other.m_size);
 				std::swap(m_heap, other.m_heap);
