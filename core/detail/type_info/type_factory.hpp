@@ -162,7 +162,7 @@ namespace sek
 		 * 		.constant<"MY_VALUE_2", get_my_value_2>();
 		 * @endcode */
 		template<basic_static_string Name, typename Factory>
-		type_factory &constant() requires(!Name.empty() && std::is_invocable_v<Factory>)
+		type_factory &constant() requires(!Name.empty() && std::is_invocable_v<Factory> && std::is_empty_v<Factory>)
 		{
 			/* Ignore initialization if the constant already exists. */
 			if (auto &cn = constant_t<Name>::instance(); cn.empty()) [[likely]]
