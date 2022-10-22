@@ -294,7 +294,7 @@ namespace sek
 		typedef typename iterator::difference_type difference_type;
 
 		/** Returns an access guard to the global plugin group instance. */
-		[[nodiscard]] static recursive_guard<plugin_group> instance() noexcept
+		[[nodiscard]] static recursive_guard<plugin_group *> instance() noexcept
 		{
 			static auto *data = detail::group_data::instance(type_name_v<plugin_group>);
 			return {static_cast<plugin_group *>(data), &data->mtx};

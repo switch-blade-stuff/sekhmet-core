@@ -1,6 +1,6 @@
-//
-// Created by switchblade on 2022-10-05.
-//
+/*
+ * Created by switchblade on 2022-10-05.
+ */
 
 #include "../service.hpp"
 

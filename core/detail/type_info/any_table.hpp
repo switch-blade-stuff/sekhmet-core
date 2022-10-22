@@ -1,6 +1,6 @@
-//
-// Created by switchblade on 2022-10-03.
-//
+/*
+ * Created by switchblade on 2022-10-03.
+ */
 
 #pragma once
 
@@ -306,6 +306,8 @@ namespace sek
 		friend class any;
 		friend class any_ref;
 
+		using data_t = detail::table_type_data;
+
 	public:
 		typedef std::size_t size_type;
 		typedef std::ptrdiff_t difference_type;
@@ -389,7 +391,7 @@ namespace sek
 		typedef typename table_iterator::reference const_reference;
 
 	private:
-		static SEK_CORE_PUBLIC const detail::table_type_data *assert_data(const detail::type_data *data);
+		static SEK_CORE_PUBLIC const data_t *assert_data(const detail::type_data *data);
 
 		any_table(std::in_place_t, const any_ref &ref) : m_data(ref.m_type->table_data), m_target(ref) {}
 		any_table(std::in_place_t, any_ref &&ref) : m_data(ref.m_type->table_data), m_target(std::move(ref)) {}
@@ -489,7 +491,7 @@ namespace sek
 		friend constexpr void swap(any_table &a, any_table &b) noexcept { a.swap(b); }
 
 	private:
-		const detail::table_type_data *m_data;
+		const data_t *m_data;
 		any_ref m_target;
 	};
 }	 // namespace sek

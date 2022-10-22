@@ -10,7 +10,7 @@
 #include <fmt/format.h>
 
 template<>
-const sek::service<void>::id sek::service<sek::shared_guard<sek::config_registry>>::id;
+const sek::service<void>::id sek::service<sek::shared_guard<sek::config_registry *>>::id;
 
 namespace sek
 {

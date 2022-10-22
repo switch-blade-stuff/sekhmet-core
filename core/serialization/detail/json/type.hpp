@@ -8,7 +8,7 @@
 
 namespace sek
 {
-	/** @brief Enumeration used to identify types of a Json-like format. */
+	/** @brief Enum used to identify types of a Json-like format. */
 	enum class json_type : std::uint16_t
 	{
 		/** `null` (empty) Json value type. */

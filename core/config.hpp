@@ -255,10 +255,10 @@ namespace sek
 	 * Every entry belongs to a category, and is created at plugin initialization time.
 	 * Categories are de-serialized from individual Json files or loaded directly from Json data trees.
 	 * When a new entry is added, it is de-serialized from the cached category tree. */
-	class config_registry : public service<shared_guard<config_registry>>
+	class config_registry : public service<shared_guard<config_registry *>>
 	{
 		friend attributes::config_type;
-		friend shared_guard<config_registry>;
+		friend shared_guard<config_registry *>;
 
 		struct entry_node;
 

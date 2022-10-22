@@ -45,16 +45,16 @@ namespace sek
 
 	public:
 		/** Returns the global info logger. */
-		[[nodiscard]] static shared_guard<basic_logger> info();
+		[[nodiscard]] static shared_guard<basic_logger *> info();
 		/** Returns the global warning logger. */
-		[[nodiscard]] static shared_guard<basic_logger> warn();
+		[[nodiscard]] static shared_guard<basic_logger *> warn();
 		/** Returns the global error logger. */
-		[[nodiscard]] static shared_guard<basic_logger> error();
+		[[nodiscard]] static shared_guard<basic_logger *> error();
 		/** Returns the global fatal logger. */
-		[[nodiscard]] static shared_guard<basic_logger> fatal();
+		[[nodiscard]] static shared_guard<basic_logger *> fatal();
 		/** Returns the global debug logger.
 		 * @note This logger is disabled by default in release mode. */
-		[[nodiscard]] static shared_guard<basic_logger> debug();
+		[[nodiscard]] static shared_guard<basic_logger *> debug();
 
 	private:
 		constexpr static auto default_format = static_string_cast<value_type>("[{T:%H:%M:%S}][{L}]: {M}\n");
@@ -211,15 +211,15 @@ namespace sek
 	typedef basic_logger<char> logger;
 
 	template<>
-	shared_guard<logger> logger::info();
+	shared_guard<logger *> logger::info();
 	template<>
-	shared_guard<logger> logger::warn();
+	shared_guard<logger *> logger::warn();
 	template<>
-	shared_guard<logger> logger::debug();
+	shared_guard<logger *> logger::debug();
 	template<>
-	shared_guard<logger> logger::error();
+	shared_guard<logger *> logger::error();
 	template<>
-	shared_guard<logger> logger::fatal();
+	shared_guard<logger *> logger::fatal();
 
 	extern template class SEK_API_IMPORT basic_logger<char>;
 }	 // namespace sek

@@ -1,30 +1,27 @@
-//
-// Created by switchblade on 2022-10-03.
-//
+/*
+ * Created by switchblade on 2022-10-03.
+ */
 
 #pragma once
 
 #include "../../dense_map.hpp"
 #include "../../dense_set.hpp"
-#include "../../service.hpp"
 #include "type_info.hpp"
 
 namespace sek
 {
-	template<>
-	struct service_traits<type_database>
+	/** @brief Singleton used to store reflection type database. */
+	class type_database
 	{
-		typedef type_database type;
-		typedef std::shared_mutex mutex_type;
-	};
-
-	/** @brief Global synchronized service used to store reflection type database. */
-	class type_database : public service<type_database>
-	{
-		template<service_type>
-		friend class service;
+		template<typename>
+		friend class type_factory;
 		friend class type_query;
 
+	public:
+		/** Returns guarded pointer to the global type database instance. */
+		[[nodiscard]] static SEK_CORE_PUBLIC shared_guard<type_database *> instance();
+
+	private:
 		struct type_cmp
 		{
 			typedef std::true_type is_transparent;
@@ -63,18 +60,22 @@ namespace sek
 		type_database() = default;
 
 	public:
-		/** Adds the type to the internal database & returns a type factory for it. */
+		/** Adds the type to the internal database & returns a type factory for it.
+		 * @return Type factory for type `T`, which can be used to specify additional information about the type.
+		 * @throw type_error If the type is already reflected. */
 		template<typename T>
 		[[nodiscard]] type_factory<T> reflect()
 		{
-			static_assert(is_type_info_exported_v<T>, "Reflected type must be exported via `SEK_EXTERN_TYPE_INFO`");
-			return type_factory<T>{reflect(type_info::handle<T>())};
+			static_assert(is_exported_type_v<T>, "Reflected type must be exported via `SEK_EXTERN_TYPE_INFO`");
+			return type_factory<T>{{this, &m_mtx}, type_info::handle<T>()};
 		}
 
 		/** Returns type info for the specified reflected type. */
 		[[nodiscard]] SEK_CORE_PUBLIC type_info get(std::string_view type);
 		/** Removes a previously reflected type from the internal database. */
 		SEK_CORE_PUBLIC void reset(std::string_view type);
+		/** @copydoc reset */
+		void reset(type_info type) { reset(type.name()); }
 		/** @copydoc reset */
 		template<typename T>
 		void reset()
@@ -88,8 +89,9 @@ namespace sek
 		[[nodiscard]] constexpr const type_table_t &types() const noexcept { return m_type_table; }
 
 	private:
-		[[nodiscard]] SEK_CORE_PUBLIC detail::type_data *reflect(detail::type_handle);
+		SEK_CORE_PUBLIC const detail::type_data *reflect_impl(detail::type_handle);
 
+		mutable std::shared_mutex m_mtx;
 		type_table_t m_type_table;
 		attr_table_t m_attr_table;
 	};
@@ -134,13 +136,10 @@ namespace sek
 
 	constexpr type_query type_database::query() const noexcept { return type_query{*this}; }
 
+	// clang-format off
 	template<typename T>
-	type_factory<T> type_info::reflect()
-	{
-		return type_database::instance()->template reflect<T>();
-	}
+	type_factory<T> type_info::reflect() { return type_database::instance()->template reflect<T>(); }
 	type_info type_info::get(std::string_view name) { return type_database::instance()->get(name); }
 	void type_info::reset(std::string_view name) { type_database::instance()->reset(name); }
+	// clang-format on
 }	 // namespace sek
-
-SEK_EXTERN_TYPE_INFO(sek::type_database)

@@ -1,6 +1,6 @@
-//
-// Created by switchblade on 2022-10-03.
-//
+/*
+ * Created by switchblade on 2022-10-03.
+ */
 
 #include "type_error.hpp"
 
@@ -43,7 +43,7 @@ namespace sek
 				else if ((errc & type_errc::INVALID_CONSTRUCTOR) != type_errc{})
 					return "Invalid type constructor";
 				else if ((errc & type_errc::INVALID_ENUMERATION) != type_errc{})
-					return "Invalid type enumeration";
+					return "Invalid type constant";
 				return "Invalid type member";
 			}
 			return "Invalid type";

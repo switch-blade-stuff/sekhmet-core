@@ -1,6 +1,6 @@
-//
-// Created by switchblade on 2022-10-03.
-//
+/*
+ * Created by switchblade on 2022-10-03.
+ */
 
 #pragma once
 
@@ -87,6 +87,8 @@ namespace sek
 		friend class any;
 		friend class any_ref;
 
+		using data_t = detail::tuple_type_data;
+
 	public:
 		typedef std::size_t size_type;
 
@@ -94,7 +96,7 @@ namespace sek
 		any_tuple(std::in_place_t, const any_ref &ref) : m_data(ref.m_type->tuple_data), m_target(ref) {}
 		any_tuple(std::in_place_t, any_ref &&ref) : m_data(ref.m_type->tuple_data), m_target(std::move(ref)) {}
 
-		static const detail::tuple_type_data *assert_data(const detail::type_data *data);
+		static const data_t *assert_data(const detail::type_data *data);
 
 	public:
 		any_tuple() = delete;
@@ -138,7 +140,7 @@ namespace sek
 		friend constexpr void swap(any_tuple &a, any_tuple &b) noexcept { a.swap(b); }
 
 	private:
-		const detail::tuple_type_data *m_data;
+		const data_t *m_data;
 		any_ref m_target;
 	};
 }	 // namespace sek

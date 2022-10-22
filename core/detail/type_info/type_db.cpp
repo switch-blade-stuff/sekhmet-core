@@ -4,32 +4,27 @@
 
 #include "type_db.hpp"
 
-SEK_EXPORT_TYPE_INFO(sek::type_database)
+#include <fmt/format.h>
 
 namespace sek
 {
-	namespace detail
+	shared_guard<type_database *> type_database::instance()
 	{
-		/* Type database should be registered on static initialization to allow it to be initialized before every other service. */
-		struct type_db_registrar
-		{
-			type_db_registrar() { service_locator::instance()->load<type_database>(std::in_place_type<type_database>); }
-			~type_db_registrar() { service_locator::instance()->reset<type_database>(); }
-		};
-		static const auto registrar = type_db_registrar{};
-	}	 // namespace detail
+		static type_database db;
+		return {&db, &db.m_mtx};
+	}
 
-	detail::type_data *type_database::reflect(detail::type_handle handle)
+	const detail::type_data *type_database::reflect_impl(detail::type_handle handle)
 	{
-		auto *data = handle.get();
-		auto iter = m_type_table.find(data->name);
-		if (iter == m_type_table.end()) [[likely]]
+		if (auto *data = handle.get(); m_type_table.contains(data->name)) [[unlikely]]
+			throw type_error(make_error_code(type_errc::INVALID_TYPE), fmt::format("<{}> if already reflected", data->name));
+		else
 		{
 			const auto type = type_info{data};
-			iter = m_type_table.insert(type).first;
+			m_type_table.insert(type);
 
 			/* Add the type to the attribute map. */
-			for (auto &attr : iter->m_data->attributes)
+			for (auto &attr : data->attributes)
 			{
 				const auto attr_name = attr.type->name;
 				auto attr_iter = m_attr_table.find(attr_name);
@@ -40,13 +35,13 @@ namespace sek
 					attr_iter = m_attr_table.emplace(std::piecewise_construct,
 					                                 std::forward_as_tuple(attr_name),
 					                                 std::forward_as_tuple())
-						.first;
+								.first;
 				}
 				// clang-format on
 				attr_iter->second.try_insert(type);
 			}
+			return data;
 		}
-		return iter->m_data;
 	}
 	type_info type_database::get(std::string_view name)
 	{
@@ -57,8 +52,7 @@ namespace sek
 	}
 	void type_database::reset(std::string_view type)
 	{
-		const auto iter = m_type_table.find(type);
-		if (iter != m_type_table.end()) [[likely]]
+		if (const auto iter = m_type_table.find(type); iter != m_type_table.end()) [[likely]]
 		{
 			/* Remove the type from the attribute map. */
 			for (auto &attr : iter->m_data->attributes)
@@ -69,7 +63,7 @@ namespace sek
 			}
 
 			/* Reset the type to its original "unreflected" state and remove from the set. */
-			iter->m_data->reset(iter->m_data);
+			iter->m_data->reset(const_cast<detail::type_data *>(iter->m_data));
 			m_type_table.erase(iter);
 		}
 	}

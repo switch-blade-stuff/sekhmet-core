@@ -1,6 +1,6 @@
-//
-// Created by switchblade on 2022-10-03.
-//
+/*
+ * Created by switchblade on 2022-10-03.
+ */
 
 #pragma once
 
@@ -20,10 +20,9 @@ namespace sek::detail
 		template<typename T>
 		constexpr explicit type_handle(type_selector_t<T>) noexcept;
 
+		[[nodiscard]] constexpr bool empty() const noexcept { return get == nullptr; }
 		[[nodiscard]] constexpr type_data *operator->() const noexcept { return get(); }
 		[[nodiscard]] constexpr type_data &operator*() const noexcept { return *get(); }
-
-		[[nodiscard]] constexpr bool operator==(const type_handle &other) const noexcept;
 
 		type_data *(*get)() noexcept = nullptr;
 	};
@@ -153,15 +152,20 @@ namespace sek::detail
 
 	struct type_parent : type_data_node<type_parent>
 	{
-		any_ref (*cast)(any_ref);
 		type_handle type;
+		any_ref (*cast)(any_ref);
 	};
 	struct type_conv : type_data_node<type_parent>
 	{
-		any (*convert)(any_ref);
 		type_handle type;
+		any (*convert)(any_ref);
 	};
 
+	struct type_const : type_data_node<type_const>
+	{
+		std::string_view name;
+		any (*get)() = nullptr;
+	};
 	struct type_attr : type_data_node<type_attr>
 	{
 		~type_attr()
@@ -170,21 +174,9 @@ namespace sek::detail
 				destroy(this);
 		}
 
+		type_handle type;
 		any (*get)(const type_attr *) = nullptr;
 		void (*destroy)(type_attr *) = nullptr;
-		type_handle type;
-	};
-	struct type_enum : type_data_node<type_enum>
-	{
-		~type_enum()
-		{
-			if (destroy != nullptr) [[likely]]
-				destroy(this);
-		}
-
-		any (*get)(const type_enum *) = nullptr;
-		void (*destroy)(type_enum *) = nullptr;
-		std::string_view name;
 	};
 
 	struct arg_type_data
@@ -202,9 +194,9 @@ namespace sek::detail
 				destroy(this);
 		}
 
+		type_func_args args;
 		any (*invoke)(const type_ctor *, std::span<any>) = nullptr;
 		void (*destroy)(type_ctor *) = nullptr;
-		type_func_args args;
 	};
 	struct type_func : type_data_node<type_func>
 	{
@@ -214,11 +206,11 @@ namespace sek::detail
 				destroy(this);
 		}
 
-		any (*invoke)(const type_func *, any, std::span<any>) = nullptr;
-		void (*destroy)(type_func *) = nullptr;
 		std::string_view name;
 		type_func_args args;
 		type_handle ret;
+		any (*invoke)(const type_func *, any, std::span<any>) = nullptr;
+		void (*destroy)(type_func *) = nullptr;
 	};
 	struct type_prop : type_data_node<type_prop>
 	{
@@ -228,10 +220,10 @@ namespace sek::detail
 				destroy(this);
 		}
 
+		std::string_view name;
 		void (*set)(const type_prop *, any, any) = nullptr;
 		any (*get)(const type_prop *, any) = nullptr;
 		void (*destroy)(type_prop *) = nullptr;
-		std::string_view name;
 	};
 
 	template<typename>
@@ -240,8 +232,9 @@ namespace sek::detail
 	class table_type_iterator;
 
 	template<typename T>
-	struct type_iterator_ptr
+	class type_iterator_ptr
 	{
+	public:
 		type_iterator_ptr(const type_iterator_ptr &) = delete;
 		type_iterator_ptr &operator=(const type_iterator_ptr &) = delete;
 
@@ -284,8 +277,9 @@ namespace sek::detail
 		T *m_ptr = nullptr;
 	};
 	template<>
-	struct SEK_CORE_PUBLIC range_type_iterator<void>
+	class SEK_CORE_PUBLIC range_type_iterator<void>
 	{
+	public:
 		typedef any value_type;
 		typedef std::size_t size_type;
 		typedef std::ptrdiff_t difference_type;
@@ -314,8 +308,9 @@ namespace sek::detail
 		[[nodiscard]] virtual bool operator>=(const range_type_iterator &) const noexcept = 0;
 	};
 	template<>
-	struct SEK_CORE_PUBLIC table_type_iterator<void>
+	class SEK_CORE_PUBLIC table_type_iterator<void>
 	{
+	public:
 		typedef any value_type;
 		typedef std::size_t size_type;
 		typedef std::ptrdiff_t difference_type;
@@ -493,7 +488,7 @@ namespace sek::detail
 		const string_type_data *string_data = nullptr;
 
 		type_data_list<type_attr> attributes = {};
-		type_data_list<type_enum> enumerations = {};
+		type_data_list<type_const> constants = {};
 
 		type_data_list<type_parent> parents = {};
 		type_data_list<type_conv> conversions = {};

@@ -1,6 +1,6 @@
-//
-// Created by switchblade on 2022-10-03.
-//
+/*
+ * Created by switchblade on 2022-10-03.
+ */
 
 #pragma once
 
@@ -67,6 +67,8 @@ namespace sek
 	{
 		friend class any;
 		friend class any_ref;
+
+		using data_t = detail::string_type_data;
 
 	public:
 		typedef std::size_t size_type;
@@ -159,7 +161,7 @@ namespace sek
 			dst.erase(dst_off, dst.size() - dst_off);
 		}
 
-		static SEK_CORE_PUBLIC const detail::string_type_data *assert_data(const detail::type_data *data);
+		static SEK_CORE_PUBLIC const data_t *assert_data(const detail::type_data *data);
 
 		any_string(std::in_place_t, const any_ref &ref) : m_data(ref.m_type->string_data), m_target(ref) {}
 		any_string(std::in_place_t, any_ref &&ref) : m_data(ref.m_type->string_data), m_target(std::move(ref)) {}
@@ -249,7 +251,7 @@ namespace sek
 		template<typename Sc, typename C, typename T, typename A>
 		bool convert_with(std::basic_string<C, T, A> &dst, const std::locale &l, const A &a) const;
 
-		const detail::string_type_data *m_data;
+		const data_t *m_data;
 		any_ref m_target;
 	};
 }	 // namespace sek

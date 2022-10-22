@@ -1,6 +1,6 @@
-//
-// Created by switchblade on 2022-10-03.
-//
+/*
+ * Created by switchblade on 2022-10-03.
+ */
 
 #pragma once
 
@@ -195,7 +195,7 @@ namespace sek
 				m_storage.swap(other.m_storage);
 			}
 
-			type_data *m_type = nullptr;
+			const type_data *m_type = nullptr;
 			storage_t m_storage = {};
 		};
 	}	 // namespace detail

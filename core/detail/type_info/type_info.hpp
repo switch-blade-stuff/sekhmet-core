@@ -1,6 +1,6 @@
-//
-// Created by switchblade on 2022-10-03.
-//
+/*
+ * Created by switchblade on 2022-10-03.
+ */
 
 #pragma once
 
@@ -72,7 +72,7 @@ namespace sek
 			return handle_t{type_selector<std::remove_cvref_t<T>>};
 		}
 
-		constexpr explicit type_info(data_t *data) noexcept : m_data(data) {}
+		constexpr explicit type_info(const data_t *data) noexcept : m_data(data) {}
 		constexpr explicit type_info(handle_t handle) noexcept : m_data(handle.get ? handle.get() : nullptr) {}
 
 	public:
@@ -90,13 +90,14 @@ namespace sek
 
 		/** Reflects type `T`, making it available for runtime lookup by name.
 		 * @return Type factory for type `T`, which can be used to specify additional information about the type.
-		 * @note Removes any const & volatile qualifiers and decays references.
-		 * @note Modification of type information (via type factory) is not thread-safe. */
+		 * @throw type_error If the type is already reflected. */
 		template<typename T>
 		inline static type_factory<T> reflect();
 		/** Resets a reflected type, removing it from the type database.
 		 * @note The type will no longer be available for runtime lookup. */
 		inline static void reset(std::string_view name);
+		/** @copydoc reset */
+		static void reset(type_info type) { reset(type.name()); }
 		/** @copydoc reset */
 		template<typename T>
 		static void reset() noexcept
@@ -225,7 +226,7 @@ namespace sek
 		friend constexpr void swap(type_info &a, type_info &b) noexcept { a.swap(b); }
 
 	private:
-		data_t *m_data = nullptr;
+		const data_t *m_data = nullptr;
 	};
 
 	[[nodiscard]] constexpr hash_t hash(const type_info &type) noexcept
@@ -400,12 +401,12 @@ namespace sek
 
 	/** @brief Helper type used to check if a type has been exported via `SEK_EXTERN_TYPE_INFO`. */
 	template<typename T>
-	struct is_type_info_exported : std::false_type
+	struct is_exported_type : std::false_type
 	{
 	};
-	/** @brief Alias for `is_type_info_exported<T>::value`. */
+	/** @brief Alias for `is_exported_type<T>::value`. */
 	template<typename T>
-	constexpr static auto is_type_info_exported_v = is_type_info_exported<T>::value;
+	constexpr static auto is_exported_type_v = is_exported_type<T>::value;
 }	 // namespace sek
 
 template<>

@@ -1,6 +1,6 @@
-//
-// Created by switchblade on 2022-10-04.
-//
+/*
+ * Created by switchblade on 2022-10-04.
+ */
 
 #include "type_db.hpp"
 

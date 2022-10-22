@@ -1,6 +1,6 @@
-//
-// Created by switchblade on 2022-10-03.
-//
+/*
+ * Created by switchblade on 2022-10-03.
+ */
 
 #pragma once
 
@@ -49,7 +49,7 @@ namespace sek
 		INVALID_FUNCTION = INVALID_MEMBER | 0x2000,
 		/** Requested constructor of a type does not exist. */
 		INVALID_CONSTRUCTOR = INVALID_MEMBER | 0x4000,
-		/** Requested enumeration of a type does not exist. */
+		/** Requested constant of a type does not exist. */
 		INVALID_ENUMERATION = INVALID_MEMBER | 0x8000,
 
 		/** Provided `any` instance is not a reference. */

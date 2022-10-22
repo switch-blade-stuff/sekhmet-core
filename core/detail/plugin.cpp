@@ -191,10 +191,10 @@ namespace sek
 				return *res;
 			}
 
-			[[nodiscard]] static recursive_guard<module_db> instance()
+			[[nodiscard]] static recursive_guard<module_db *> instance()
 			{
 				static module_db value;
-				return {value, value.mtx};
+				return {&value, &value.mtx};
 			}
 
 			module_db()
