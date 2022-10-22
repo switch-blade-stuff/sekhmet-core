@@ -7,11 +7,12 @@
 #include <algorithm>
 #include <vector>
 
+#include "core/serialization/tuples.hpp"
+
 #include "../../../detail/owned_ptr.hpp"
 #include "../../../expected.hpp"
 #include "../../../ordered_map.hpp"
 #include "../manipulators.hpp"
-#include "../tuples.hpp"
 #include "../util.hpp"
 #include "json_error.hpp"
 
@@ -826,7 +827,7 @@ namespace sek
 		 * @tparam U Value type to retrieve from the Json object. Must either be one of the following value types:
 		 * `bool`, `int_type`, `uint_type`, `float_type`, `string_type`, `table_type`, `array_type`, or a compatible arithmetic type.
 		 * @return Copy of the requested value of the Json object.
-		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate conversions will be preformed.
+		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate casts will be preformed.
 		 * @throw archive_error If the Json object does not contain the specified type.
 		 * @example
 		 * @code{cpp}
@@ -840,7 +841,7 @@ namespace sek
 		 * `bool`, `int_type`, `uint_type`, `float_type`, `string_type`, `table_type`, `array_type`, or a compatible arithmetic type.
 		 * @return Copy of the requested value of the Json object, or `archive_errc::INVALID_TYPE`
 		 * if the Json object does not contain the specified type.
-		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate conversions will be preformed.
+		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate casts will be preformed.
 		 * @example
 		 * @code{cpp}
 		 * expected<int32_t, std::error_code> int32_value = json.get<int32_t>(std::nothrow);
@@ -959,7 +960,7 @@ namespace sek
 		/** Reads a value from the Json object.
 		 * @param value Value to read. Must be an instance of the following value types: `std::nullptr_t`, `bool`,
 		 * `int_type`, `uint_type`, `float_type`, `string_type`, `table_type`, `array_type`, or a compatible arithmetic type.
-		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate conversions will be preformed. */
+		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate casts will be preformed. */
 		template<typename U>
 		void read(U &value) const requires is_compatible_type<U>
 		{
@@ -995,14 +996,14 @@ namespace sek
 		 * @param value Value to read. Must be an instance of the following value types: `std::nullptr_t`, `bool`,
 		 * `int_type`, `uint_type`, `float_type`, `string_type`, `table_type`, `array_type`, or a compatible arithmetic type.
 		 * @return Instance of the value read from the Json object.
-		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate conversions will be preformed. */
+		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate casts will be preformed. */
 		template<typename U>
 		[[nodiscard]] U read(std::in_place_type_t<U>) const requires is_compatible_type<U> { return get<U>(); }
 		/** @copybrief read
 		 * @param value Value to read. Must be an instance of the following value types: `std::nullptr_t`, `bool`,
 		 * `int_type`, `uint_type`, `float_type`, `string_type`, `table_type`, `array_type`, or a compatible arithmetic type.
 		 * @return Instance of the value read from the Json object, or an error code on deserialization errors.
-		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate conversions will be preformed. */
+		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate casts will be preformed. */
 		template<typename U>
 		[[nodiscard]] expected<U, std::error_code> read(std::nothrow_t, std::in_place_type_t<U>) const requires is_compatible_type<U>
 		{
@@ -1040,7 +1041,7 @@ namespace sek
 		 * @param value Object to deserialize.
 		 * @param args Arguments passed to the deserialization function.
 		 * @return Instance of `U` deserialized from the Json object, or an error code on deserialization errors.
-		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate conversions will be preformed. */
+		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate casts will be preformed. */
 		template<typename U, typename... Args>
 		[[nodiscard]] expected<U, std::error_code> read(std::nothrow_t, std::in_place_type_t<U>, Args &&...args) const
 			requires(!is_compatible_type<U> && is_in_place_deserializable<U, Args...>);
@@ -1644,7 +1645,7 @@ namespace sek
 		/** @copybrief read
 		 * @param args Arguments passed to the deserialization function.
 		 * @return Instance of `U` deserialized from the Json object, or an error code on deserialization errors.
-		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate conversions will be preformed.
+		 * @note If the requested type is a non-`bool` arithmetic (number) type, appropriate casts will be preformed.
 		 * @note Read position is advanced only on success. */
 		template<typename U, typename... Args>
 		[[nodiscard]] expected<U, std::error_code> read(std::nothrow_t, std::in_place_type_t<U>, Args &&...args)

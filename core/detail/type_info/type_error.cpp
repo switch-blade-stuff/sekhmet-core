@@ -32,8 +32,6 @@ namespace sek
 		{
 			if ((errc & type_errc::INVALID_QUALIFIER) != type_errc{})
 				return "Invalid type qualifier";
-			else if ((errc & type_errc::INVALID_ATTRIBUTE) != type_errc{})
-				return "Invalid type attribute";
 			else if ((errc & type_errc::INVALID_MEMBER) != type_errc{})
 			{
 				if ((errc & type_errc::INVALID_PROPERTY) != type_errc{})
@@ -42,8 +40,6 @@ namespace sek
 					return "Invalid type member function";
 				else if ((errc & type_errc::INVALID_CONSTRUCTOR) != type_errc{})
 					return "Invalid type constructor";
-				else if ((errc & type_errc::INVALID_ENUMERATION) != type_errc{})
-					return "Invalid type constant";
 				return "Invalid type member";
 			}
 			return "Invalid type";

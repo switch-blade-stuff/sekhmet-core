@@ -8,8 +8,8 @@
 #include <tuple>
 #include <utility>
 
-#include "../../meta.hpp"
-#include "manipulators.hpp"
+#include "../meta.hpp"
+#include "detail/manipulators.hpp"
 
 namespace sek
 {

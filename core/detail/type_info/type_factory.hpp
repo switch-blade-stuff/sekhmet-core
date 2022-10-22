@@ -70,6 +70,83 @@ namespace sek
 		[[nodiscard]] constexpr type_info type() const noexcept;
 
 		// clang-format off
+		/** Adds a type conversion to the type.
+		 * @tparam U Converted-to type.
+		 * @tparam Conv Converter to use. By default, uses `static_cast<U>`.
+		 * @return Reference to this type factory.
+		 * @note Only one conversion for type `U` may be added to any given type. Adding multiple conversions for the same
+		 * type will have no effect. */
+		template<typename U, typename Conv = detail::default_conv<T, U>>
+		type_factory &conversion() requires std::is_invocable_r_v<U, Conv, const T &>
+		{
+			/* Ignore initialization if the conversion already exists. */
+			if (auto &conv = detail::type_conv::instance<T, U, Conv>(); conv.empty()) [[likely]]
+			{
+				m_data->conversions.insert(conv);
+
+				/* Overwrite any default casts if needed. */
+				if constexpr (std::is_enum_v<T> && std::same_as<U, std::underlying_type_t<T>>)
+				{
+					for (auto *&conv_ptr = m_data->conversions.front; conv_ptr != nullptr; conv_ptr = conv_ptr->next)
+						if (conv_ptr == m_data->enum_cast)
+						{
+							conv_ptr = conv_ptr->next;
+							break;
+						}
+					m_data->enum_cast = conv;
+				}
+				if constexpr (std::same_as<U, std::intmax_t>)
+				{
+					for (auto *&conv_ptr = m_data->conversions.front; conv_ptr != nullptr; conv_ptr = conv_ptr->next)
+						if (conv_ptr == m_data->signed_cast)
+						{
+							conv_ptr = conv_ptr->next;
+							break;
+						}
+					m_data->signed_cast = conv;
+				}
+				if constexpr (std::same_as<U, std::uintmax_t>)
+				{
+					for (auto *&conv_ptr = m_data->conversions.front; conv_ptr != nullptr; conv_ptr = conv_ptr->next)
+						if (conv_ptr == m_data->unsigned_cast)
+						{
+							conv_ptr = conv_ptr->next;
+							break;
+						}
+					m_data->unsigned_cast = conv;
+				}
+				if constexpr (std::same_as<U, long double>)
+				{
+					for (auto *&conv_ptr = m_data->conversions.front; conv_ptr != nullptr; conv_ptr = conv_ptr->next)
+						if (conv_ptr == m_data->floating_cast)
+						{
+							conv_ptr = conv_ptr->next;
+							break;
+						}
+					m_data->floating_cast = conv;
+				}
+			}
+			return *this;
+		}
+		// clang-format on
+
+		// clang-format off
+		/** Adds a parent relationship to the type.
+		 * @tparam P Parent type of `T`.
+		 * @return Reference to this type factory.
+		 * @note Only one parent relationship of type `P` may be added to any given type. Adding multiple parents of the
+		 * same type will have no effect. */
+		template<typename P>
+		type_factory &parent() requires std::is_base_of_v<P, T>
+		{
+			/* Ignore initialization if the conversion already exists. */
+			if (auto &parent = detail::type_parent::instance<T, P>(); parent.empty()) [[likely]]
+				m_data->parents.insert(parent);
+			return *this;
+		}
+		// clang-format on
+
+		// clang-format off
 		/** Adds an attribute to the type.
 		 * @param args Arguments passed to attribute's constructor.
 		 * @return Reference to this type factory.
@@ -87,7 +164,7 @@ namespace sek
 				else
 					std::construct_at(attr.data(), std::forward<Args>(args)...);
 
-				attr.get = +[](const detail::type_attr *ptr)
+				attr.get = +[](const detail::type_attr *ptr) -> any_ref
 				{
 					const auto attr = static_cast<const attribute_t<A> *>(ptr);
 					return forward_any(*attr->data());
@@ -129,6 +206,7 @@ namespace sek
 			/* Ignore initialization if the constant already exists. */
 			if (auto &cn = constant_t<Name>::instance(); cn.empty()) [[likely]]
 			{
+				cn.type = detail::type_handle{type_selector<std::remove_cvref_t<decltype(Value)>>};
 				cn.get = +[]() { return forward_any(Value); };
 				m_data->constants.insert(cn);
 			}
@@ -167,6 +245,7 @@ namespace sek
 			/* Ignore initialization if the constant already exists. */
 			if (auto &cn = constant_t<Name>::instance(); cn.empty()) [[likely]]
 			{
+				cn.type = detail::type_handle{type_selector<std::remove_cvref_t<std::invoke_result_t<Factory>>>};
 				cn.get = +[]() { return forward_any(Factory{}()); };
 				m_data->constants.insert(cn);
 			}

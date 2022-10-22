@@ -38,9 +38,6 @@ namespace sek
 		INVALID_TYPE = 0x200,
 		/** Unexpected/invalid type qualifier (ex. expected non-const but got const). */
 		INVALID_QUALIFIER = INVALID_TYPE | 0x400,
-		/** Requested attribute does not exist. */
-		INVALID_ATTRIBUTE = INVALID_TYPE | 0x800,
-
 		/** Requested member of a type does not exist. */
 		INVALID_MEMBER = INVALID_TYPE | 0xa00,
 		/** Requested member property of a type does not exist. */
@@ -49,8 +46,6 @@ namespace sek
 		INVALID_FUNCTION = INVALID_MEMBER | 0x2000,
 		/** Requested constructor of a type does not exist. */
 		INVALID_CONSTRUCTOR = INVALID_MEMBER | 0x4000,
-		/** Requested constant of a type does not exist. */
-		INVALID_ENUMERATION = INVALID_MEMBER | 0x8000,
 
 		/** Provided `any` instance is not a reference. */
 		EXPECTED_REF_ANY = 0xa000,

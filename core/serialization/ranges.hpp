@@ -7,7 +7,7 @@
 #include <concepts>
 #include <ranges>
 
-#include "manipulators.hpp"
+#include "detail/manipulators.hpp"
 
 namespace sek
 {
