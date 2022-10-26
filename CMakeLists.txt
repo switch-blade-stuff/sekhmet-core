@@ -23,7 +23,7 @@ find_package(fmt CONFIG REQUIRED)
 find_package(asio CONFIG REQUIRED)
 
 # Initialization macros
-macro(sek_core_build_options)
+macro(sek_set_build_options)
     if (MSVC)
         if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
             target_compile_options(${ARGV0} PUBLIC /W4 /wd4251)
@@ -57,7 +57,7 @@ macro(sek_core_build_options)
     endif ()
 endmacro()
 
-macro(sek_core_visibility)
+macro(sek_set_visibility)
     set_target_properties(${ARGV0} PROPERTIES C_VISIBILITY_PRESET hidden)
     set_target_properties(${ARGV0} PROPERTIES CXX_VISIBILITY_PRESET hidden)
     set_target_properties(${ARGV0} PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
@@ -66,7 +66,8 @@ endmacro()
 
 # Set project-related variables & properties
 set(SEK_CORE_PROJECT ${PROJECT_NAME})
-set(SEK_CORE_LIBRARY_PATH $<TARGET_FILE:${SEK_CORE_PROJECT}>)
+set(SEK_CORE_SHARED_LIBRARY_PATH $<TARGET_FILE:${SEK_CORE_PROJECT}-shared>)
+set(SEK_CORE_STATIC_LIBRARY_PATH $<TARGET_FILE:${SEK_CORE_PROJECT}-static>)
 set(SEK_CORE_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/core)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib CACHE STRING "")
@@ -88,12 +89,12 @@ include_directories(${ASIO_INCLUDE_DIR})
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
 # Set symbol visibility
-sek_core_visibility(${SEK_CORE_PROJECT}-static)
-sek_core_visibility(${SEK_CORE_PROJECT}-shared)
+sek_set_visibility(${SEK_CORE_PROJECT}-static)
+sek_set_visibility(${SEK_CORE_PROJECT}-shared)
 
 # Set compiler options
-sek_core_build_options(${SEK_CORE_PROJECT}-static)
-sek_core_build_options(${SEK_CORE_PROJECT}-shared)
+sek_set_build_options(${SEK_CORE_PROJECT}-static)
+sek_set_build_options(${SEK_CORE_PROJECT}-shared)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Include source tree & add sources
@@ -114,4 +115,4 @@ target_link_libraries(${SEK_CORE_PROJECT}-shared PUBLIC fmt::fmt asio::asio ${CM
 if (SEK_ENABLE_TESTS)
     add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/test test)
 endif ()
-message("Install prefix: ${CMAKE_INSTALL_PREFIX}")
+message("Core install prefix: ${CMAKE_INSTALL_PREFIX}")
