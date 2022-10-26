@@ -7,7 +7,7 @@
 #include <memory>
 #include <utility>
 
-#include "aligned_storage.hpp"
+#include "type_storage.hpp"
 
 namespace sek
 {

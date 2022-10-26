@@ -208,9 +208,9 @@ namespace sek
 		using access_guard<P, Mutex, false>::access_guard;
 
 		/** Acquires a shared lock and returns an accessor handle. */
-		[[nodiscard]] constexpr shared_handle access_shared() const { return {*m_ptr, shared_lock{*base_t::m_mtx}}; }
+		[[nodiscard]] constexpr shared_handle access_shared() const & { return {*m_ptr, shared_lock{*base_t::m_mtx}}; }
 		/** @copydoc access_shared */
-		[[nodiscard]] constexpr shared_handle operator->() const { return access_shared(); }
+		[[nodiscard]] constexpr shared_handle operator->() const & { return access_shared(); }
 
 		/** Attempts to acquire a unique lock and returns an optional accessor handle. */
 		[[nodiscard]] constexpr std::optional<shared_handle> try_access_shared() const

@@ -113,6 +113,6 @@ target_link_libraries(${SEK_CORE_PROJECT}-shared PUBLIC fmt::fmt asio::asio ${CM
 
 # Add unit tests
 if (SEK_ENABLE_TESTS)
-    add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/test test)
+    include(${CMAKE_CURRENT_LIST_DIR}/test/CMakeLists.txt)
 endif ()
 message("Core install prefix: ${CMAKE_INSTALL_PREFIX}")

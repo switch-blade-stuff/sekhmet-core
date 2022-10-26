@@ -14,7 +14,7 @@ namespace sek
 	{
 		static std::recursive_mutex mtx;
 		static service_locator locator;
-		return guard_t{locator, mtx};
+		return guard_t{&locator, &mtx};
 	}
 
 	struct service_locator::service_entry

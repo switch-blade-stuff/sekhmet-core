@@ -114,7 +114,7 @@ namespace sek
 		template<service_type>
 		friend class service;
 
-		using guard_t = access_guard<service_locator, std::recursive_mutex>;
+		using guard_t = access_guard<service_locator *, std::recursive_mutex>;
 		using storage_t = detail::service_storage<void>;
 		using attr_data_t = detail::service_attr_data;
 		using factory_t = storage_t *(*) ();
@@ -271,7 +271,7 @@ namespace sek
 
 		using value_type = typename service_traits<T>::type;
 		using mutex_type = typename service_traits<T>::mutex_type;
-		using instance_type = access_guard<value_type, mutex_type>;
+		using instance_type = access_guard<value_type *, mutex_type>;
 
 		using base_storage_t = detail::service_storage<void>;
 		template<typename U>

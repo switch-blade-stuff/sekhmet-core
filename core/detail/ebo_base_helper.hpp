@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "aligned_storage.hpp"
+#include "type_storage.hpp"
 #include <type_traits>
 
 namespace sek

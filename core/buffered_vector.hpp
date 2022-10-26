@@ -48,7 +48,7 @@ namespace sek
 
 	private:
 		using alloc_traits = std::allocator_traits<detail::rebind_alloc_t<Alloc, T>>;
-		using local_data = aligned_storage<sizeof(T) * N, alignof(T)>;
+		using local_data = type_storage<T, N>;
 		struct heap_data
 		{
 			size_type capacity = 0;
@@ -77,7 +77,7 @@ namespace sek
 		constexpr ~buffered_vector()
 		{
 			if (local())
-				std::destroy_n(m_local.template get<T>(), size());
+				std::destroy_n(m_local.get(), size());
 			else
 			{
 				std::destroy_n(m_heap.data, size());
@@ -320,13 +320,10 @@ namespace sek
 		}
 
 		/** Returns pointer to the internal data buffer. */
-		[[nodiscard]] constexpr pointer data() noexcept { return local() ? m_local.template get<T>() : m_heap.data; }
+		[[nodiscard]] constexpr pointer data() noexcept { return local() ? m_local.get() : m_heap.data; }
 
 		/** Returns pointer to the internal data buffer. */
-		[[nodiscard]] constexpr const_pointer data() const noexcept
-		{
-			return local() ? m_local.template get<T>() : m_heap.data;
-		}
+		[[nodiscard]] constexpr const_pointer data() const noexcept { return local() ? m_local.get() : m_heap.data; }
 
 		/** Destroys all elements stored within the vector. */
 		constexpr void clear()
@@ -348,7 +345,7 @@ namespace sek
 					const auto old_capacity = m_heap.capacity;
 					const auto old_data = m_heap.data;
 
-					relocate_n(old_data, s, m_local.template get<T>());
+					relocate_n(old_data, s, m_local.get());
 					alloc_traits::deallocate(alloc(), old_data, old_capacity);
 					m_size.flag(false);
 				}
@@ -374,7 +371,7 @@ namespace sek
 			if (l && n > N)
 			{
 				const auto new_data = alloc_traits::allocate(alloc(), n);
-				relocate_n(m_local.template get<T>(), s, new_data);
+				relocate_n(m_local.get(), s, new_data);
 				m_heap.data = new_data;
 				m_heap.capacity = n;
 				m_size.flag(true);
@@ -385,7 +382,7 @@ namespace sek
 				const auto old_capacity = m_heap.capacity;
 				const auto old_data = m_heap.data;
 
-				relocate_n(m_local.template get<T>(), s, new_data);
+				relocate_n(m_local.get(), s, new_data);
 				alloc_traits::deallocate(alloc(), old_data, old_capacity);
 				m_heap.data = new_data;
 				m_heap.capacity = n;
@@ -408,7 +405,7 @@ namespace sek
 		template<typename... Args>
 		constexpr iterator emplace(const_iterator where, Args &&...args)
 		{
-			return emplace_impl(where, 1, [&](T *ptr) { std::construct_at(ptr, std::forward<Args>(args)...); })
+			return emplace_impl(where, 1, [&](T *ptr) { std::construct_at(ptr, std::forward<Args>(args)...); });
 		}
 
 		/** Inserts an in-place constructed element at the end of the vector.
@@ -591,15 +588,15 @@ namespace sek
 
 				if (this_size > other_size)
 				{
-					dst_data = other.m_local.template get<T>();
-					src_data = m_local.template get<T>();
+					dst_data = other.m_local.get();
+					src_data = m_local.get();
 					rel_n = this_size - other_size;
 					rel_pos = other_size;
 				}
 				else
 				{
-					src_data = other.m_local.template get<T>();
-					dst_data = m_local.template get<T>();
+					src_data = other.m_local.get();
+					dst_data = m_local.get();
 					rel_n = other_size - this_size;
 					rel_pos = this_size;
 				}
@@ -619,16 +616,16 @@ namespace sek
 				if (this_local)
 				{
 					local_size = this_size;
-					dst_local = other.m_local.template get<T>();
-					src_local = m_local.template get<T>();
+					dst_local = other.m_local.get();
+					src_local = m_local.get();
 					src_heap = &other.m_heap;
 					dst_heap = &m_heap;
 				}
 				else
 				{
 					local_size = other_size;
-					src_local = other.m_local.template get<T>();
-					dst_local = m_local.template get<T>();
+					src_local = other.m_local.get();
+					dst_local = m_local.get();
 					dst_heap = &other.m_heap;
 					src_heap = &m_heap;
 				}
@@ -660,15 +657,18 @@ namespace sek
 				{
 					move_n = this_size;
 					const auto diff = this_size - other_size;
-					std::uninitialized_move_n(other.m_local.template get<T>() + move_n, diff, m_local.template get<T>() + move_n);
+					std::uninitialized_move_n(other.m_local.get() + move_n, diff, m_local.get() + move_n);
 				}
 				else
 				{
 					move_n = other_size;
 					const auto diff = this_size - other_size;
-					std::destroy_n(m_local.template get<T>() + move_n, diff);
+					std::destroy_n(m_local.get() + move_n, diff);
 				}
-				std::move(other.m_local.template get<T>(), move_n, m_local.template get<T>());
+
+				const auto src = other.m_local.get();
+				const auto dst = m_local.get();
+				std::move(src, src + move_n, dst);
 				m_size = other.m_size;
 			}
 			else if (other_local) /* Move other's local buffer. */
@@ -678,15 +678,15 @@ namespace sek
 				alloc_traits::deallocate(alloc(), m_heap.data, m_heap.capacity);
 
 				/* Move-construct `other_size` elements. */
-				const auto src = other.m_local.template get<T>();
-				const auto dst = m_local.template get<T>();
+				const auto src = other.m_local.get();
+				const auto dst = m_local.get();
 				std::uninitialized_move_n(src, other_size, dst);
 				m_size = other.m_size;
 			}
 			else if (this_local) /* Move other's heap buffer. */
 			{
 				/* Destroy the old local buffer. */
-				std::destroy_n(m_local.template get<T>(), this_size);
+				std::destroy_n(m_local.get(), this_size);
 
 				/* Take other's heap buffer. */
 				m_size = std::exchange(other.m_size, {});

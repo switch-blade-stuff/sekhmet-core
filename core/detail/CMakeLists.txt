@@ -7,7 +7,7 @@ list(APPEND SEK_CORE_INTERFACE_SOURCES
 
         ${CMAKE_CURRENT_LIST_DIR}/alloc_util.hpp
         ${CMAKE_CURRENT_LIST_DIR}/table_util.hpp
-        ${CMAKE_CURRENT_LIST_DIR}/aligned_storage.hpp
+        ${CMAKE_CURRENT_LIST_DIR}/type_storage.hpp
         ${CMAKE_CURRENT_LIST_DIR}/basic_pool.hpp
         ${CMAKE_CURRENT_LIST_DIR}/buffer_allocator.hpp
         ${CMAKE_CURRENT_LIST_DIR}/contiguous_iterator.hpp

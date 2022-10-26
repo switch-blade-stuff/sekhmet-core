@@ -503,7 +503,7 @@ namespace sek
 		/** Returns current load factor of the set. */
 		[[nodiscard]] constexpr auto load_factor() const noexcept
 		{
-			return static_cast<float>(size()) / static_cast<float>(bucket_count());
+			return bucket_count() ? static_cast<float>(size()) / static_cast<float>(bucket_count()) : 0.0f;
 		}
 		/** Returns current max load factor of the set. */
 		[[nodiscard]] constexpr auto max_load_factor() const noexcept { return m_max_load_factor; }
@@ -706,7 +706,7 @@ namespace sek
 		constexpr void maybe_rehash()
 		{
 			if (load_factor() > m_max_load_factor) [[unlikely]]
-				rehash(bucket_count() * 2);
+				rehash(std::max(bucket_count() * 2, initial_capacity));
 		}
 		constexpr void rehash_impl(size_type new_cap) { rehash_impl(std::make_index_sequence<key_size>{}, new_cap); }
 		template<size_type... Is>
@@ -725,7 +725,7 @@ namespace sek
 		}
 
 		packed_pair<dense_data, key_equal> m_dense_data;
-		packed_pair<sparse_data, hash_type> m_sparse_data = {sparse_data(initial_capacity, sparse_entry{npos}), hash_type{}};
+		packed_pair<sparse_data, hash_type> m_sparse_data;
 
 		float m_max_load_factor = initial_load_factor;
 	};

@@ -388,7 +388,7 @@ namespace sek::detail
 		}
 		[[nodiscard]] constexpr float load_factor() const noexcept
 		{
-			return static_cast<float>(size()) / static_cast<float>(bucket_count());
+			return bucket_count() ? static_cast<float>(size()) / static_cast<float>(bucket_count()) : 0.0f;
 		}
 
 		[[nodiscard]] constexpr size_type bucket_count() const noexcept { return bucket_vector().size(); }
@@ -689,7 +689,7 @@ namespace sek::detail
 		constexpr void maybe_rehash()
 		{
 			if (load_factor() > max_load_factor) [[unlikely]]
-				rehash(bucket_count() * 2);
+				rehash(std::max(bucket_count() * 2, initial_capacity));
 		}
 		constexpr void rehash_impl(size_type new_cap)
 		{
@@ -754,7 +754,7 @@ namespace sek::detail
 		}
 
 		packed_pair<dense_data, Cmp> m_dense;
-		packed_pair<sparse_data, Hash> m_sparse = {sparse_data(initial_capacity, npos), Hash{}};
+		packed_pair<sparse_data, Hash> m_sparse;
 
 		entry_node m_head = {&m_head, &m_head};
 

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "detail/aligned_storage.hpp"
+#include "detail/type_storage.hpp"
 #include "detail/ebo_base_helper.hpp"
 #include "detail/flagged_integer.hpp"
 #include "detail/owned_ptr.hpp"
