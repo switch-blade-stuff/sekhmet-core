@@ -14,198 +14,11 @@
 
 namespace sek
 {
-	namespace detail
-	{
-		struct basic_any
-		{
-			template<typename T, typename U = std::remove_cvref_t<T>>
-			constexpr static bool local_candidate = sizeof(U) <= sizeof(std::uintptr_t) && std::is_trivially_copyable_v<U>;
-
-			struct storage_t
-			{
-				constexpr storage_t() noexcept = default;
-
-				constexpr storage_t(const storage_t &) noexcept = default;
-				constexpr storage_t &operator=(const storage_t &) noexcept = default;
-
-				constexpr storage_t(storage_t &&other) noexcept
-					: data(std::exchange(other.data, std::uintptr_t{})),
-					  is_local(std::exchange(other.is_local, false)),
-					  is_const(std::exchange(other.is_const, false))
-				{
-				}
-				constexpr storage_t &operator=(storage_t &&other) noexcept
-				{
-					swap(other);
-					return *this;
-				}
-
-				// clang-format off
-				template<typename T>
-				storage_t(T *ptr, bool is_const) noexcept : data(std::bit_cast<std::uintptr_t>(ptr)), is_ref(true), is_const(is_const)
-				{
-				}
-				// clang-format on
-
-				storage_t(std::in_place_type_t<void>, auto &&...) {}
-				template<typename T, typename... Args>
-				storage_t(std::in_place_type_t<T>, Args &&...args)
-				{
-					init<T>(std::forward<Args>(args)...);
-					init_flags<T>();
-				}
-
-				template<typename T>
-				constexpr void init_flags() noexcept
-				{
-					is_ref = std::is_lvalue_reference_v<T>;
-					is_local = local_candidate<T>;
-					is_const = std::is_const_v<std::remove_reference_t<T>>;
-				}
-
-				// clang-format off
-				template<typename T, typename... Args>
-				void init(Args &&...args)
-				{
-					if constexpr (sizeof...(Args) == 0 || std::is_aggregate_v<T>)
-						data = std::bit_cast<std::uintptr_t>(new T{std::forward<Args>(args)...});
-					else
-						data = std::bit_cast<std::uintptr_t>(new T(std::forward<Args>(args)...));
-				}
-				template<typename T, typename... Args>
-				void init(Args &&...args) requires local_candidate<T>
-				{
-					const auto ptr = std::bit_cast<T *>(&data);
-					if constexpr (sizeof...(Args) == 0 || std::is_aggregate_v<T>)
-						new (ptr) T{std::forward<Args>(args)...};
-					else
-						new (ptr) T(std::forward<Args>(args)...);
-				}
-				template<typename T, typename U>
-				void init(U &ref) requires std::is_lvalue_reference_v<T>
-				{
-					data = std::bit_cast<std::uintptr_t>(std::addressof(ref));
-				}
-
-				template<typename T>
-				void destroy()
-				{
-					if constexpr (std::is_bounded_array_v<T>)
-						delete[] std::bit_cast<T *>(data);
-					else
-						delete std::bit_cast<T *>(data);
-				}
-				template<typename T>
-				void destroy() requires local_candidate<T> { std::destroy_at(std::bit_cast<T *>(&data)); }
-				template<typename T>
-				void destroy() requires std::is_lvalue_reference_v<T> {}
-				// clang-format on
-
-				[[nodiscard]] constexpr void *get() noexcept
-				{
-					if (is_local)
-						return std::bit_cast<void *>(&data);
-					else
-						return std::bit_cast<void *>(data);
-				}
-				[[nodiscard]] constexpr const void *get() const noexcept
-				{
-					if (is_local)
-						return std::bit_cast<const void *>(&data);
-					else
-						return std::bit_cast<const void *>(data);
-				}
-
-				template<typename T>
-				[[nodiscard]] constexpr auto *get() noexcept
-				{
-					return static_cast<T *>(get());
-				}
-				template<typename T>
-				[[nodiscard]] constexpr auto *get() const noexcept
-				{
-					return static_cast<std::add_const_t<T> *>(get());
-				}
-
-				[[nodiscard]] storage_t ref() noexcept { return {get(), is_const}; }
-				[[nodiscard]] storage_t ref() const noexcept { return {get(), is_const}; }
-
-				constexpr void swap(storage_t &other) noexcept
-				{
-					std::swap(data, other.data);
-					std::swap(is_ref, other.is_ref);
-					std::swap(is_local, other.is_local);
-					std::swap(is_const, other.is_const);
-				}
-
-				std::uintptr_t data = {};
-				bool is_ref = false;
-				bool is_local = false;
-				bool is_const = false;
-			};
-
-			constexpr basic_any() noexcept = default;
-
-			constexpr basic_any(const basic_any &) noexcept = default;
-			constexpr basic_any &operator=(const basic_any &other) noexcept
-			{
-				if (this != &other) [[likely]]
-				{
-					m_type = other.m_type;
-					m_storage = other.m_storage;
-				}
-				return *this;
-			}
-			constexpr basic_any(basic_any &&other) noexcept { move_init(other); }
-			constexpr basic_any &operator=(basic_any &&other) noexcept
-			{
-				move_assign(other);
-				return *this;
-			}
-
-			[[nodiscard]] basic_any ref() noexcept
-			{
-				basic_any result;
-				result.m_type = m_type;
-				result.m_storage = m_storage.ref();
-				return result;
-			}
-			[[nodiscard]] basic_any ref() const noexcept
-			{
-				basic_any result;
-				result.m_type = m_type;
-				result.m_storage = m_storage.ref();
-				return result;
-			}
-
-			constexpr void move_init(basic_any &other)
-			{
-				m_type = std::exchange(other.m_type, nullptr);
-				m_storage = std::move(other.m_storage);
-			}
-			constexpr void move_assign(basic_any &other)
-			{
-				std::swap(m_type, other.m_type);
-				m_storage = std::move(other.m_storage);
-			}
-
-			constexpr void swap(basic_any &other) noexcept
-			{
-				std::swap(m_type, other.m_type);
-				m_storage.swap(other.m_storage);
-			}
-
-			const type_data *m_type = nullptr;
-			storage_t m_storage = {};
-		};
-	}	 // namespace detail
-
 	/** @brief Type-erased container of objects. */
-	class any : detail::basic_any
+	class any
 	{
-		friend struct detail::any_funcs_t;
+		friend struct detail::any_vtable;
 
-		friend class any_ref;
 		friend class any_tuple;
 		friend class any_range;
 		friend class any_table;
@@ -217,37 +30,152 @@ namespace sek
 		friend bool SEK_CORE_PUBLIC operator>(const any &a, const any &b) noexcept;
 		friend bool SEK_CORE_PUBLIC operator>=(const any &a, const any &b) noexcept;
 
-		friend bool SEK_CORE_PUBLIC operator==(const any &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator<(const any &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator<=(const any &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator>(const any &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator>=(const any &a, const any_ref &b) noexcept;
+		template<typename T, typename U = std::remove_cvref_t<T>>
+		constexpr static bool local_candidate = sizeof(U) <= sizeof(std::uintptr_t) && std::is_trivially_copyable_v<U>;
 
-		friend bool SEK_CORE_PUBLIC operator==(const any_ref &a, const any &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator<(const any_ref &a, const any &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator<=(const any_ref &a, const any &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator>(const any_ref &a, const any &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator>=(const any_ref &a, const any &b) noexcept;
+		struct storage_t
+		{
+			constexpr storage_t() noexcept = default;
+			constexpr storage_t(const storage_t &) noexcept = default;
+			constexpr storage_t &operator=(const storage_t &) noexcept = default;
 
-		using base_t = detail::basic_any;
+			constexpr storage_t(storage_t &&other) noexcept
+				: data(std::exchange(other.data, std::uintptr_t{})),
+				  is_local(std::exchange(other.is_local, false)),
+				  is_const(std::exchange(other.is_const, false))
+			{
+			}
+			constexpr storage_t &operator=(storage_t &&other) noexcept
+			{
+				swap(other);
+				return *this;
+			}
 
-		constexpr any(base_t &&data) : base_t(std::forward<base_t>(data)) {}
+			// clang-format off
+			template<typename T>
+			storage_t(T *ptr, bool is_const) noexcept : data(std::bit_cast<std::uintptr_t>(ptr)), is_ref(true), is_const(is_const)
+			{
+			}
+			// clang-format on
+
+			storage_t(std::in_place_type_t<void>, auto &&...) {}
+			template<typename T, typename... Args>
+			storage_t(std::in_place_type_t<T>, Args &&...args)
+			{
+				init<T>(std::forward<Args>(args)...);
+				init_flags<T>();
+			}
+
+			template<typename T>
+			constexpr void init_flags() noexcept
+			{
+				is_ref = std::is_lvalue_reference_v<T>;
+				is_local = local_candidate<T>;
+				is_const = std::is_const_v<std::remove_reference_t<T>>;
+			}
+
+			template<typename T, typename... Args>
+			void init(Args &&...args)
+			{
+				if constexpr (std::is_aggregate_v<T>)
+					data = std::bit_cast<std::uintptr_t>(new T{std::forward<Args>(args)...});
+				else
+					data = std::bit_cast<std::uintptr_t>(new T(std::forward<Args>(args)...));
+			}
+			template<typename T>
+			void destroy()
+			{
+				if constexpr (std::is_bounded_array_v<T>)
+					delete[] std::bit_cast<T *>(data);
+				else
+					delete std::bit_cast<T *>(data);
+			}
+
+			// clang-format off
+			template<typename T, typename... Args>
+			void init(Args &&...args) requires local_candidate<T>
+			{
+				const auto ptr = std::bit_cast<T *>(&data);
+				if constexpr (std::is_aggregate_v<T>)
+					new (ptr) T{std::forward<Args>(args)...};
+				else
+					new (ptr) T(std::forward<Args>(args)...);
+			}
+			template<typename T>
+			void destroy() requires local_candidate<T> { std::destroy_at(std::bit_cast<T *>(&data)); }
+
+			// clang-format off
+			template<typename T, typename U>
+			void init(U &ref) requires std::is_lvalue_reference_v<T>
+			{
+				data = std::bit_cast<std::uintptr_t>(std::addressof(ref));
+			}
+			template<typename T>
+			void destroy() requires std::is_lvalue_reference_v<T> {}
+			// clang-format on
+
+			[[nodiscard]] constexpr void *get() noexcept
+			{
+				if (is_local)
+					return std::bit_cast<void *>(&data);
+				else
+					return std::bit_cast<void *>(data);
+			}
+			[[nodiscard]] constexpr const void *get() const noexcept
+			{
+				if (is_local)
+					return std::bit_cast<const void *>(&data);
+				else
+					return std::bit_cast<const void *>(data);
+			}
+
+			template<typename T>
+			[[nodiscard]] constexpr auto *get() noexcept
+			{
+				return static_cast<T *>(get());
+			}
+			template<typename T>
+			[[nodiscard]] constexpr auto *get() const noexcept
+			{
+				return static_cast<std::add_const_t<T> *>(get());
+			}
+
+			[[nodiscard]] storage_t ref() noexcept { return {get(), is_const}; }
+			[[nodiscard]] storage_t ref() const noexcept { return {get(), is_const}; }
+
+			constexpr void swap(storage_t &other) noexcept
+			{
+				std::swap(data, other.data);
+				std::swap(is_ref, other.is_ref);
+				std::swap(is_local, other.is_local);
+				std::swap(is_const, other.is_const);
+			}
+
+			std::uintptr_t data = {};
+			bool is_ref = false;
+			bool is_local = false;
+			bool is_const = false;
+		};
+
+		constexpr any(const detail::type_data *type, storage_t &&storage) : m_type(type), m_storage(std::move(storage))
+		{
+		}
 
 	public:
 		/** Initializes an empty `any`. */
 		constexpr any() noexcept = default;
 		~any() { destroy(); }
 
-		constexpr any(any &&other) noexcept : base_t(std::move(other)) {}
+		constexpr any(any &&other) noexcept { move_init(other); }
 		constexpr any &operator=(any &&other) noexcept
 		{
-			base_t::operator=(std::move(other));
+			move_assign(other);
 			return *this;
 		}
 
 		/** Copy-constructs the managed object of `other`.
 		 * @throw type_error If the underlying type is not copy-constructable. */
-		any(const any &other) : base_t() { copy_init(other); }
+		any(const any &other) { copy_init(other); }
 		/** Copy-assigns the managed object of `other`.
 		 * @throw type_error If the underlying type is not copy-assignable or copy-constructable. */
 		any &operator=(const any &other)
@@ -297,10 +225,51 @@ namespace sek
 		/** @copydoc cdata */
 		[[nodiscard]] const void *data() const noexcept { return cdata(); }
 
+		/** Returns a pointer to the managed object's data.
+		 * @note If the managed object is const-qualified, while `T` is not, or is of a different type than `T`, returns nullptr. */
+		template<typename T>
+		[[nodiscard]] T *get() noexcept;
+		/** Returns a const pointer to the managed object's data.
+		 * @note If the managed object is of different type than `T`, returns nullptr. */
+		template<typename T>
+		[[nodiscard]] std::add_const_t<T> *get() const noexcept;
+
+		/** Converts reference to the managed object type to the specified type.
+		 * @return Reference to the managed object, converted to the specified type, or an empty `any` instance if the
+		 * managed object's type is not the same as specified or shares a parent-child relationship with it.
+		 * @note If the type of the managed object is the same as specified, equivalent to `ref()`. */
+		[[nodiscard]] SEK_CORE_PUBLIC any as(type_info type);
+		/** @copydoc as */
+		[[nodiscard]] SEK_CORE_PUBLIC any as(type_info type) const;
+
+		// clang-format off
+		/** Converts reference to the managed object type to the specified type.
+		 * @return Reference to the managed object, converted to `T`.
+		 * @throw type_error If the managed object's type is not the same as specified or shares a parent-child relationship with it.
+		 * @note If the type of the managed object is the same as specified, returns reference to the managed object. */
+		template<typename T>
+		[[nodiscard]] inline std::remove_reference_t<T> &as() requires std::is_lvalue_reference_v<T>;
+		/** @copydoc as */
+		template<typename T>
+		[[nodiscard]] inline std::add_const_t<std::remove_reference_t<T>> &as() const requires std::is_lvalue_reference_v<T>;
+		// clang-format on
+
+		// clang-format off
+		/** Converts pointer to the managed object type to the specified type.
+		 * @return Pointer to the managed object, converted to `T`, or `nullptr` if the managed object's type is not
+		 * the same as specified or shares a parent-child relationship with it.
+		 * @note If the type of the managed object is the same as specified, returns pointer to the managed object. */
+		template<typename T>
+		[[nodiscard]] inline std::remove_pointer_t<T> *as() requires std::is_pointer_v<T>;
+		/** @copydoc as */
+		template<typename T>
+		[[nodiscard]] inline std::add_const_t<std::remove_pointer_t<T>> *as() const requires std::is_pointer_v<T>;
+		// clang-format on
+
 		/** Creates an `any` instance referencing the managed object. */
-		[[nodiscard]] any ref() noexcept { return base_t::ref(); }
+		[[nodiscard]] any ref() noexcept { return any{m_type, m_storage.ref()}; }
 		/** Creates an `any` instance referencing the managed object via const-reference. */
-		[[nodiscard]] any ref() const noexcept { return base_t::ref(); }
+		[[nodiscard]] any ref() const noexcept { return any{m_type, m_storage.ref()}; }
 		/** @copydoc ref */
 		[[nodiscard]] any cref() const noexcept { return ref(); }
 
@@ -340,31 +309,73 @@ namespace sek
 		/** @copydoc tuple */
 		[[nodiscard]] any_tuple tuple() const;
 
-		constexpr void swap(any &other) noexcept { base_t::swap(other); }
+		constexpr void swap(any &other) noexcept
+		{
+			std::swap(m_type, other.m_type);
+			m_storage.swap(other.m_storage);
+		}
 		friend constexpr void swap(any &a, any &b) noexcept { a.swap(b); }
 
 	private:
-		void destroy();
-		void copy_init(const any &other);
-		void copy_assign(const any &other);
+		SEK_CORE_PUBLIC void destroy();
+		SEK_CORE_PUBLIC void copy_init(const any &other);
+		SEK_CORE_PUBLIC void copy_assign(const any &other);
+		constexpr void move_init(any &other) noexcept
+		{
+			m_type = std::exchange(other.m_type, nullptr);
+			m_storage = std::move(other.m_storage);
+		}
+		constexpr void move_assign(any &other) noexcept
+		{
+			std::swap(m_type, other.m_type);
+			m_storage = std::move(other.m_storage);
+		}
+
+		const detail::type_data *m_type = nullptr;
+		storage_t m_storage = {};
 	};
+
+	/** If the managed objects of `a` and `b` are of the same type that is equality comparable,
+	 * returns result of the comparison. Otherwise, returns `false`. */
+	[[nodiscard]] bool SEK_CORE_PUBLIC operator==(const any &a, const any &b) noexcept;
+	/** If the managed objects of `a` and `b` are of the same type that is less-than comparable,
+	 * returns result of the comparison. Otherwise, returns `false`. */
+	[[nodiscard]] bool SEK_CORE_PUBLIC operator<(const any &a, const any &b) noexcept;
+	/** If the managed objects of `a` and `b` are of the same type that is less-than-or-equal comparable,
+	 * returns result of the comparison. Otherwise, returns `false`. */
+	[[nodiscard]] bool SEK_CORE_PUBLIC operator<=(const any &a, const any &b) noexcept;
+	/** If the managed objects of `a` and `b` are of the same type that is greater-than comparable,
+	 * returns result of the comparison. Otherwise, returns `false`. */
+	[[nodiscard]] bool SEK_CORE_PUBLIC operator>(const any &a, const any &b) noexcept;
+	/** If the managed objects of `a` and `b` are of the same type that is greater-than-or-equal comparable,
+	 * returns result of the comparison. Otherwise, returns `false`. */
+	[[nodiscard]] bool SEK_CORE_PUBLIC operator>=(const any &a, const any &b) noexcept;
 
 	namespace detail
 	{
-		template<typename T>
-		constexpr any_funcs_t any_funcs_t::make_instance() noexcept
-		{
-			any_funcs_t result;
+		any attr_data::get() const { return get_func(data); }
 
-			result.destroy = +[](any &s) { s.m_storage.template destroy<T>(); };
+		void dtor_data::invoke(void *ptr) const { return invoke_func(data, ptr); }
+		void ctor_data::invoke(void *ptr, std::span<any> args) const { return invoke_func(data, ptr, args); }
+		any func_data::invoke(const void *ptr, std::span<any> args) const { return invoke_func(data, ptr, args); }
+
+		any prop_data::get() const { return get_func(data); }
+		void prop_data::set(const any &value) { set_func(data, value); }
+
+		template<typename T>
+		constexpr any_vtable any_vtable::make_instance() noexcept
+		{
+			any_vtable result;
+
 			if constexpr (std::copy_constructible<T>)
 			{
-				result.construct = +[](const any &src, any &dst)
+				/* Copy-init & copy-assign operations are used only if there is no custom copy constructor. */
+				result.copy_init = +[](const any &src, any &dst)
 				{
 					dst.m_storage.template init<T>(*src.m_storage.template get<T>());
 					dst.m_storage.template init_flags<T>();
 				};
-				result.assign = +[](const any &src, any &dst)
+				result.copy_assign = +[](const any &src, any &dst)
 				{
 					if constexpr (std::is_copy_assignable_v<T>)
 						*dst.m_storage.template get<T>() = *src.m_storage.template get<T>();
@@ -416,195 +427,4 @@ namespace sek
 			return result;
 		}
 	}	 // namespace detail
-
-	/** @brief Type-erased reference to objects. */
-	class any_ref : detail::basic_any
-	{
-		friend class any_range;
-		friend class any_table;
-		friend class any_tuple;
-		friend class any_string;
-
-		friend bool SEK_CORE_PUBLIC operator==(const any_ref &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator<(const any_ref &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator<=(const any_ref &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator>(const any_ref &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator>=(const any_ref &a, const any_ref &b) noexcept;
-
-		friend bool SEK_CORE_PUBLIC operator==(const any &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator<(const any &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator<=(const any &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator>(const any &a, const any_ref &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator>=(const any &a, const any_ref &b) noexcept;
-
-		friend bool SEK_CORE_PUBLIC operator==(const any_ref &a, const any &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator<(const any_ref &a, const any &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator<=(const any_ref &a, const any &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator>(const any_ref &a, const any &b) noexcept;
-		friend bool SEK_CORE_PUBLIC operator>=(const any_ref &a, const any &b) noexcept;
-
-		using base_t = detail::basic_any;
-
-	public:
-		any_ref() = delete;
-
-		/** Initializes `any_ref` to reference an object managed by an `any` instance.
-		 * @param data `any` instance to reference. */
-		any_ref(any &data) noexcept { init(data.ref()); }
-		/** @copydoc any_ref */
-		any_ref(const any &data) noexcept { init(data.ref()); }
-		/** Initializes `any_ref` from a reference `any` instance by-move.
-		 * @param data `any` containing a reference to an object.
-		 * @throw type_error Provided `any` must be a reference, using a non-reference `any` will result in undefined behavior. */
-		any_ref(any &&data) { init(std::forward<any>(data)); }
-
-		constexpr any_ref(const any_ref &other) noexcept : base_t(other) {}
-		constexpr any_ref &operator=(const any_ref &other) noexcept
-		{
-			base_t::operator=(other);
-			return *this;
-		}
-		constexpr any_ref(any_ref &&other) noexcept : base_t(std::move(other)) {}
-		constexpr any_ref &operator=(any_ref &&other) noexcept
-		{
-			base_t::operator=(std::move(other));
-			return *this;
-		}
-		constexpr ~any_ref() = default;
-
-		/** Returns type of the referenced object. */
-		[[nodiscard]] constexpr type_info type() const noexcept;
-
-		/** Checks if the `any_ref` instance references a const-qualified object. */
-		[[nodiscard]] constexpr bool is_const() const noexcept { return m_storage.is_const; }
-
-		/** Returns raw pointer to the referenced object's data.
-		 * @note If the referenced object is const-qualified, returns nullptr. */
-		[[nodiscard]] void *data() noexcept
-		{
-			if (is_const()) [[unlikely]]
-				return nullptr;
-			return std::bit_cast<void *>(m_storage.data);
-		}
-		/** Returns raw const pointer to the referenced object's data. */
-		[[nodiscard]] const void *cdata() const noexcept { return std::bit_cast<const void *>(m_storage.data); }
-		/** @copydoc cdata */
-		[[nodiscard]] const void *data() const noexcept { return cdata(); }
-
-		/** Creates an `any` instance referencing the object referenced by this `any_ref`. */
-		[[nodiscard]] any ref() noexcept { return base_t::ref(); }
-		/** @copydoc ref */
-		[[nodiscard]] operator any() noexcept { return ref(); }
-		/** Creates an `any` instance referencing the object referenced by this `any_ref` via const-reference. */
-		[[nodiscard]] any ref() const noexcept { return base_t::ref(); }
-		/** @copydoc ref */
-		[[nodiscard]] operator any() const noexcept { return ref(); }
-		/** @copydoc ref */
-		[[nodiscard]] any cref() const noexcept { return ref(); }
-
-		/** Returns a `any_range` proxy for the referenced type, or `type_errc::INVALID_TYPE` if the referenced type is not a range. */
-		[[nodiscard]] expected<any_range, std::error_code> range(std::nothrow_t);
-		/** @copydoc range */
-		[[nodiscard]] expected<any_range, std::error_code> range(std::nothrow_t) const;
-		/** Returns a `any_range` proxy for the referenced type.
-		 * @throw type_error If the referenced type is not a range. */
-		[[nodiscard]] any_range range();
-		/** @copydoc range */
-		[[nodiscard]] any_range range() const;
-
-		/** Returns a `any_table` proxy for the referenced type, or `type_errc::INVALID_TYPE` if the referenced type is not a table. */
-		[[nodiscard]] expected<any_table, std::error_code> table(std::nothrow_t);
-		/** @copydoc range */
-		[[nodiscard]] expected<any_table, std::error_code> table(std::nothrow_t) const;
-		/** Returns a `any_table` proxy for the referenced type.
-		 * @throw type_error If the referenced type is not a table. */
-		[[nodiscard]] any_table table();
-		/** @copydoc table */
-		[[nodiscard]] any_table table() const;
-
-		/** Returns a `any_tuple` proxy for the referenced type, or `type_errc::INVALID_TYPE` if the referenced type is not a tuple. */
-		[[nodiscard]] expected<any_tuple, std::error_code> tuple(std::nothrow_t);
-		/** @copydoc range */
-		[[nodiscard]] expected<any_tuple, std::error_code> tuple(std::nothrow_t) const;
-		/** Returns a `any_tuple` proxy for the referenced type.
-		 * @throw type_error If the referenced type is not a tuple. */
-		[[nodiscard]] any_tuple tuple();
-		/** @copydoc tuple */
-		[[nodiscard]] any_tuple tuple() const;
-
-		constexpr void swap(any_ref &other) noexcept { base_t::swap(other); }
-		friend constexpr void swap(any_ref &a, any_ref &b) noexcept { a.swap(b); }
-
-	private:
-		void init(any &&data)
-		{
-			if (!data.is_ref()) [[unlikely]]
-				throw type_error(make_error_code(type_errc::EXPECTED_REF_ANY));
-			base_t::move_init(data);
-		}
-	};
-
-	/** If the managed objects of `a` and `b` are of the same type that is equality comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator==(const any &a, const any &b) noexcept;
-	/** If the managed objects of `a` and `b` are of the same type that is less-than comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator<(const any &a, const any &b) noexcept;
-	/** If the managed objects of `a` and `b` are of the same type that is less-than-or-equal comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator<=(const any &a, const any &b) noexcept;
-	/** If the managed objects of `a` and `b` are of the same type that is greater-than comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator>(const any &a, const any &b) noexcept;
-	/** If the managed objects of `a` and `b` are of the same type that is greater-than-or-equal comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator>=(const any &a, const any &b) noexcept;
-
-	/** If the referenced objects of `a` and `b` are of the same type that is equality comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator==(const any_ref &a, const any_ref &b) noexcept;
-	/** If the referenced objects of `a` and `b` are of the same type that is less-than comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator<(const any_ref &a, const any_ref &b) noexcept;
-	/** If the referenced objects of `a` and `b` are of the same type that is less-than-or-equal comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator<=(const any_ref &a, const any_ref &b) noexcept;
-	/** If the referenced objects of `a` and `b` are of the same type that is greater-than comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator>(const any_ref &a, const any_ref &b) noexcept;
-	/** If the referenced objects of `a` and `b` are of the same type that is greater-than-or-equal comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator>=(const any_ref &a, const any_ref &b) noexcept;
-
-	/** If object referenced by `a` and object managed by `b` are of the same type that is equality comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator==(const any_ref &a, const any &b) noexcept;
-	/** If object referenced by `a` and object managed by `b` are of the same type that is less-than comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator<(const any_ref &a, const any &b) noexcept;
-	/** If object referenced by `a` and object managed by `b` are of the same type that is less-than-or-equal
-	 * comparable, returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator<=(const any_ref &a, const any &b) noexcept;
-	/** If object referenced by `a` and object managed by `b` are of the same type that is greater-than comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator>(const any_ref &a, const any &b) noexcept;
-	/** If object referenced by `a` and object managed by `b` are of the same type that is greater-than-or-equal
-	 * comparable, returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator>=(const any_ref &a, const any &b) noexcept;
-
-	/** If object managed by `a` and object referenced by `b` are of the same type that is equality comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator==(const any &a, const any_ref &b) noexcept;
-	/** If object managed by `a` and object referenced by `b` are of the same type that is less-than comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator<(const any &a, const any_ref &b) noexcept;
-	/** If object managed by `a` and object referenced by `b` are of the same type that is less-than-or-equal
-	 * comparable, returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator<=(const any &a, const any_ref &b) noexcept;
-	/** If object managed by `a` and object referenced by `b` are of the same type that is greater-than comparable,
-	 * returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator>(const any &a, const any_ref &b) noexcept;
-	/** If object managed by `a` and object referenced by `b` are of the same type that is greater-than-or-equal
-	 * comparable, returns result of the comparison. Otherwise, returns `false`. */
-	[[nodiscard]] bool SEK_CORE_PUBLIC operator>=(const any &a, const any_ref &b) noexcept;
 }	 // namespace sek

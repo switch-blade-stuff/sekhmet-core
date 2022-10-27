@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include "any.hpp"
 #include "any_range.hpp"
 #include "any_string.hpp"
@@ -15,333 +17,342 @@ namespace sek
 {
 	namespace detail
 	{
-		template<typename From, typename To, typename Conv>
-		constexpr type_conv type_conv::make_instance() noexcept
+		template<typename T, typename P>
+		constexpr base_data base_data::make_instance() noexcept
 		{
-			type_conv result;
-			result.type = type_handle{type_selector<From>};
-			if constexpr (std::is_invocable_r_v<To, Conv, From &>)
-				result.convert = +[](any_ref ref) -> any
-				{
-					if (!ref.is_const())
-					{
-						auto &data = *static_cast<From *>(ref.data());
-						return forward_any(Conv{}(data));
-					}
-					else
-					{
-						auto &data = *static_cast<const From *>(ref.cdata());
-						return forward_any(Conv{}(data));
-					}
-				};
-			else
-				result.convert = +[](any_ref ref) -> any
-				{
-					auto &data = *static_cast<const From *>(ref.cdata());
-					return forward_any(Conv{}(data));
-				};
+			base_data result;
+			result.cast = +[](const void *ptr) -> const void *
+			{
+				auto *obj = static_cast<const T *>(ptr);
+				return static_cast<const P *>(obj);
+			};
+			result.type = type_handle{type_selector<P>};
 			return result;
 		}
 		template<typename From, typename To, typename Conv>
-		constinit type_conv type_conv::instance = make_instance<From, To, Conv>();
-
-		template<typename T, typename P>
-		constexpr type_parent type_parent::make_instance() noexcept
+		constexpr conv_data conv_data::make_instance() noexcept
 		{
-			type_parent result;
-			result.type = type_handle{type_selector<P>};
-			result.cast = +[](any_ref ref) -> any_ref
+			conv_data result;
+			result.convert = +[](any value) -> any
 			{
-				if (!ref.is_const())
+				if (requires(const From &value) { Conv{}(value); } && !value.is_const())
 				{
-					auto &data = *static_cast<T *>(ref.data());
-					return forward_any(static_cast<P &>(data));
+					auto *obj = static_cast<From *>(value.data());
+					return forward_any(Conv{}(*obj));
 				}
 				else
 				{
-					auto &data = *static_cast<const T *>(ref.data());
-					return forward_any(static_cast<const P &>(data));
+					auto *obj = static_cast<const From *>(value.cdata());
+					return forward_any(Conv{}(*obj));
+				}
+			};
+			result.type = type_handle{type_selector<To>};
+			return result;
+		}
+		template<typename T, auto V>
+		constexpr const_data const_data::make_instance() noexcept
+		{
+			const_data result;
+			result.get = +[]() { return forward_any(V); };
+			result.type = type_handle{type_selector<std::remove_cvref_t<decltype(V)>>};
+			return result;
+		}
+
+		template<typename T, typename U = std::remove_reference_t<T>>
+		[[nodiscard]] constexpr static T forward_any_arg(any &value) noexcept
+		{
+			if constexpr (std::is_const_v<U>)
+				return *static_cast<U *>(value.cdata());
+			else
+				return *static_cast<U *>(value.data());
+		}
+
+		template<typename T, typename... Args, typename F, std::size_t... Is>
+		constexpr void ctor_data::invoke_impl(std::index_sequence<Is...>, F &&ctor, T *ptr, std::span<any> args)
+		{
+			using arg_seq = type_seq_t<Args...>;
+			std::invoke(ctor, ptr, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
+		}
+		template<typename T, typename... Args, typename F>
+		constexpr void ctor_data::invoke_impl(type_seq_t<Args...>, F &&ctor, T *ptr, std::span<any> args)
+		{
+			invoke_impl<T, Args...>(std::index_sequence<sizeof...(Args)>{}, std::forward<F>(ctor), ptr, args);
+		}
+
+		template<typename T, typename... Args>
+		constexpr ctor_data ctor_data::make_instance(type_seq_t<Args...>) noexcept
+		{
+			using arg_types = type_seq_t<Args...>;
+
+			ctor_data result;
+			result.invoke_func = +[](const void *, void *ptr, std::span<any> args)
+			{
+				constexpr auto ctor = [](T *ptr, Args &&...args) { std::construct_at(ptr, std::forward<Args>(args)...); };
+				invoke_impl(arg_types{}, ctor, static_cast<T *>(ptr), args);
+			};
+			result.args = arg_types_array<arg_types>;
+			return result;
+		}
+		template<typename T, auto F, typename... Args>
+		constexpr ctor_data ctor_data::make_instance(type_seq_t<Args...>) noexcept
+		{
+			using arg_types = type_seq_t<Args...>;
+
+			ctor_data result;
+			result.invoke_func = +[](const void *, void *ptr, std::span<any> args)
+			{
+				auto *obj = static_cast<T *>(ptr);
+				invoke_impl(arg_types{}, F, obj, args);
+			};
+			result.args = arg_types_array<arg_types>;
+			return result;
+		}
+		template<typename T, typename F, typename... Args, typename... FArgs>
+		ctor_data ctor_data::make_instance(type_seq_t<Args...>, FArgs &&...f_args)
+		{
+			using arg_types = type_seq_t<Args...>;
+
+			ctor_data result;
+			result.template init<F>(std::forward<FArgs>(f_args)...);
+			result.invoke_func = +[](const void *data, void *ptr, std::span<any> args)
+			{
+				using traits = callable_traits<F>;
+				if constexpr (!traits::is_const)
+				{
+					auto *func = static_cast<F *>(const_cast<void *>(ptr));
+					auto *obj = static_cast<T *>(ptr);
+					invoke_impl(arg_types{}, *func, obj, args);
+				}
+				else
+				{
+					auto *func = static_cast<const F *>(data);
+					auto *obj = static_cast<T *>(ptr);
+					invoke_impl(arg_types{}, *func, obj, args);
+				}
+			};
+			result.args = arg_types_array<arg_types>;
+			return result;
+		}
+
+		template<typename T>
+		constexpr dtor_data dtor_data::make_instance() noexcept
+		{
+			dtor_data result;
+			result.invoke_func = +[](const void *, void *ptr)
+			{
+				auto *obj = static_cast<T *>(ptr);
+				std::destroy_at(obj);
+			};
+			return result;
+		}
+		template<typename T, auto F>
+		constexpr dtor_data dtor_data::make_instance() noexcept
+		{
+			dtor_data result;
+			result.invoke_func = +[](const void *, void *ptr)
+			{
+				auto *obj = static_cast<T *>(ptr);
+				std::invoke(F, obj);
+			};
+			return result;
+		}
+		template<typename T, typename F, typename... Args>
+		dtor_data dtor_data::make_instance(Args &&...args)
+		{
+			dtor_data result;
+			result.template init<F>(std::forward<Args>(args)...);
+			result.invoke_func = +[](const void *data, void *ptr)
+			{
+				using traits = callable_traits<F>;
+				if constexpr (!traits::is_const)
+				{
+					auto *func = static_cast<F *>(const_cast<void *>(ptr));
+					auto *obj = static_cast<T *>(ptr);
+					std::invoke(func, obj);
+				}
+				else
+				{
+					auto *func = static_cast<const F *>(data);
+					auto *obj = static_cast<T *>(ptr);
+					std::invoke(func, obj);
 				}
 			};
 			return result;
 		}
-		template<typename T, typename P>
-		constinit type_parent type_parent::instance = make_instance<T, P>();
+
+		template<typename I, typename... Args, typename F, std::size_t... Is>
+		constexpr decltype(auto) func_data::invoke_impl(std::index_sequence<Is...>, F &&func, I *ptr, std::span<any> args)
+		{
+			using arg_seq = type_seq_t<Args...>;
+			return std::invoke(func, ptr, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
+		}
+		template<typename I, typename... Args, typename F>
+		constexpr decltype(auto) func_data::invoke_impl(type_seq_t<Args...>, F &&func, I *ptr, std::span<any> args)
+		{
+			return invoke_impl<I, Args...>(std::index_sequence<sizeof...(Args)>{}, std::forward<F>(func), ptr, args);
+		}
+		template<typename... Args, typename F, std::size_t... Is>
+		constexpr decltype(auto) func_data::invoke_impl(std::index_sequence<Is...>, F &&func, std::span<any> args)
+		{
+			using arg_seq = type_seq_t<Args...>;
+			return std::invoke(func, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
+		}
+		template<typename... Args, typename F>
+		constexpr decltype(auto) func_data::invoke_impl(type_seq_t<Args...>, F &&func, std::span<any> args)
+		{
+			return invoke_impl<Args...>(std::index_sequence<sizeof...(Args)>{}, std::forward<F>(func), args);
+		}
+
+		template<typename T, auto F>
+		constexpr func_data func_data::make_instance() noexcept
+		{
+			using traits = func_traits<F>;
+			using arg_types = typename traits::arg_types;
+			using return_type = typename traits::return_type;
+
+			func_data result;
+			if constexpr (requires { typename traits::instance_type; })
+			{
+				using instance_type = typename traits::instance_type;
+				if constexpr (!std::is_const_v<instance_type>)
+				{
+					result.invoke_func = +[](const void *, const void *ptr, std::span<any> args)
+					{
+						auto *obj = static_cast<instance_type *>(const_cast<void *>(ptr));
+						return forward_any(invoke_impl(arg_types{}, F, obj, args));
+					};
+					result.is_const = false;
+				}
+				else
+				{
+					result.invoke_func = +[](const void *, const void *ptr, std::span<any> args)
+					{
+						auto *obj = static_cast<instance_type *>(ptr);
+						return forward_any(invoke_impl(arg_types{}, F, obj, args));
+					};
+					result.is_const = true;
+				}
+				result.is_static = false;
+			}
+			else
+			{
+				// clang-format off
+				result.invoke_func = +[](const void *, const void *, std::span<any> args)
+				{
+					return forward_any(invoke_impl(arg_types{}, F, args));
+				};
+				// clang-format on
+				result.is_static = true;
+				result.is_const = false;
+			}
+			result.args = arg_types_array<arg_types>;
+			result.ret = type_handle{type_selector<return_type>};
+			return result;
+		}
+		template<typename T, typename F, typename... FArgs>
+		func_data func_data::make_instance(FArgs &&...f_args)
+		{
+			using traits = callable_traits<F>;
+			using arg_types = typename traits::arg_types;
+			using return_type = typename traits::return_type;
+
+			constexpr auto cast_func = [](const void *ptr)
+			{
+				if constexpr (!traits::is_const)
+					return static_cast<F *>(const_cast<void *>(ptr));
+				else
+					return static_cast<const F *>(ptr);
+			};
+
+			func_data result;
+			result.template init<F>(std::forward<FArgs>(f_args)...);
+			if constexpr (requires { typename traits::instance_type; })
+			{
+				using instance_type = typename traits::instance_type;
+				if constexpr (!std::is_const_v<instance_type>)
+				{
+					result.invoke_func = +[](const void *data, const void *ptr, std::span<any> args)
+					{
+						auto *obj = static_cast<instance_type *>(const_cast<void *>(ptr));
+						auto *func = cast_func(data);
+						return forward_any(invoke_impl(arg_types{}, *func, obj, args));
+					};
+					result.is_const = false;
+				}
+				else
+				{
+					result.invoke_func = +[](const void *data, const void *ptr, std::span<any> args)
+					{
+						auto *obj = static_cast<instance_type *>(ptr);
+						auto *func = cast_func(data);
+						return forward_any(invoke_impl(arg_types{}, *func, obj, args));
+					};
+					result.is_const = true;
+				}
+				result.is_static = false;
+			}
+			else
+			{
+				// clang-format off
+				result.invoke_func = +[](const void *data, const void *, std::span<any> args)
+				{
+					auto *func = cast_func(data);
+					return forward_any(invoke_impl(arg_types{}, *func, args));
+				};
+				// clang-format on
+				result.is_static = true;
+				result.is_const = false;
+			}
+			result.args = arg_types_array<arg_types>;
+			result.ret = type_handle{type_selector<return_type>};
+			return result;
+		}
 
 		template<typename T>
 		type_data type_data::make_instance() noexcept
 		{
 			type_data result;
+			result.reset = +[](type_data *data) { *data = make_instance<T>(); };
 			result.name = type_name_v<T>;
 
-			/* When a reflected type is reset, the type data will be in a "dirty" state, as it will still be
-			 * referencing the reflected data objects. This may cause issues especially if a plugin that has
-			 * originally reflected the type is unloaded. As such, type data needs to be reset to its original state. */
-			result.reset = +[](type_data *ptr) -> void { *ptr = make_instance<T>(); };
-
-			/* Initialize flags. */
 			result.is_void = std::is_void_v<T>;
 			result.is_empty = std::is_empty_v<T>;
 			result.is_nullptr = std::same_as<T, std::nullptr_t>;
 
-			/* Initialize default conversions. */
-			if constexpr (std::is_enum_v<T>)
+			/* For all operations that require an `any`-wrapped object to work, the type must be destructible. */
+			if constexpr (std::is_destructible_v<T>)
 			{
-				auto &conv = type_conv::instance<T, std::underlying_type_t<T>, default_conv<T, std::underlying_type_t<T>>>;
-				result.conversions.insert(conv);
-				result.enum_cast = &conv;
-			}
-			if constexpr (std::is_convertible_v<T, std::intptr_t>)
-			{
-				auto &conv = type_conv::instance<T, std::intptr_t, default_conv<T, std::intptr_t>>;
-				result.conversions.insert(conv);
-				result.signed_cast = &conv;
-			}
-			if constexpr (std::is_convertible_v<T, std::uintptr_t>)
-			{
-				auto &conv = type_conv::instance<T, std::uintptr_t, default_conv<T, std::uintptr_t>>;
-				result.conversions.insert(conv);
-				result.unsigned_cast = &conv;
-			}
-			if constexpr (std::is_convertible_v<T, long double>)
-			{
-				auto &conv = type_conv::instance<T, long double, default_conv<T, long double>>;
-				result.conversions.insert(conv);
-				result.floating_cast = &conv;
-			}
+				/* Add default constructors & destructor. */
+				result.dtor = dtor_data::make_instance<T>();
+				if constexpr (std::is_default_constructible_v<T>)
+					result.constructors.emplace_back(ctor_data::make_instance<T>(type_seq<>));
+				if constexpr (std::is_copy_constructible_v<T>)
+					result.constructors.emplace_back(ctor_data::make_instance<T>(type_seq<const T &>));
 
-			/* Initialize type-erased operations. */
-			result.any_funcs = any_funcs_t::make_instance<T>();
-			if constexpr (tuple_like<T>) result.tuple_data = &tuple_type_data::instance<T>;
-			if constexpr (std::ranges::range<T>)
-			{
-				result.range_data = &range_type_data::instance<T>;
-				if constexpr (table_range_type<T>) result.table_data = &table_type_data::instance<T>;
-			}
-			if constexpr (string_like_type<T>) result.string_data = &string_type_data::instance<T>;
+				/* Add default conversions. */
+				if constexpr (std::is_enum_v<T>)
+				{
+					using underlying_t = std::underlying_type_t<T>;
+					result.conversions.emplace(conv_data::make_instance<T, underlying_t>());
+					result.enum_type = type_handle{type_selector<underlying_t>};
+				}
+				if constexpr (std::signed_integral<T> || std::is_convertible_v<T, std::intmax_t>)
+					result.conversions.emplace(conv_data::make_instance<T, std::intmax_t>());
+				if constexpr (std::unsigned_integral<T> || std::is_convertible_v<T, std::uintmax_t>)
+					result.conversions.emplace(conv_data::make_instance<T, std::uintmax_t>());
+				if constexpr (std::floating_point<T> || std::is_convertible_v<T, long double>)
+					result.conversions.emplace(conv_data::make_instance<T, long double>());
 
+				result.any_funcs = any_vtable::make_instance<T>();
+			}
 			return result;
 		}
-		template<typename T>
-		type_data *type_data::instance() noexcept
-		{
-			static auto value = make_instance<T>();
-			return &value;
-		}
-
-		/* Custom view, as CLang has issues with `std::ranges::subrange` at this time. */
-		template<typename Iter>
-		class type_info_view
-		{
-		public:
-			typedef typename Iter::value_type value_type;
-			typedef typename Iter::pointer pointer;
-			typedef typename Iter::const_pointer const_pointer;
-			typedef typename Iter::reference reference;
-			typedef typename Iter::const_reference const_reference;
-			typedef typename Iter::difference_type difference_type;
-			typedef typename Iter::size_type size_type;
-
-			typedef Iter iterator;
-			typedef Iter const_iterator;
-
-		public:
-			constexpr type_info_view() noexcept = default;
-			constexpr type_info_view(iterator first, iterator last) noexcept : m_first(first), m_last(last) {}
-
-			[[nodiscard]] constexpr iterator begin() const noexcept { return m_first; }
-			[[nodiscard]] constexpr iterator cbegin() const noexcept { return begin(); }
-			[[nodiscard]] constexpr iterator end() const noexcept { return m_last; }
-			[[nodiscard]] constexpr iterator cend() const noexcept { return end(); }
-
-			// clang-format off
-			[[nodiscard]] constexpr reference front() const noexcept { return *begin(); }
-			[[nodiscard]] constexpr reference back() const noexcept requires std::bidirectional_iterator<Iter>
-			{
-				return *std::prev(end());
-			}
-			[[nodiscard]] constexpr reference at(size_type i) const noexcept requires std::random_access_iterator<Iter>
-			{
-				return begin()[static_cast<difference_type>(i)];
-			}
-			[[nodiscard]] constexpr reference operator[](size_type i) const noexcept requires std::random_access_iterator<Iter>
-			{
-				return at(i);
-			}
-			// clang-format on
-
-			[[nodiscard]] constexpr bool empty() const noexcept { return begin() == end(); }
-			[[nodiscard]] constexpr size_type size() const noexcept
-			{
-				return static_cast<size_type>(std::distance(begin(), end()));
-			}
-
-			[[nodiscard]] constexpr bool operator==(const type_info_view &other) const noexcept
-			{
-				return std::equal(m_first, m_last, other.m_first, other.m_last);
-			}
-
-		private:
-			Iter m_first = {};
-			Iter m_last = {};
-		};
-
-		template<typename Value, typename Iter>
-		class type_info_iterator
-		{
-			friend class sek::type_info;
-
-		public:
-			typedef Value value_type;
-			typedef const Value *pointer;
-			typedef const Value *const_pointer;
-			typedef const Value &reference;
-			typedef const Value &const_reference;
-			typedef std::ptrdiff_t difference_type;
-			typedef std::size_t size_type;
-			typedef std::forward_iterator_tag iterator_category;
-
-		private:
-			constexpr explicit type_info_iterator(Iter iter) noexcept : m_iter(iter) {}
-
-		public:
-			constexpr type_info_iterator() noexcept = default;
-
-			constexpr type_info_iterator &operator++() noexcept
-			{
-				m_iter++;
-				return *this;
-			}
-			constexpr type_info_iterator operator++(int) noexcept
-			{
-				auto temp = *this;
-				++m_iter;
-				return temp;
-			}
-
-			[[nodiscard]] constexpr pointer get() const noexcept { return static_cast<pointer>(m_iter.get()); }
-			[[nodiscard]] constexpr pointer operator->() const noexcept { return get(); }
-			[[nodiscard]] constexpr reference operator*() const noexcept { return *get(); }
-
-			[[nodiscard]] constexpr bool operator==(const type_info_iterator &) const noexcept = default;
-
-		private:
-			Iter m_iter = {};
-		};
 	}	 // namespace detail
-
-	/** @brief Structure representing a type cast of a reflected type. */
-	class type_conversion : detail::type_conv
-	{
-		template<typename, typename>
-		friend class detail::type_info_iterator;
-
-		using base_t = detail::type_conv;
-
-	public:
-		type_conversion() = delete;
-		type_conversion(const type_conversion &) = delete;
-		type_conversion &operator=(const type_conversion &) = delete;
-		type_conversion(type_conversion &&) = delete;
-		type_conversion &operator=(type_conversion &&) = delete;
-
-		/** Returns type info of the converted-to type. */
-		[[nodiscard]] constexpr type_info type() const noexcept;
-		/** @copydoc type */
-		[[nodiscard]] constexpr operator type_info() const noexcept;
-
-		/** Preforms a value-cast (as-if via `static_cast`) of the passed object to the converted-to type.
-		 * @return `any`, referencing the converted object. */
-		[[nodiscard]] any convert(any value) const { return convert(value); }
-		/** @copydoc convert */
-		[[nodiscard]] any convert(any_ref value) const { return base_t::convert(value); }
-
-		[[nodiscard]] constexpr bool operator==(const type_info &) const noexcept;
-		[[nodiscard]] constexpr bool operator==(const type_conversion &) const noexcept;
-	};
-	/** @brief Structure representing a parent-child relationship of a reflected type. */
-	class type_parent : detail::type_parent
-	{
-		template<typename, typename>
-		friend class detail::type_info_iterator;
-
-		using base_t = detail::type_parent;
-
-	public:
-		type_parent() = delete;
-		type_parent(const type_parent &) = delete;
-		type_parent &operator=(const type_parent &) = delete;
-		type_parent(type_parent &&) = delete;
-		type_parent &operator=(type_parent &&) = delete;
-
-		/** Returns type info of the parent type. */
-		[[nodiscard]] constexpr type_info type() const noexcept;
-		/** @copydoc type */
-		[[nodiscard]] constexpr operator type_info() const noexcept;
-
-		/** Casts the passed object reference to a reference of parent type.
-		 * @return `any_ref`, referencing the type-cast object. */
-		[[nodiscard]] any_ref cast(any_ref value) const { return base_t::cast(value); }
-
-		[[nodiscard]] constexpr bool operator==(const type_info &) const noexcept;
-		[[nodiscard]] constexpr bool operator==(const type_parent &) const noexcept;
-	};
-	/** @brief Structure representing an attribute of a reflected type. */
-	class type_attribute : detail::type_attr
-	{
-		template<typename, typename>
-		friend class detail::type_info_iterator;
-
-		using base_t = detail::type_attr;
-
-	public:
-		type_attribute() = delete;
-		type_attribute(const type_attribute &) = delete;
-		type_attribute &operator=(const type_attribute &) = delete;
-		type_attribute(type_attribute &&) = delete;
-		type_attribute &operator=(type_attribute &&) = delete;
-
-		/** Returns type info of the attribute. */
-		[[nodiscard]] constexpr type_info type() const noexcept;
-		/** Returns `any_ref` reference to the attribute. */
-		[[nodiscard]] any_ref get() const { return base_t::get(this); }
-	};
-	/** @brief Structure representing a constant of a reflected type. */
-	class type_constant : detail::type_const
-	{
-		template<typename, typename>
-		friend class detail::type_info_iterator;
-
-		using base_t = detail::type_const;
-
-	public:
-		type_constant() = delete;
-		type_constant(const type_constant &) = delete;
-		type_constant &operator=(const type_constant &) = delete;
-		type_constant(type_constant &&) = delete;
-		type_constant &operator=(type_constant &&) = delete;
-
-		/** Returns type info of the constant. */
-		[[nodiscard]] constexpr type_info type() const noexcept;
-		/** Returns the name of the constant. */
-		[[nodiscard]] constexpr std::string_view name() const noexcept { return base_t::name; }
-
-		/** Returns an instance of the attribute. */
-		[[nodiscard]] any get() const { return base_t::get(); }
-	};
 
 	/** @brief Handle to information about a reflected type. */
 	class type_info
 	{
-		friend struct detail::type_handle;
-
-		friend class type_conversion;
-		friend class type_parent;
-		friend class type_attribute;
-		friend class type_constant;
-
 		friend class any;
-		friend class any_ref;
 		friend class any_range;
 		friend class any_table;
 		friend class any_tuple;
@@ -352,18 +363,6 @@ namespace sek
 
 		using data_t = detail::type_data;
 		using handle_t = detail::type_handle;
-
-		template<typename I>
-		using info_view = detail::type_info_view<I>;
-		template<typename V, typename I>
-		using info_iterator = detail::type_info_iterator<V, I>;
-
-		// clang-format off
-		using conversion_iterator = info_iterator<type_conversion, typename detail::type_data_list<detail::type_conv>::iterator>;
-		using parent_iterator = info_iterator<type_parent, typename detail::type_data_list<detail::type_parent>::iterator>;
-		using attribute_iterator = info_iterator<type_attribute, typename detail::type_data_list<detail::type_attr>::iterator>;
-		using constant_iterator = info_iterator<type_constant, typename detail::type_data_list<detail::type_const>::iterator>;
-		// clang-format on
 
 		template<typename T>
 		[[nodiscard]] constexpr static handle_t handle() noexcept
@@ -433,13 +432,13 @@ namespace sek
 		[[nodiscard]] constexpr bool is_nullptr() const noexcept { return valid() && m_data->is_nullptr; }
 
 		/** Checks if the referenced type is an enum (as if via `std::is_enum_v`). */
-		[[nodiscard]] constexpr bool is_enum() const noexcept { return valid() && m_data->enum_cast; }
-		/** Checks if the referenced type is a signed integral type or can be converted to `std::intptr_t`. */
-		[[nodiscard]] constexpr bool is_signed() const noexcept { return valid() && m_data->signed_cast; }
-		/** Checks if the referenced type is an unsigned integral type or can be converted to `std::uintptr_t`. */
-		[[nodiscard]] constexpr bool is_unsigned() const noexcept { return valid() && m_data->unsigned_cast; }
-		/** Checks if the referenced type is a floating-point type or can be converted to `long double`. */
-		[[nodiscard]] constexpr bool is_floating() const noexcept { return valid() && m_data->floating_cast; }
+		[[nodiscard]] constexpr bool is_enum() const noexcept { return valid() && m_data->enum_type.get; }
+		/** Checks if the referenced type is a signed integral type or can be implicitly converted to `std::intptr_t`. */
+		[[nodiscard]] constexpr bool is_signed() const noexcept { return valid() && m_data->is_int; }
+		/** Checks if the referenced type is an unsigned integral type or can be implicitly converted to `std::uintptr_t`. */
+		[[nodiscard]] constexpr bool is_unsigned() const noexcept { return valid() && m_data->is_uint; }
+		/** Checks if the referenced type is a floating-point type or can be implicitly converted to `long double`. */
+		[[nodiscard]] constexpr bool is_floating() const noexcept { return valid() && m_data->is_float; }
 
 		/** Checks if the referenced type is a range. */
 		[[nodiscard]] constexpr bool is_range() const noexcept { return valid() && m_data->range_data; }
@@ -453,7 +452,7 @@ namespace sek
 		/** Returns the referenced type of an enum (as if via `std::underlying_type_t`), or an invalid type info it the type is not an enum. */
 		[[nodiscard]] constexpr type_info enum_type() const noexcept
 		{
-			return valid() ? type_info{m_data->enum_cast->type} : type_info{};
+			return valid() ? type_info{m_data->enum_type} : type_info{};
 		}
 		/** Returns the size of the tuple, or `0` if the type is not a tuple. */
 		[[nodiscard]] constexpr std::size_t tuple_size() const noexcept
@@ -466,25 +465,14 @@ namespace sek
 			return i < tuple_size() ? type_info{m_data->tuple_data->types[i]} : type_info{};
 		}
 
-		/** Returns a range of type conversions of the referenced type. */
-		[[nodiscard]] constexpr info_view<conversion_iterator> conversions() const noexcept
+		/** Checks if the referenced type inherits another. That is, the other type is one of it's direct or inherited parents.
+		 * @note Does not check if types are the same. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool inherits(type_info type) const noexcept;
+		/** @copydoc inherits */
+		template<typename T>
+		[[nodiscard]] bool inherits() const noexcept
 		{
-			return {conversion_iterator{m_data->conversions.begin()}, conversion_iterator{m_data->conversions.end()}};
-		}
-		/** Returns a range of parent relationships of the referenced type. */
-		[[nodiscard]] constexpr info_view<parent_iterator> parents() const noexcept
-		{
-			return {parent_iterator{m_data->parents.begin()}, parent_iterator{m_data->parents.end()}};
-		}
-		/** Returns a range of attributes of the referenced type. */
-		[[nodiscard]] constexpr info_view<attribute_iterator> attributes() const noexcept
-		{
-			return {attribute_iterator{m_data->attributes.begin()}, attribute_iterator{m_data->attributes.end()}};
-		}
-		/** Returns a range of constants of the referenced type. */
-		[[nodiscard]] constexpr info_view<constant_iterator> constants() const noexcept
-		{
-			return {constant_iterator{m_data->constants.begin()}, constant_iterator{m_data->constants.end()}};
+			return inherits(get<T>());
 		}
 
 		[[nodiscard]] constexpr bool operator==(const type_info &other) const noexcept
@@ -506,43 +494,74 @@ namespace sek
 		return fnv1a(name.data(), name.size());
 	}
 
-	constexpr type_info type_parent::type() const noexcept { return type_info{base_t::type}; }
-	constexpr type_parent::operator type_info() const noexcept { return type(); }
-
-	constexpr bool type_parent::operator==(const type_info &info) const noexcept { return type() == info; }
-	constexpr bool type_parent::operator==(const type_parent &other) const noexcept { return type() == other.type(); }
-
-	constexpr type_info type_conversion::type() const noexcept { return type_info{base_t::type}; }
-	constexpr type_conversion::operator type_info() const noexcept { return type(); }
-
-	constexpr bool type_conversion::operator==(const type_info &info) const noexcept { return type() == info; }
-	constexpr bool type_conversion::operator==(const type_conversion &other) const noexcept
-	{
-		return type() == other.type();
-	}
-
-	constexpr type_info type_attribute::type() const noexcept { return type_info{base_t::type}; }
-	constexpr type_info type_constant::type() const noexcept { return type_info{base_t::type}; }
-
 	template<typename T>
 	constexpr type_info type_factory<T>::type() const noexcept
 	{
 		return type_info{m_data};
 	}
 
-	any::any(type_info type, void *ptr) noexcept
+	any::any(type_info type, void *ptr) noexcept : m_type(type.m_data), m_storage(ptr, false) {}
+	any::any(type_info type, const void *ptr) noexcept : m_type(type.m_data), m_storage(ptr, true) {}
+	constexpr type_info any::type() const noexcept { return type_info{m_type}; }
+
+	template<typename T>
+	T *any::get() noexcept
 	{
-		m_storage = base_t::storage_t{ptr, false};
-		m_type = type.m_data;
+		if (type() != type_info::get<T>) [[unlikely]]
+			return nullptr;
+
+		if constexpr (std::is_const_v<T>)
+			return static_cast<T *>(cdata());
+		else
+			return static_cast<T *>(data());
 	}
-	any::any(type_info type, const void *ptr) noexcept
+	template<typename T>
+	std::add_const_t<T> *any::get() const noexcept
 	{
-		m_storage = base_t::storage_t{ptr, true};
-		m_type = type.m_data;
+		if (type() != type_info::get<T>) [[unlikely]]
+			return nullptr;
+		return static_cast<T *>(data());
 	}
 
-	constexpr type_info any::type() const noexcept { return type_info{m_type}; }
-	constexpr type_info any_ref::type() const noexcept { return type_info{m_type}; }
+	// clang-format off
+	template<typename T>
+	std::remove_reference_t<T> &any::as() requires std::is_lvalue_reference_v<T>
+	{
+		const auto result = as(type_info::get<T>());
+		if (result.empty()) [[unlikely]]
+		{
+			throw type_error(make_error_code(type_errc::INVALID_TYPE),
+					 "Cannot convert reference to types that do not "
+					 "share a parent-child relationship");
+		}
+		return *static_cast<T *>(result.data());
+	}
+	template<typename T>
+	std::add_const_t<std::remove_reference_t<T>> &any::as() const requires std::is_lvalue_reference_v<T>
+	{
+		const auto result = as(type_info::get<T>());
+		if (result.empty()) [[unlikely]]
+		{
+			throw type_error(make_error_code(type_errc::INVALID_TYPE),
+					 "Cannot convert reference to types that do not "
+					 "share a parent-child relationship");
+		}
+		return *static_cast<T *>(result.data());
+	}
+	// clang-format on
+
+	// clang-format off
+	template<typename T>
+	std::remove_pointer_t<T> *any::as() requires std::is_pointer_v<T>
+	{
+		return static_cast<T *>(as(type_info::get<T>()).data());
+	}
+	template<typename T>
+	std::add_const_t<std::remove_pointer_t<T>> *any::as() const requires std::is_pointer_v<T>
+	{
+		return static_cast<const T *>(as(type_info::get<T>()).data());
+	}
+	// clang-format on
 
 	constexpr type_info any_range::value_type() const noexcept { return type_info{m_data->value_type}; }
 
@@ -662,11 +681,6 @@ namespace sek
 		constexpr static std::string_view value = "sek::any";
 	};
 	template<>
-	struct type_name<any_ref>
-	{
-		constexpr static std::string_view value = "sek::any_ref";
-	};
-	template<>
 	struct type_name<type_info>
 	{
 		constexpr static std::string_view value = "sek::type_info";
@@ -743,5 +757,4 @@ struct std::hash<sek::type_info>
 
 /* Type exports for reflection types */
 SEK_EXTERN_TYPE_INFO(sek::any);
-SEK_EXTERN_TYPE_INFO(sek::any_ref);
 SEK_EXTERN_TYPE_INFO(sek::type_info);

@@ -71,6 +71,14 @@ namespace sek
 		constexpr basic_static_string(const C *str, size_type n) : basic_static_string(str, str + n) {}
 
 		// clang-format off
+		template<std::size_t M>
+		constexpr basic_static_string(const basic_static_string<C, M> &str) requires(M != N)
+		{
+			std::copy_n(str.data(), std::min(M, N), value);
+		}
+		// clang-format on
+
+		// clang-format off
 		template<forward_iterator_for<value_type>, typename Iterator>
 		constexpr basic_static_string(Iterator first, Iterator last) { std::copy(first, last, value); }
 		template<forward_range_for<value_type>, typename R>

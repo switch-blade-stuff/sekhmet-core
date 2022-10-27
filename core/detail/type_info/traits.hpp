@@ -9,10 +9,76 @@
 
 namespace sek::detail
 {
+	template<typename>
+	struct callable_traits;
+
+	template<typename R, typename C, typename... Args>
+	struct callable_traits<R (C::*)(Args...)>
+	{
+		using return_type = R;
+		using arg_types = type_seq_t<Args...>;
+
+		const static bool is_const = false;
+	};
+	template<typename R, typename C, typename... Args>
+	struct callable_traits<R (C::*)(Args...) const>
+	{
+		using return_type = R;
+		using arg_types = type_seq_t<Args...>;
+
+		const static bool is_const = true;
+	};
+	template<typename R, typename C, typename I, typename... Args>
+	struct callable_traits<R (C::*)(I *, Args...)>
+	{
+		using return_type = R;
+		using instance_type = I;
+		using arg_types = type_seq_t<Args...>;
+
+		const static bool is_const = false;
+	};
+	template<typename R, typename C, typename I, typename... Args>
+	struct callable_traits<R (C::*)(I *, Args...) const>
+	{
+		using return_type = R;
+		using instance_type = I;
+		using arg_types = type_seq_t<Args...>;
+
+		const static bool is_const = true;
+	};
+
 	template<typename R, typename... Args, R (*F)(Args...)>
 	struct func_traits<F>
 	{
 		using return_type = R;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (*F)(I *, Args...)>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = I;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (*F)(const I *, Args...)>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = const I;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (*F)(volatile I *, Args...)>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = volatile I;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (*F)(const volatile I *, Args...)>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = const volatile I;
 		using arg_types = type_seq_t<Args...>;
 	};
 	template<typename R, typename I, typename... Args, R (I::*F)(Args...)>

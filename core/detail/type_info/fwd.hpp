@@ -25,11 +25,21 @@ namespace sek
 	enum class type_errc;
 
 	class type_info;
+	class type_attribute_info;
+	class type_parent_info;
+	class type_constant_info;
+	class type_conversion_info;
+	class type_constructor_info;
+	class type_function_info;
+	class type_property_info;
+
 	class type_query;
 	class type_database;
 
+	template<typename>
+	struct type_info_factory;
+
 	class any;
-	class any_ref;
 	class any_tuple;
 	class any_range;
 	class any_table;

@@ -99,8 +99,7 @@ namespace sek
 			/* If the query does not have a set yet, go through each reflected type & check it. */
 			for (auto &candidate : m_db.m_type_table)
 			{
-				const auto parents = candidate.parents();
-				if (std::ranges::find(parents, type) == parents.end()) [[unlikely]]
+				if (candidate.inherits(type)) [[unlikely]]
 					m_types.insert(candidate);
 			}
 			m_started = true;
@@ -110,8 +109,7 @@ namespace sek
 			/* Otherwise, remove all types that are not part of the attribute's set. */
 			for (auto pos = m_types.end(), end = m_types.begin(); pos-- != end;)
 			{
-				const auto parents = pos->parents();
-				if (std::ranges::find(parents, type) == parents.end()) [[likely]]
+				if (!pos->inherits(type)) [[likely]]
 					m_types.erase(pos);
 			}
 		}

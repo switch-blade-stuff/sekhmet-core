@@ -17,7 +17,7 @@ namespace sek
 		const auto type = type_info::get<T>();
 		const auto constants = type.constants();
 		for (auto pos = constants.begin(); pos != constants.end(); ++pos)
-			if (const auto cast = pos.get().cast(std::nothrow, type); cast.has_value() && cast->template as<T>() == value)
+			if (const auto cast = pos.get().cast(std::nothrow, type); cast.has_value() && *cast->template get<T>() == value)
 			{
 				archive.set(pos->name());
 				return;

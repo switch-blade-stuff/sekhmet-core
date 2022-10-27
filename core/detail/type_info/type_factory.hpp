@@ -50,8 +50,8 @@ namespace sek
 
 			[[nodiscard]] constexpr bool empty() const noexcept { return get == nullptr; }
 
-			[[nodiscard]] constexpr auto *data() noexcept { return m_storage.template get<A>(); }
-			[[nodiscard]] constexpr auto *data() const noexcept { return m_storage.template get<A>(); }
+			[[nodiscard]] constexpr auto *data() noexcept { return m_storage.get(); }
+			[[nodiscard]] constexpr auto *data() const noexcept { return m_storage.get(); }
 
 		private:
 			type_storage<A> m_storage;
@@ -80,7 +80,7 @@ namespace sek
 		type_factory &conversion() requires std::is_invocable_r_v<U, Conv, const T &>
 		{
 			/* Ignore initialization if the conversion already exists. */
-			if (auto &conv = detail::type_conv::instance<T, U, Conv>(); conv.empty()) [[likely]]
+			if (auto conv = detail::type_conv::make_instance<T, U, Conv>(); conv.empty()) [[likely]]
 			{
 				m_data->conversions.insert(conv);
 

@@ -55,7 +55,7 @@ namespace sek
 
 			using std::get;
 			if constexpr (requires(T & t) { get<0>(t); })
-				result.get = +[](any_ref &target, std::size_t i) -> any
+				result.get = +[](any &target, std::size_t i) -> any
 				{
 					if (target.is_const())
 					{
@@ -69,7 +69,7 @@ namespace sek
 					}
 				};
 			if constexpr (requires(std::add_const_t<T> & t) { get<0>(t); })
-				result.cget = +[](const any_ref &target, std::size_t i)
+				result.cget = +[](const any &target, std::size_t i)
 				{
 					auto &obj = *static_cast<std::add_const_t<T> *>(target.cdata());
 					return tuple_type_getter<std::add_const_t<T>>(obj, i);
@@ -85,7 +85,6 @@ namespace sek
 	class any_tuple
 	{
 		friend class any;
-		friend class any_ref;
 
 		using data_t = detail::tuple_type_data;
 
@@ -93,8 +92,8 @@ namespace sek
 		typedef std::size_t size_type;
 
 	private:
-		any_tuple(std::in_place_t, const any_ref &ref) : m_data(ref.m_type->tuple_data), m_target(ref) {}
-		any_tuple(std::in_place_t, any_ref &&ref) : m_data(ref.m_type->tuple_data), m_target(std::move(ref)) {}
+		any_tuple(std::in_place_t, const any &ref) : m_data(ref.m_type->tuple_data), m_target(ref.ref()) {}
+		any_tuple(std::in_place_t, any &&ref) : m_data(ref.m_type->tuple_data), m_target(std::move(ref)) {}
 
 		static const data_t *assert_data(const detail::type_data *data);
 
@@ -114,12 +113,12 @@ namespace sek
 		/** Initializes an `any_tuple` instance for an `any_ref` object.
 		 * @param ref `any_ref` referencing a table object.
 		 * @throw type_error If the referenced object is not a table. */
-		explicit any_tuple(const any_ref &ref) : m_data(assert_data(ref.m_type)), m_target(ref) {}
+		explicit any_tuple(const any &ref) : m_data(assert_data(ref.m_type)), m_target(ref.ref()) {}
 		/** @copydoc any_tuple */
-		explicit any_tuple(any_ref &&ref) : m_data(assert_data(ref.m_type)), m_target(std::move(ref)) {}
+		explicit any_tuple(any &&ref) : m_data(assert_data(ref.m_type)), m_target(std::move(ref)) {}
 
 		/** Returns `any_ref` reference ot the target tuple. */
-		[[nodiscard]] any_ref target() const noexcept { return m_target; }
+		[[nodiscard]] any target() const noexcept { return m_target.ref(); }
 
 		/** Returns the size of the tuple type as if via `std::tuple_size_v<T>`. */
 		[[nodiscard]] constexpr size_type size() const noexcept { return m_data->types.size(); }
@@ -141,6 +140,6 @@ namespace sek
 
 	private:
 		const data_t *m_data;
-		any_ref m_target;
+		any m_target;
 	};
 }	 // namespace sek

@@ -116,7 +116,7 @@ namespace sek
 				using iter_t = range_type_iterator<std::ranges::iterator_t<T>>;
 				using const_iter_t = range_type_iterator<std::ranges::iterator_t<const T>>;
 
-				result.begin = +[](any_ref &target) -> type_iterator_ptr<range_type_iterator<void>>
+				result.begin = +[](any &target) -> type_iterator_ptr<range_type_iterator<void>>
 				{
 					if (target.is_const()) [[unlikely]]
 					{
@@ -129,12 +129,12 @@ namespace sek
 						return new iter_t(std::ranges::begin(obj));
 					}
 				};
-				result.cbegin = +[](const any_ref &target) -> type_iterator_ptr<range_type_iterator<void>>
+				result.cbegin = +[](const any &target) -> type_iterator_ptr<range_type_iterator<void>>
 				{
 					auto &obj = *static_cast<const T *>(target.data());
 					return new const_iter_t(std::ranges::begin(obj));
 				};
-				result.end = +[](any_ref &target) -> type_iterator_ptr<range_type_iterator<void>>
+				result.end = +[](any &target) -> type_iterator_ptr<range_type_iterator<void>>
 				{
 					if (target.is_const()) [[unlikely]]
 					{
@@ -147,13 +147,13 @@ namespace sek
 						return new iter_t(std::ranges::end(obj));
 					}
 				};
-				result.cend = +[](const any_ref &target) -> type_iterator_ptr<range_type_iterator<void>>
+				result.cend = +[](const any &target) -> type_iterator_ptr<range_type_iterator<void>>
 				{
 					auto &obj = *static_cast<const T *>(target.data());
 					return new const_iter_t(std::ranges::end(obj));
 				};
 
-				result.front = +[](any_ref &target) -> any
+				result.front = +[](any &target) -> any
 				{
 					if (target.is_const()) [[unlikely]]
 					{
@@ -166,7 +166,7 @@ namespace sek
 						return forward_any(*std::ranges::begin(obj));
 					}
 				};
-				result.cfront = +[](const any_ref &target) -> any
+				result.cfront = +[](const any &target) -> any
 				{
 					auto &obj = *static_cast<const T *>(target.data());
 					return forward_any(*std::ranges::begin(obj));
@@ -177,7 +177,7 @@ namespace sek
 				using iter_t = range_type_iterator<std::ranges::iterator_t<T>>;
 				using const_iter_t = range_type_iterator<std::ranges::iterator_t<const T>>;
 
-				result.rbegin = +[](any_ref &target) -> type_iterator_ptr<range_type_iterator<void>>
+				result.rbegin = +[](any &target) -> type_iterator_ptr<range_type_iterator<void>>
 				{
 					if (target.is_const()) [[unlikely]]
 					{
@@ -190,12 +190,12 @@ namespace sek
 						return new iter_t(std::prev(std::ranges::end(obj)));
 					}
 				};
-				result.crbegin = +[](const any_ref &target) -> type_iterator_ptr<range_type_iterator<void>>
+				result.crbegin = +[](const any &target) -> type_iterator_ptr<range_type_iterator<void>>
 				{
 					auto &obj = *static_cast<const T *>(target.data());
 					return new const_iter_t(std::prev(std::ranges::end(obj)));
 				};
-				result.rend = +[](any_ref &target) -> type_iterator_ptr<range_type_iterator<void>>
+				result.rend = +[](any &target) -> type_iterator_ptr<range_type_iterator<void>>
 				{
 					if (target.is_const()) [[unlikely]]
 					{
@@ -208,13 +208,13 @@ namespace sek
 						return new iter_t(std::next(std::ranges::begin(obj)));
 					}
 				};
-				result.crend = +[](const any_ref &target) -> type_iterator_ptr<range_type_iterator<void>>
+				result.crend = +[](const any &target) -> type_iterator_ptr<range_type_iterator<void>>
 				{
 					auto &obj = *static_cast<const T *>(target.data());
 					return new const_iter_t(std::next(std::ranges::begin(obj)));
 				};
 
-				result.back = +[](any_ref &target) -> any
+				result.back = +[](any &target) -> any
 				{
 					if (target.is_const()) [[unlikely]]
 					{
@@ -227,7 +227,7 @@ namespace sek
 						return forward_any(*std::prev(std::ranges::end(obj)));
 					}
 				};
-				result.cback = +[](const any_ref &target) -> any
+				result.cback = +[](const any &target) -> any
 				{
 					auto &obj = *static_cast<const T *>(target.data());
 					return forward_any(*std::prev(std::ranges::end(obj)));
@@ -236,7 +236,7 @@ namespace sek
 			if constexpr (std::ranges::random_access_range<T>)
 			{
 				using diff_type = std::ranges::range_difference_t<T>;
-				result.at = +[](any_ref &target, std::size_t i) -> any
+				result.at = +[](any &target, std::size_t i) -> any
 				{
 					if (target.is_const()) [[unlikely]]
 					{
@@ -255,7 +255,7 @@ namespace sek
 						return forward_any(std::ranges::begin(obj)[static_cast<diff_type>(i)]);
 					}
 				};
-				result.cat = +[](const any_ref &target, std::size_t i) -> any
+				result.cat = +[](const any &target, std::size_t i) -> any
 				{
 					auto &obj = *static_cast<const T *>(target.data());
 					if (i >= std::ranges::size(obj)) [[unlikely]]
@@ -275,7 +275,6 @@ namespace sek
 	class any_range
 	{
 		friend class any;
-		friend class any_ref;
 
 		using data_t = detail::range_type_data;
 
@@ -360,8 +359,8 @@ namespace sek
 	private:
 		static SEK_CORE_PUBLIC const data_t *assert_data(const detail::type_data *data);
 
-		any_range(std::in_place_t, const any_ref &ref) : m_data(ref.m_type->range_data), m_target(ref) {}
-		any_range(std::in_place_t, any_ref &&ref) : m_data(ref.m_type->range_data), m_target(std::move(ref)) {}
+		any_range(std::in_place_t, const any &ref) : m_data(ref.m_type->range_data), m_target(ref.ref()) {}
+		any_range(std::in_place_t, any &&ref) : m_data(ref.m_type->range_data), m_target(std::move(ref)) {}
 
 	public:
 		any_range() = delete;
@@ -376,15 +375,15 @@ namespace sek
 			return *this;
 		}
 
-		/** Initializes an `any_range` instance for an `any_ref` object.
-		 * @param ref `any_ref` referencing a range object.
+		/** Initializes an `any_range` instance for an `any` object.
+		 * @param ref `any` referencing a range object.
 		 * @throw type_error If the referenced object is not a range. */
-		explicit any_range(const any_ref &ref) : m_data(assert_data(ref.m_type)), m_target(ref) {}
+		explicit any_range(const any &ref) : m_data(assert_data(ref.m_type)), m_target(ref.ref()) {}
 		/** @copydoc any_range */
-		explicit any_range(any_ref &&ref) : m_data(assert_data(ref.m_type)), m_target(std::move(ref)) {}
+		explicit any_range(any &&ref) : m_data(assert_data(ref.m_type)), m_target(std::move(ref)) {}
 
-		/** Returns `any_ref` reference ot the target range. */
-		[[nodiscard]] any_ref target() const noexcept { return m_target; }
+		/** Returns `any` reference ot the target range. */
+		[[nodiscard]] any target() const noexcept { return m_target.ref(); }
 
 		/** Checks if the referenced range is a sized range. */
 		[[nodiscard]] constexpr bool is_sized_range() const noexcept { return m_data->size != nullptr; }
@@ -460,6 +459,6 @@ namespace sek
 
 	private:
 		const data_t *m_data;
-		any_ref m_target;
+		any m_target;
 	};
 }	 // namespace sek

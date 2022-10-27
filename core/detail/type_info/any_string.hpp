@@ -30,7 +30,7 @@ namespace sek
 				const auto &obj = *static_cast<const T *>(p);
 				return static_cast<std::size_t>(std::ranges::size(obj));
 			};
-			result.data = +[](any_ref &target) -> void *
+			result.data = +[](any &target) -> void *
 			{
 				if (target.is_const()) [[unlikely]]
 					return nullptr;
@@ -47,7 +47,7 @@ namespace sek
 					return str.data();
 				return nullptr;
 			};
-			result.cdata = +[](const any_ref &target) -> const void *
+			result.cdata = +[](const any &target) -> const void *
 			{
 				auto &str = *static_cast<const T *>(target.data());
 				if constexpr (!requires { str.data(); })
@@ -66,7 +66,6 @@ namespace sek
 	class any_string
 	{
 		friend class any;
-		friend class any_ref;
 
 		using data_t = detail::string_type_data;
 
@@ -163,8 +162,8 @@ namespace sek
 
 		static SEK_CORE_PUBLIC const data_t *assert_data(const detail::type_data *data);
 
-		any_string(std::in_place_t, const any_ref &ref) : m_data(ref.m_type->string_data), m_target(ref) {}
-		any_string(std::in_place_t, any_ref &&ref) : m_data(ref.m_type->string_data), m_target(std::move(ref)) {}
+		any_string(std::in_place_t, const any &ref) : m_data(ref.m_type->string_data), m_target(ref.ref()) {}
+		any_string(std::in_place_t, any &&ref) : m_data(ref.m_type->string_data), m_target(std::move(ref)) {}
 
 	public:
 		any_string() = delete;
@@ -182,12 +181,12 @@ namespace sek
 		/** Initializes an `any_string` instance for an `any_ref` object.
 		 * @param ref `any_ref` referencing a table object.
 		 * @throw type_error If the referenced object is not a table. */
-		explicit any_string(const any_ref &ref) : m_data(assert_data(ref.m_type)), m_target(ref) {}
+		explicit any_string(const any &ref) : m_data(assert_data(ref.m_type)), m_target(ref.ref()) {}
 		/** @copydoc any_string */
-		explicit any_string(any_ref &&ref) : m_data(assert_data(ref.m_type)), m_target(std::move(ref)) {}
+		explicit any_string(any &&ref) : m_data(assert_data(ref.m_type)), m_target(std::move(ref)) {}
 
 		/** Returns `any_ref` reference ot the target string. */
-		[[nodiscard]] any_ref target() const noexcept { return m_target; }
+		[[nodiscard]] any target() const noexcept { return m_target.ref(); }
 
 		/** Returns the character type of the string. */
 		[[nodiscard]] constexpr type_info char_type() const noexcept;
@@ -252,6 +251,6 @@ namespace sek
 		bool convert_with(std::basic_string<C, T, A> &dst, const std::locale &l, const A &a) const;
 
 		const data_t *m_data;
-		any_ref m_target;
+		any m_target;
 	};
 }	 // namespace sek
