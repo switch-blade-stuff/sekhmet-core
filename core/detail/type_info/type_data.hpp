@@ -95,7 +95,9 @@ namespace sek::detail
 
 	struct attr_data : generic_type_data
 	{
-		/* TODO: Implement attribute data. */
+		template<typename T, typename... Args>
+		[[nodiscard]] static attr_data make_instance(Args &&...);
+
 		constexpr attr_data() noexcept = default;
 		constexpr attr_data(attr_data &&other) noexcept { swap(other); }
 		constexpr attr_data &operator=(attr_data &&other) noexcept
@@ -270,7 +272,9 @@ namespace sek::detail
 
 	struct const_data
 	{
-		template<typename T, auto V>
+		template<auto V>
+		[[nodiscard]] constexpr static const_data make_instance(std::string_view name) noexcept;
+		template<typename F>
 		[[nodiscard]] constexpr static const_data make_instance(std::string_view name) noexcept;
 
 		constexpr const_data() noexcept = default;
