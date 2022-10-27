@@ -17,7 +17,7 @@ namespace sek
 		const auto type = type_info::get<T>();
 		const auto constants = type.constants();
 		for (auto pos = constants.begin(); pos != constants.end(); ++pos)
-			if (const auto cast = pos.get().cast(std::nothrow, type); cast.has_value() && *cast->template get<T>() == value)
+			if (const auto cast = pos.get().cast(type); !cast.empty() && *cast.template get<T>() == value)
 			{
 				archive.set(pos->name());
 				return;
@@ -33,17 +33,20 @@ namespace sek
 		else
 		{
 			const auto type = type_info::get<T>();
-			const auto constants = type.constants();
-			for (auto pos = constants.begin(); pos != constants.end(); ++pos)
-				if (pos->name() == name)
+			const auto underlying = type_info::get<std::underlying_type_t<T>>();
+			if (const auto constant = type.constant(name); !constant.empty()) [[likely]]
+			{
+				if (auto cast = constant.get().cast(type); !cast.empty()) [[likely]]
 				{
-					const auto cast = pos.get().cast(std::nothrow, type);
-					if (cast.has_value()) [[likely]]
-					{
-						value = cast;
-						return;
-					}
+					value = *cast.template get<T>();
+					return;
 				}
+				else if (cast = constant.get().cast(underlying); !cast.empty()) [[likely]]
+				{
+					value = *cast.template get<std::underlying_type_t<T>>();
+					return;
+				}
+			}
 			throw archive_error(make_error_code(archive_errc::INVALID_DATA), fmt::format("Invalid enum value \"{}\"", name));
 		}
 	}

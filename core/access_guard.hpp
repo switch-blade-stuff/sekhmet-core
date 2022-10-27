@@ -196,6 +196,7 @@ namespace sek
 
 		using const_ptr = typename traits_t::template rebind<std::add_const_t<typename base_t::element_type>>;
 
+		using base_t::m_mtx;
 		using base_t::m_ptr;
 
 	public:
@@ -208,15 +209,17 @@ namespace sek
 		using access_guard<P, Mutex, false>::access_guard;
 
 		/** Acquires a shared lock and returns an accessor handle. */
-		[[nodiscard]] constexpr shared_handle access_shared() const & { return {*m_ptr, shared_lock{*base_t::m_mtx}}; }
+		[[nodiscard]] constexpr shared_handle access_shared() { return {m_ptr, shared_lock{*m_mtx}}; }
 		/** @copydoc access_shared */
-		[[nodiscard]] constexpr shared_handle operator->() const & { return access_shared(); }
+		[[nodiscard]] constexpr shared_handle get() const { return access_shared(); }
+		/** @copydoc access_shared */
+		[[nodiscard]] constexpr shared_handle operator->() const { return access_shared(); }
 
 		/** Attempts to acquire a unique lock and returns an optional accessor handle. */
 		[[nodiscard]] constexpr std::optional<shared_handle> try_access_shared() const
 		{
 			if (base_t::m_mtx.try_lock_shared()) [[likely]]
-				return {shared_handle{*m_ptr, shared_lock{*base_t::m_mtx, std::adopt_lock}}};
+				return {shared_handle{m_ptr, shared_lock{*m_mtx, std::adopt_lock}}};
 			else
 				return {std::nullopt};
 		}

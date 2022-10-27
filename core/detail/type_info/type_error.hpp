@@ -44,8 +44,6 @@ namespace sek
 		INVALID_PROPERTY = INVALID_MEMBER | 0x1000,
 		/** Requested member function of a type does not exist. */
 		INVALID_FUNCTION = INVALID_MEMBER | 0x2000,
-		/** Requested constructor of a type does not exist. */
-		INVALID_CONSTRUCTOR = INVALID_MEMBER | 0x4000,
 
 		/** Provided `any` instance is not a reference. */
 		EXPECTED_REF_ANY = 0xa000,

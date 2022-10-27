@@ -15,7 +15,6 @@ list(APPEND SEK_CORE_INTERFACE_SOURCES
 
 list(APPEND SEK_CORE_PRIVATE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/type_error.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/type_data.cpp
         ${CMAKE_CURRENT_LIST_DIR}/any.cpp
         ${CMAKE_CURRENT_LIST_DIR}/any_range.cpp
         ${CMAKE_CURRENT_LIST_DIR}/any_table.cpp

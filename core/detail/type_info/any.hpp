@@ -67,8 +67,7 @@ namespace sek
 			template<typename T, typename... Args>
 			storage_t(std::in_place_type_t<T>, Args &&...args)
 			{
-				init<T>([](T *ptr, Args &&...args) { std::construct_at(ptr, std::forward<Args>(args)...); },
-						std::forward<Args>(args)...);
+				init<T>(std::construct_at<T, Args...>, std::forward<Args>(args)...);
 				init_flags<T>();
 			}
 			storage_t(std::in_place_type_t<void>, auto &&...) {}
@@ -188,6 +187,14 @@ namespace sek
 		any(std::in_place_type_t<T> p, U &ref) requires std::is_lvalue_reference_v<T>
 			: m_type(detail::type_handle{type_selector<std::remove_cvref_t<T>>}.get()),
 			  m_storage(p, ref) {}
+		// clang-format on
+
+		// clang-format off
+		/** Initializes `any` from the specified value. If `T` an lvalue, initializes an `any` with a reference to `value`.
+		 * @param value Value to use for initialization.
+		 * @note Equivalent to `any(std::in_place_type<T>, std::forward<T>(value))`. */
+		template<typename T>
+		any(T &&value) requires(!std::same_as<std::decay_t<T>, any>) : any(std::in_place_type<T>, std::forward<T>(value)) {}
 		// clang-format on
 
 		constexpr any(any &&other) noexcept { move_init(other); }
@@ -359,24 +366,28 @@ namespace sek
 		storage_t m_storage = {};
 	};
 
-	/** If `value` is an lvalue reference, creates an `any` instance referencing the external object.
-	 * Otherwise, equivalent to `any(std::in_place_type<std::remove_cvref_t<T>>, std::forward<T>(value))`. */
+	/** If `value` is a non-rvalue instance of `any`, creates an `any` instance referencing the managed object.
+	 * Otherwise, equivalent to `any(std::forward<T>(value))`. */
 	template<typename T>
 	[[nodiscard]] any forward_any(T &&value)
 	{
-		using U = std::conditional_t<std::is_lvalue_reference_v<T>, T, std::remove_cvref_t<T>>;
-		return any{std::in_place_type<U>, std::forward<T>(value)};
+		if constexpr (!(std::is_lvalue_reference_v<T> && std::same_as<std::decay_t<T>, any>) )
+			return any{std::forward<T>(value)};
+		else
+			return value.ref();
 	}
-	/** Creates an instance of `any` containing an in-place initialized object of type `T`.
+	/** @brief Creates an instance of `any` containing an in-place initialized object of type `T`.
 	 * @param args Arguments passed to constructor of `T`.
-	 * @note Equivalent to any(std::in_place_type<T>, std::forward<Args>(args)...) */
+	 * @note Equivalent to `any(std::in_place_type<T>, std::forward<Args>(args)...)`. */
 	template<typename T, typename... Args>
 	[[nodiscard]] any make_any(Args &&...args)
 	{
 		return any{std::in_place_type<T>, std::forward<Args>(args)...};
 	}
-	/** @copydoc make_any
-	 * @param il Initializer list passed to constructor of `T`. */
+	/** @copybrief make_any
+	 * @param args Arguments passed to constructor of `T`.
+	 * @param il Initializer list passed to constructor of `T`.
+	 * @note Equivalent to `any(std::in_place_type<T>, il, std::forward<Args>(args)...)`. */
 	template<typename T, typename U, typename... Args>
 	[[nodiscard]] any make_any(std::initializer_list<U> il, Args &&...args)
 	{
@@ -417,31 +428,24 @@ namespace sek
 
 			if constexpr (std::copy_constructible<T>)
 			{
-				// clang-format off
-				constexpr auto ctor = []<typename... Args>(T *ptr, Args &&...args)
-				{
-					std::construct_at(ptr, std::forward<Args>(args)...);
-				};
-				// clang-format on
-
 				/* Copy-init & copy-assign operations are used only if there is no custom copy constructor. */
 				result.copy_init = +[](const any &src, any &dst)
 				{
-					dst.m_storage.template init<T>(ctor, *src.m_storage.template get<T>());
+					dst.m_storage.template init<T>(std::construct_at<T, const T &>, *src.m_storage.template get<T>());
 					dst.m_storage.template init_flags<T>();
 				};
 				result.copy_assign = +[](const any &src, any &dst)
 				{
-					if constexpr (std::is_copy_assignable_v<T>)
+					if (dst.is_ref()) [[unlikely]]
+						dst.m_storage.template init<T>(std::construct_at<T, const T &>, *src.m_storage.template get<T>());
+					else if constexpr (std::is_copy_assignable_v<T>)
 						*dst.m_storage.template get<T>() = *src.m_storage.template get<T>();
-					else if (!dst.is_ref()) [[likely]]
+					else
 					{
 						auto *ptr = dst.m_storage.template get<T>();
 						std::destroy_at(ptr);
 						std::construct_at(ptr, *src.m_storage.template get<T>());
 					}
-					else
-						dst.m_storage.template init<T>(ctor, *src.m_storage.template get<T>());
 					dst.m_storage.template init_flags<T>();
 				};
 			}

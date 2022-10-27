@@ -35,6 +35,22 @@ namespace sek::detail
 		type_data *(*get)() noexcept = nullptr;
 	};
 
+	struct type_data_hash
+	{
+		typedef std::true_type is_transparent;
+
+		[[nodiscard]] constexpr hash_t operator()(std::string_view type) const noexcept;
+		[[nodiscard]] constexpr hash_t operator()(const type_data *type) const noexcept;
+	};
+	struct type_data_cmp
+	{
+		typedef std::true_type is_transparent;
+
+		[[nodiscard]] constexpr bool operator()(const type_data *a, const type_data *b) const noexcept;
+		[[nodiscard]] constexpr bool operator()(const type_data *a, std::string_view b) const noexcept;
+		[[nodiscard]] constexpr bool operator()(std::string_view a, const type_data *b) const noexcept;
+	};
+
 	/* Simple type-erased object wrapper. */
 	struct generic_type_data
 	{
@@ -100,23 +116,39 @@ namespace sek::detail
 		any (*get_func)(const void *) = nullptr;
 		type_handle type;
 	};
-	struct attr_hash
+	struct attr_hash : type_data_hash
 	{
-		typedef std::true_type is_transparent;
+		using type_data_hash::operator();
 
-		[[nodiscard]] constexpr hash_t operator()(const attr_data &data) const noexcept;
-		[[nodiscard]] constexpr hash_t operator()(std::string_view type) const noexcept;
-		[[nodiscard]] constexpr hash_t operator()(const type_handle &type) const noexcept;
+		[[nodiscard]] constexpr hash_t operator()(const attr_data &data) const noexcept
+		{
+			return operator()(data.type.get());
+		}
 	};
-	struct attr_cmp
+	struct attr_cmp : type_data_cmp
 	{
-		typedef std::true_type is_transparent;
+		using type_data_cmp::operator();
 
-		[[nodiscard]] constexpr bool operator()(const attr_data &a, const attr_data &b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(const attr_data &a, std::string_view b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(std::string_view a, const attr_data &b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(const type_handle &a, const attr_data &b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(const attr_data &a, const type_handle &b) const noexcept;
+		[[nodiscard]] constexpr bool operator()(const attr_data &a, const attr_data &b) const noexcept
+		{
+			return &a == &b || operator()(a.type.get(), b.type.get());
+		}
+		[[nodiscard]] constexpr bool operator()(const type_data *a, const attr_data &b) const noexcept
+		{
+			return operator()(a, b.type.get());
+		}
+		[[nodiscard]] constexpr bool operator()(const attr_data &a, const type_data *b) const noexcept
+		{
+			return operator()(a.type.get(), b);
+		}
+		[[nodiscard]] constexpr bool operator()(const attr_data &a, std::string_view b) const noexcept
+		{
+			return operator()(a.type.get(), b);
+		}
+		[[nodiscard]] constexpr bool operator()(std::string_view a, const attr_data &b) const noexcept
+		{
+			return operator()(a, b.type.get());
+		}
 	};
 	using attr_table = dense_set<attr_data, attr_hash, attr_cmp>;
 
@@ -142,23 +174,39 @@ namespace sek::detail
 		const void *(*cast)(const void *) = nullptr;
 		type_handle type;
 	};
-	struct base_hash
+	struct base_hash : type_data_hash
 	{
-		typedef std::true_type is_transparent;
+		using type_data_hash::operator();
 
-		[[nodiscard]] constexpr hash_t operator()(const base_data &data) const noexcept;
-		[[nodiscard]] constexpr hash_t operator()(std::string_view type) const noexcept;
-		[[nodiscard]] constexpr hash_t operator()(const type_handle &type) const noexcept;
+		[[nodiscard]] constexpr hash_t operator()(const base_data &data) const noexcept
+		{
+			return operator()(data.type.get());
+		}
 	};
-	struct base_cmp
+	struct base_cmp : type_data_cmp
 	{
-		typedef std::true_type is_transparent;
+		using type_data_cmp::operator();
 
-		[[nodiscard]] constexpr bool operator()(const base_data &a, const base_data &b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(const base_data &a, std::string_view b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(std::string_view a, const base_data &b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(const type_handle &a, const base_data &b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(const base_data &a, const type_handle &b) const noexcept;
+		[[nodiscard]] constexpr bool operator()(const base_data &a, const base_data &b) const noexcept
+		{
+			return &a == &b || operator()(a.type.get(), b.type.get());
+		}
+		[[nodiscard]] constexpr bool operator()(const type_data *a, const base_data &b) const noexcept
+		{
+			return operator()(a, b.type.get());
+		}
+		[[nodiscard]] constexpr bool operator()(const base_data &a, const type_data *b) const noexcept
+		{
+			return operator()(a.type.get(), b);
+		}
+		[[nodiscard]] constexpr bool operator()(const base_data &a, std::string_view b) const noexcept
+		{
+			return operator()(a.type.get(), b);
+		}
+		[[nodiscard]] constexpr bool operator()(std::string_view a, const base_data &b) const noexcept
+		{
+			return operator()(a, b.type.get());
+		}
 	};
 	using base_table = dense_set<base_data, base_hash, base_cmp>;
 
@@ -184,30 +232,46 @@ namespace sek::detail
 		any (*convert)(any) = nullptr;
 		type_handle type;
 	};
-	struct conv_hash
+	struct conv_hash : type_data_hash
 	{
-		typedef std::true_type is_transparent;
+		using type_data_hash::operator();
 
-		[[nodiscard]] constexpr hash_t operator()(const conv_data &data) const noexcept;
-		[[nodiscard]] constexpr hash_t operator()(std::string_view type) const noexcept;
-		[[nodiscard]] constexpr hash_t operator()(const type_handle &type) const noexcept;
+		[[nodiscard]] constexpr hash_t operator()(const conv_data &data) const noexcept
+		{
+			return operator()(data.type.get());
+		}
 	};
-	struct conv_cmp
+	struct conv_cmp : type_data_cmp
 	{
-		typedef std::true_type is_transparent;
+		using type_data_cmp::operator();
 
-		[[nodiscard]] constexpr bool operator()(const conv_data &a, const conv_data &b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(const conv_data &a, std::string_view b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(std::string_view a, const conv_data &b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(const type_handle &a, const conv_data &b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(const conv_data &a, const type_handle &b) const noexcept;
+		[[nodiscard]] constexpr bool operator()(const conv_data &a, const conv_data &b) const noexcept
+		{
+			return &a == &b || operator()(a.type.get(), b.type.get());
+		}
+		[[nodiscard]] constexpr bool operator()(const type_data *a, const conv_data &b) const noexcept
+		{
+			return operator()(a, b.type.get());
+		}
+		[[nodiscard]] constexpr bool operator()(const conv_data &a, const type_data *b) const noexcept
+		{
+			return operator()(a.type.get(), b);
+		}
+		[[nodiscard]] constexpr bool operator()(const conv_data &a, std::string_view b) const noexcept
+		{
+			return operator()(a.type.get(), b);
+		}
+		[[nodiscard]] constexpr bool operator()(std::string_view a, const conv_data &b) const noexcept
+		{
+			return operator()(a, b.type.get());
+		}
 	};
 	using conv_table = dense_set<conv_data, conv_hash, conv_cmp>;
 
 	struct const_data
 	{
 		template<typename T, auto V>
-		[[nodiscard]] constexpr static const_data make_instance() noexcept;
+		[[nodiscard]] constexpr static const_data make_instance(std::string_view name) noexcept;
 
 		constexpr const_data() noexcept = default;
 		constexpr const_data(const_data &&other) noexcept { swap(other); }
@@ -227,8 +291,40 @@ namespace sek::detail
 
 		any (*get)() = nullptr;
 		attr_table attributes;
+		std::string_view name;
 		type_handle type;
 	};
+	struct const_hash
+	{
+		typedef std::true_type is_transparent;
+
+		[[nodiscard]] constexpr hash_t operator()(std::string_view name) const noexcept
+		{
+			return fnv1a(name.data(), name.size());
+		}
+		[[nodiscard]] constexpr hash_t operator()(const const_data &data) const noexcept
+		{
+			return operator()(data.name);
+		}
+	};
+	struct const_cmp
+	{
+		typedef std::true_type is_transparent;
+
+		[[nodiscard]] constexpr bool operator()(const const_data &a, const const_data &b) const noexcept
+		{
+			return &a == &b || a.name == b.name;
+		}
+		[[nodiscard]] constexpr bool operator()(const const_data &a, std::string_view b) const noexcept
+		{
+			return a.name == b;
+		}
+		[[nodiscard]] constexpr bool operator()(std::string_view a, const const_data &b) const noexcept
+		{
+			return a == b.name;
+		}
+	};
+	using const_table = dense_set<const_data, const_hash, const_cmp>;
 
 	struct func_arg_data
 	{
@@ -518,11 +614,12 @@ namespace sek::detail
 		bool is_float = false;
 
 		attr_table attributes;
+		const_table constants;
 		base_table parents;
 
 		dtor_data dtor;
 		std::vector<ctor_data> constructors;
-		dense_map<std::string_view, const_data> constants;
+
 		dense_map<std::string_view, prop_data> properties;
 		dense_map<std::string_view, std::vector<func_data>> functions;
 
@@ -547,87 +644,22 @@ namespace sek::detail
 		return &value;
 	}
 
-	constexpr hash_t base_hash::operator()(const base_data &data) const noexcept { return operator()(data.type); }
-	constexpr hash_t base_hash::operator()(std::string_view type) const noexcept
+	constexpr hash_t type_data_hash::operator()(std::string_view type) const noexcept
 	{
 		return fnv1a(type.data(), type.size());
 	}
-	constexpr hash_t base_hash::operator()(const type_handle &type) const noexcept { return operator()(type->name); }
+	constexpr hash_t type_data_hash::operator()(const type_data *type) const noexcept { return operator()(type->name); }
 
-	constexpr bool base_cmp::operator()(const base_data &a, const base_data &b) const noexcept
+	constexpr bool type_data_cmp::operator()(const type_data *a, const type_data *b) const noexcept
 	{
-		return a.type.get == b.type.get || a.type->name == b.type->name;
+		return a == b || a->name == b->name;
 	}
-	constexpr bool base_cmp::operator()(const base_data &a, std::string_view b) const noexcept
+	constexpr bool type_data_cmp::operator()(const type_data *a, std::string_view b) const noexcept
 	{
-		return a.type->name == b;
+		return a->name == b;
 	}
-	constexpr bool base_cmp::operator()(std::string_view a, const base_data &b) const noexcept
+	constexpr bool type_data_cmp::operator()(std::string_view a, const type_data *b) const noexcept
 	{
-		return a == b.type->name;
-	}
-	constexpr bool base_cmp::operator()(const type_handle &a, const base_data &b) const noexcept
-	{
-		return a.get == b.type.get || a->name == b.type->name;
-	}
-	constexpr bool base_cmp::operator()(const base_data &a, const type_handle &b) const noexcept
-	{
-		return a.type.get == b.get || a.type->name == b->name;
-	}
-
-	constexpr hash_t conv_hash::operator()(const conv_data &data) const noexcept { return operator()(data.type); }
-	constexpr hash_t conv_hash::operator()(std::string_view type) const noexcept
-	{
-		return fnv1a(type.data(), type.size());
-	}
-	constexpr hash_t conv_hash::operator()(const type_handle &type) const noexcept { return operator()(type->name); }
-
-	constexpr bool conv_cmp::operator()(const conv_data &a, const conv_data &b) const noexcept
-	{
-		return a.type.get == b.type.get || a.type->name == b.type->name;
-	}
-	constexpr bool conv_cmp::operator()(const conv_data &a, std::string_view b) const noexcept
-	{
-		return a.type->name == b;
-	}
-	constexpr bool conv_cmp::operator()(std::string_view a, const conv_data &b) const noexcept
-	{
-		return a == b.type->name;
-	}
-	constexpr bool conv_cmp::operator()(const type_handle &a, const conv_data &b) const noexcept
-	{
-		return a.get == b.type.get || a->name == b.type->name;
-	}
-	constexpr bool conv_cmp::operator()(const conv_data &a, const type_handle &b) const noexcept
-	{
-		return a.type.get == b.get || a.type->name == b->name;
-	}
-
-	constexpr hash_t attr_hash::operator()(const attr_data &data) const noexcept { return operator()(data.type); }
-	constexpr hash_t attr_hash::operator()(std::string_view type) const noexcept
-	{
-		return fnv1a(type.data(), type.size());
-	}
-	constexpr hash_t attr_hash::operator()(const type_handle &type) const noexcept { return operator()(type->name); }
-
-	constexpr bool attr_cmp::operator()(const attr_data &a, const attr_data &b) const noexcept
-	{
-		return a.type.get == b.type.get || a.type->name == b.type->name;
-	}
-	constexpr bool attr_cmp::operator()(const attr_data &a, std::string_view b) const noexcept
-	{
-		return a.type->name == b;
-	}
-	constexpr bool attr_cmp::operator()(std::string_view a, const attr_data &b) const noexcept
-	{
-		return a == b.type->name;
-	}
-	constexpr bool attr_cmp::operator()(const type_handle &a, const attr_data &b) const noexcept
-	{
-		return a.get == b.type.get || a->name == b.type->name;
-	}
-	constexpr bool attr_cmp::operator()(const attr_data &a, const type_handle &b) const noexcept
-	{
-		return a.type.get == b.get || a.type->name == b->name;
+		return a == b->name;
 	}
 }	 // namespace sek::detail

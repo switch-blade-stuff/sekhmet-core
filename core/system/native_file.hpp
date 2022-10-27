@@ -46,7 +46,7 @@ namespace sek
 		using path_char = typename std::filesystem::path::value_type;
 
 		template<typename T>
-		inline static T return_if(expected<T, std::error_code> &&exp)
+		static T return_if(expected<T, std::error_code> &&exp)
 		{
 			if (!exp.has_value()) [[unlikely]]
 				throw std::system_error(exp.error());

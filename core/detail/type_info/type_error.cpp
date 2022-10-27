@@ -38,8 +38,6 @@ namespace sek
 					return "Invalid type member property";
 				else if ((errc & type_errc::INVALID_FUNCTION) != type_errc{})
 					return "Invalid type member function";
-				else if ((errc & type_errc::INVALID_CONSTRUCTOR) != type_errc{})
-					return "Invalid type constructor";
 				return "Invalid type member";
 			}
 			return "Invalid type";

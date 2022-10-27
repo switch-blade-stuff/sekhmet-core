@@ -34,46 +34,75 @@ namespace sek
 		return result;
 	}
 
+	auto type_info::find_overload(auto &range, std::span<type_info> args)
+	{
+		auto overload = range.begin(), last = range.end();
+		for (; overload != last; ++overload)
+		{
+			constexpr auto pred = [](detail::func_arg_data a, type_info b) { return type_info{a.type} == b; };
+			if (std::ranges::equal(overload->args, args, pred)) return overload;
+		}
+		return last;
+	}
+	auto type_info::find_overload(auto &range, std::span<any> args)
+	{
+		auto overload = range.begin(), last = range.end();
+		for (; overload != last; ++overload)
+		{
+			constexpr auto pred = [](detail::func_arg_data a, const any &b)
+			{
+				/* Both type and const-ness must match. */
+				return a.is_const == b.is_const() && type_info{a.type} == b.type();
+			};
+			if (std::ranges::equal(overload->args, args, pred)) return overload;
+		}
+		return last;
+	}
+
+	bool type_info::has_attribute(type_info type) const noexcept { return m_data->attributes.contains(type.m_data); }
+	bool type_info::has_constant(std::string_view name) const noexcept { return m_data->constants.contains(name); }
+	bool type_info::has_constant(std::string_view name, type_info type) const noexcept
+	{
+		const auto iter = m_data->constants.find(name);
+		return iter != m_data->constants.end() && type_info{iter->type} == type;
+	}
 	bool type_info::inherits(type_info type) const noexcept
 	{
-		for (auto &parent : m_data->parents)
+		auto &parents = m_data->parents;
+		if (parents.contains(type.m_data)) [[likely]]
+			return true;
+		for (auto &parent : parents)
 		{
 			const auto parent_type = type_info{parent.type};
-			if (parent_type == type || parent_type.inherits(type)) [[likely]]
+			if (parent_type.inherits(type)) [[likely]]
 				return true;
 		}
 		return false;
 	}
 
-	expected<any, std::error_code> type_info::construct(std::nothrow_t, std::span<any> args)
+	any type_info::attribute(type_info type) const
 	{
-		for (auto &ctor : m_data->constructors)
-		{
-			constexpr auto pred = [](detail::func_arg_data a, const any &b)
-			{
-				/* Both type and const-ness must match. */
-				return a.is_const == b.is_const() && type_info{a.type} == b.type();
-			};
-			if (std::ranges::equal(ctor.args, args, pred)) return ctor.invoke(args);
-		}
-		return unexpected{make_error_code(type_errc::INVALID_CONSTRUCTOR)};
+		const auto iter = m_data->attributes.find(type.m_data);
+		return iter != m_data->attributes.end() ? iter->get() : any{};
 	}
-	any type_info::construct(std::span<any> args)
+	any type_info::constant(std::string_view name) const
 	{
-		for (auto &ctor : m_data->constructors)
-		{
-			constexpr auto pred = [](detail::func_arg_data a, const any &b)
-			{
-				/* Both type and const-ness must match. */
-				return a.is_const == b.is_const() && type_info{a.type} == b.type();
-			};
-			if (std::ranges::equal(ctor.args, args, pred)) return ctor.invoke(args);
-		}
+		const auto iter = m_data->constants.find(name);
+		return iter != m_data->constants.end() ? iter->get() : any{};
+	}
+	any type_info::construct(std::span<any> args) const
+	{
+		const auto iter = find_overload(m_data->constructors, args);
+		return iter != m_data->constructors.end() ? iter->invoke(args) : any{};
+	}
 
-		// clang-format off
-		throw type_error(make_error_code(type_errc::INVALID_CONSTRUCTOR),
-						 fmt::format("No constructor with overload ({}) found for type <{}>",
-									 format_args(args), name()));
-		// clang-format on
+	bool constant_info::has_attribute(type_info type) const noexcept
+	{
+		return base_t::attributes.contains(type.m_data);
+	}
+	any constant_info::attribute(type_info type) const
+	{
+		const auto iter = base_t::attributes.find(type.m_data);
+		return iter != base_t::attributes.end() ? iter->get() : any{};
 	}
 }	 // namespace sek

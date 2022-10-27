@@ -27,13 +27,13 @@ namespace sek
 			for (auto &attr : type.attributes())
 			{
 				const auto attr_type = attr.type();
-				auto attr_iter = m_attr_table.find(attr_type);
+				auto attr_iter = m_attr_table.find(attr_type.name());
 
 				// clang-format off
 				if (attr_iter == m_attr_table.end()) [[likely]]
 				{
 					attr_iter = m_attr_table.emplace(std::piecewise_construct,
-					                                 std::forward_as_tuple(attr_type),
+					                                 std::forward_as_tuple(attr_type.name()),
 					                                 std::forward_as_tuple())
 								.first;
 				}
@@ -57,7 +57,7 @@ namespace sek
 			/* Remove the type from the attribute map. */
 			for (auto &attr : iter->attributes())
 			{
-				const auto attr_iter = m_attr_table.find(attr.type());
+				const auto attr_iter = m_attr_table.find(attr.type().name());
 				if (attr_iter != m_attr_table.end()) [[likely]]
 					attr_iter->second.erase(type);
 			}
@@ -68,55 +68,9 @@ namespace sek
 		}
 	}
 
-	type_query &type_query::convertible_to(type_info type)
-	{
-		if (!m_started) [[unlikely]]
-		{
-			/* If the query does not have a set yet, go through each reflected type & check it. */
-			for (auto &candidate : m_db.m_type_table)
-			{
-				const auto conversions = candidate.conversions();
-				if (std::ranges::find(conversions, type) == conversions.end()) [[unlikely]]
-					m_types.insert(candidate);
-			}
-			m_started = true;
-		}
-		else
-		{
-			/* Otherwise, remove all types that are not part of the attribute's set. */
-			for (auto pos = m_types.end(), end = m_types.begin(); pos-- != end;)
-			{
-				const auto conversions = pos->conversions();
-				if (std::ranges::find(conversions, type) == conversions.end()) [[likely]]
-					m_types.erase(pos);
-			}
-		}
-	}
-	type_query &type_query::with_parent(type_info type)
-	{
-		if (!m_started) [[unlikely]]
-		{
-			/* If the query does not have a set yet, go through each reflected type & check it. */
-			for (auto &candidate : m_db.m_type_table)
-			{
-				if (candidate.inherits(type)) [[unlikely]]
-					m_types.insert(candidate);
-			}
-			m_started = true;
-		}
-		else
-		{
-			/* Otherwise, remove all types that are not part of the attribute's set. */
-			for (auto pos = m_types.end(), end = m_types.begin(); pos-- != end;)
-			{
-				if (!pos->inherits(type)) [[likely]]
-					m_types.erase(pos);
-			}
-		}
-	}
 	type_query &type_query::with_attribute(type_info type)
 	{
-		if (const auto iter = m_db.m_attr_table.find(type); iter != m_db.m_attr_table.end()) [[likely]]
+		if (const auto iter = m_db.m_attr_table.find(type.name()); iter != m_db.m_attr_table.end()) [[likely]]
 		{
 			if (!m_started) [[unlikely]]
 			{
@@ -142,8 +96,31 @@ namespace sek
 			/* If the query does not have a set yet, go through each reflected type & check it. */
 			for (auto &candidate : m_db.m_type_table)
 			{
-				const auto constants = candidate.constants();
-				if (std::ranges::find_if(constants, pred) == constants.end()) [[unlikely]]
+				if (candidate.has_constant(name)) [[unlikely]]
+						m_types.insert(candidate);
+			}
+			m_started = true;
+		}
+		else
+		{
+			/* Otherwise, remove all types that are not part of the attribute's set. */
+			for (auto pos = m_types.end(), end = m_types.begin(); pos-- != end;)
+			{
+				if (!pos->has_constant(name)) [[likely]]
+						m_types.erase(pos);
+			}
+		}
+	}
+	type_query &type_query::with_constant(std::string_view name, type_info type)
+	{
+		const auto pred = [n = name](auto &c) { return c.name() == n; };
+
+		if (!m_started) [[unlikely]]
+		{
+			/* If the query does not have a set yet, go through each reflected type & check it. */
+			for (auto &candidate : m_db.m_type_table)
+			{
+				if (candidate.has_constant(name, type)) [[unlikely]]
 					m_types.insert(candidate);
 			}
 			m_started = true;
@@ -153,8 +130,54 @@ namespace sek
 			/* Otherwise, remove all types that are not part of the attribute's set. */
 			for (auto pos = m_types.end(), end = m_types.begin(); pos-- != end;)
 			{
-				const auto constants = pos->constants();
-				if (std::ranges::find_if(constants, pred) == constants.end()) [[likely]]
+				if (!pos->has_constant(name, type)) [[likely]]
+					m_types.erase(pos);
+			}
+		}
+	}
+
+	type_query &type_query::inherits_from(type_info type)
+	{
+		if (!m_started) [[unlikely]]
+		{
+			/* If the query does not have a set yet, go through each reflected type & check it. */
+			for (auto &candidate : m_db.m_type_table)
+			{
+				if (candidate.inherits(type)) [[unlikely]]
+						m_types.insert(candidate);
+			}
+			m_started = true;
+		}
+		else
+		{
+			/* Otherwise, remove all types that are not part of the attribute's set. */
+			for (auto pos = m_types.end(), end = m_types.begin(); pos-- != end;)
+			{
+				if (!pos->inherits(type)) [[likely]]
+						m_types.erase(pos);
+			}
+		}
+	}
+	type_query &type_query::convertible_to(type_info type)
+	{
+		if (!m_started) [[unlikely]]
+		{
+			/* If the query does not have a set yet, go through each reflected type & check it. */
+			for (auto &candidate : m_db.m_type_table)
+			{
+				const auto conversions = candidate.conversions();
+				if (std::ranges::find(conversions, type) == conversions.end()) [[unlikely]]
+					m_types.insert(candidate);
+			}
+			m_started = true;
+		}
+		else
+		{
+			/* Otherwise, remove all types that are not part of the attribute's set. */
+			for (auto pos = m_types.end(), end = m_types.begin(); pos-- != end;)
+			{
+				const auto conversions = pos->conversions();
+				if (std::ranges::find(conversions, type) == conversions.end()) [[likely]]
 					m_types.erase(pos);
 			}
 		}
