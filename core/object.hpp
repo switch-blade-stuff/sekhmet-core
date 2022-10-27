@@ -37,7 +37,7 @@ namespace sek
 			UNRELATED,	/* `from` and `to` are not directly related. */
 		};
 
-		static cast_status check_cast(type_info from, type_info to) noexcept;
+		static SEK_CORE_PRIVATE cast_status check_cast(type_info from, type_info to) noexcept;
 		static const object *checked_ptr_cast(const object *ptr, type_info from, type_info to) noexcept;
 		static const object &checked_ref_cast(const object &ptr, type_info from, type_info to);
 

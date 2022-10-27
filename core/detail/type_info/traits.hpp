@@ -112,7 +112,7 @@ namespace sek::detail
 
 	// clang-format off
 	template<typename T, typename... Ts>
-	concept allowed_types = std::disjunction_v<std::is_same<std::remove_cvref_t<Ts>, T>...>;
+	concept allowed_types = std::disjunction_v<std::is_same<Ts, std::remove_cvref_t<T>>...>;
 	template<typename T>
 	concept string_like_type = std::ranges::contiguous_range<T> && std::constructible_from<
 		std::basic_string_view<std::ranges::range_value_t<T>>, std::ranges::iterator_t<T>, std::ranges::iterator_t<T>>;

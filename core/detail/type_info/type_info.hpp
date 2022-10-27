@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <functional>
-
 #include "any.hpp"
 #include "any_range.hpp"
 #include "any_string.hpp"
@@ -68,15 +66,15 @@ namespace sek
 		}
 
 		template<typename T, typename... Args, typename F, std::size_t... Is>
-		constexpr void ctor_data::invoke_impl(std::index_sequence<Is...>, F &&ctor, T *ptr, std::span<any> args)
+		any ctor_data::invoke_impl(std::index_sequence<Is...>, F &&ctor, std::span<any> args)
 		{
 			using arg_seq = type_seq_t<Args...>;
-			std::invoke(ctor, ptr, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
+			return std::invoke(ctor, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
 		}
 		template<typename T, typename... Args, typename F>
-		constexpr void ctor_data::invoke_impl(type_seq_t<Args...>, F &&ctor, T *ptr, std::span<any> args)
+		any ctor_data::invoke_impl(type_seq_t<Args...>, F &&ctor, std::span<any> args)
 		{
-			invoke_impl<T, Args...>(std::index_sequence<sizeof...(Args)>{}, std::forward<F>(ctor), ptr, args);
+			return invoke_impl<T, Args...>(std::index_sequence<sizeof...(Args)>{}, std::forward<F>(ctor), args);
 		}
 
 		template<typename T, typename... Args>
@@ -85,10 +83,10 @@ namespace sek
 			using arg_types = type_seq_t<Args...>;
 
 			ctor_data result;
-			result.invoke_func = +[](const void *, void *ptr, std::span<any> args)
+			result.invoke_func = +[](const void *, std::span<any> args)
 			{
-				constexpr auto ctor = [](T *ptr, Args &&...args) { std::construct_at(ptr, std::forward<Args>(args)...); };
-				invoke_impl(arg_types{}, ctor, static_cast<T *>(ptr), args);
+				auto ctor = make_any<T, Args...>;
+				return invoke_impl(arg_types{}, ctor, args);
 			};
 			result.args = arg_types_array<arg_types>;
 			return result;
@@ -99,10 +97,12 @@ namespace sek
 			using arg_types = type_seq_t<Args...>;
 
 			ctor_data result;
-			result.invoke_func = +[](const void *, void *ptr, std::span<any> args)
+			result.invoke_func = +[](const void *, std::span<any> args)
 			{
-				auto *obj = static_cast<T *>(ptr);
-				invoke_impl(arg_types{}, F, obj, args);
+				// clang-format off
+				constexpr auto ctor = [](Args &&...args) { return any::construct_with<T>(F, std::forward<Args>(args)...); };
+				return invoke_impl(arg_types{}, ctor, args);
+				// clang-format on
 			};
 			result.args = arg_types_array<arg_types>;
 			return result;
@@ -114,21 +114,23 @@ namespace sek
 
 			ctor_data result;
 			result.template init<F>(std::forward<FArgs>(f_args)...);
-			result.invoke_func = +[](const void *data, void *ptr, std::span<any> args)
+			result.invoke_func = +[](const void *data, std::span<any> args)
 			{
-				using traits = callable_traits<F>;
-				if constexpr (!traits::is_const)
+				const auto ctor = [&](Args &&...args)
 				{
-					auto *func = static_cast<F *>(const_cast<void *>(ptr));
-					auto *obj = static_cast<T *>(ptr);
-					invoke_impl(arg_types{}, *func, obj, args);
-				}
-				else
-				{
-					auto *func = static_cast<const F *>(data);
-					auto *obj = static_cast<T *>(ptr);
-					invoke_impl(arg_types{}, *func, obj, args);
-				}
+					using traits = callable_traits<F>;
+					if constexpr (!traits::is_const)
+					{
+						auto *func = static_cast<F *>(const_cast<void *>(data));
+						return any::construct_with<T>(*func, std::forward<Args>(args)...);
+					}
+					else
+					{
+						auto *func = static_cast<const F *>(data);
+						return any::construct_with<T>(*func, std::forward<Args>(args)...);
+					}
+				};
+				return invoke_impl(arg_types{}, ctor, args);
 			};
 			result.args = arg_types_array<arg_types>;
 			return result;
@@ -312,7 +314,7 @@ namespace sek
 		type_data type_data::make_instance() noexcept
 		{
 			type_data result;
-			result.reset = +[](type_data *data) { *data = make_instance<T>(); };
+			result.reset_func = +[](type_data *data) { *data = make_instance<T>(); };
 			result.name = type_name_v<T>;
 
 			result.is_void = std::is_void_v<T>;
@@ -379,7 +381,7 @@ namespace sek
 			if constexpr (!std::is_void_v<T>) return std::move(exp.value());
 		}
 
-		constexpr explicit type_info(const data_t *data) noexcept : m_data(data) {}
+		constexpr explicit type_info(data_t *data) noexcept : m_data(data) {}
 		constexpr explicit type_info(handle_t handle) noexcept : m_data(handle.get ? handle.get() : nullptr) {}
 
 	public:
@@ -475,6 +477,37 @@ namespace sek
 			return inherits(get<T>());
 		}
 
+		/** Constructs an instance of the referenced type using the provided arguments.
+		 * @param args Span of `any`, containing arguments passed to the constructor.
+		 * @return `any` instance, containing the instantiated object, or `type_errc::INVALID_CONSTRUCTOR`
+		 * if the specified constructor overload does not exist. */
+		[[nodiscard]] SEK_CORE_PUBLIC expected<any, std::error_code> construct(std::nothrow_t, std::span<any> args);
+		/** Constructs an instance of the referenced type using the provided arguments.
+		 * @param args Parameter pack of `any`, containing arguments passed to the constructor.
+		 * @return `any` instance, containing the instantiated object, or `type_errc::INVALID_CONSTRUCTOR`
+		 * if the specified constructor overload does not exist. */
+		template<detail::allowed_types<any>... Args>
+		[[nodiscard]] expected<any, std::error_code> construct(std::nothrow_t, Args &&...args)
+		{
+			std::array<any, sizeof...(Args)> local_args = {std::forward<Args>(args)...};
+			return construct(std::nothrow, local_args);
+		}
+		/** Constructs an instance of the referenced type using the provided arguments.
+		 * @param args Span of `any`, containing arguments passed to the constructor.
+		 * @return `any` instance, containing the instantiated object.
+		 * @throw type_error If the specified constructor overload does not exist. */
+		[[nodiscard]] SEK_CORE_PUBLIC any construct(std::span<any> args);
+		/** Constructs an instance of the referenced type using the provided arguments.
+		 * @param args Parameter pack of `any`, containing arguments passed to the constructor.
+		 * @return `any` instance, containing the instantiated object.
+		 * @throw type_error If the specified constructor overload does not exist. */
+		template<detail::allowed_types<any>... Args>
+		[[nodiscard]] any construct(Args &&...args)
+		{
+			std::array<any, sizeof...(Args)> local_args = {std::forward<Args>(args)...};
+			return construct(local_args);
+		}
+
 		[[nodiscard]] constexpr bool operator==(const type_info &other) const noexcept
 		{
 			/* If data is different, types might still be the same, but declared in different binaries. */
@@ -485,7 +518,7 @@ namespace sek
 		friend constexpr void swap(type_info &a, type_info &b) noexcept { a.swap(b); }
 
 	private:
-		const data_t *m_data = nullptr;
+		data_t *m_data = nullptr;
 	};
 
 	[[nodiscard]] constexpr hash_t hash(const type_info &type) noexcept

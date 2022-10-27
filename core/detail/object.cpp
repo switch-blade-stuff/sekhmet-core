@@ -14,9 +14,9 @@ namespace sek
 	{
 		if (from == to)
 			return cast_status::SAME_TYPE;
-		else if (from.has_parent(to))
+		else if (from.inherits(to))
 			return cast_status::CHILD_TYPE;
-		else if (to.has_parent(from))
+		else if (to.inherits(from))
 			return cast_status::BASE_TYPE;
 		return cast_status::UNRELATED;
 	}

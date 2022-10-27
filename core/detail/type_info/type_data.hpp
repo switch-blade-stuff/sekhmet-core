@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 
 #include "../../dense_map.hpp"
@@ -94,7 +95,7 @@ namespace sek::detail
 			std::swap(type, other.type);
 		}
 
-		inline any get() const;
+		[[nodiscard]] inline any get() const;
 
 		any (*get_func)(const void *) = nullptr;
 		type_handle type;
@@ -138,7 +139,7 @@ namespace sek::detail
 			std::swap(type, other.type);
 		}
 
-		const void *(*cast)(const void *);
+		const void *(*cast)(const void *) = nullptr;
 		type_handle type;
 	};
 	struct base_hash
@@ -180,7 +181,7 @@ namespace sek::detail
 			std::swap(type, other.type);
 		}
 
-		any (*convert)(any);
+		any (*convert)(any) = nullptr;
 		type_handle type;
 	};
 	struct conv_hash
@@ -232,7 +233,7 @@ namespace sek::detail
 	struct func_arg_data
 	{
 		template<typename T>
-		constexpr func_arg_data(type_selector_t<T>) noexcept
+		constexpr explicit func_arg_data(type_selector_t<T>) noexcept
 		{
 			type = type_handle{type_selector<std::remove_cv_t<T>>};
 			is_const = std::is_const_v<T>;
@@ -293,9 +294,9 @@ namespace sek::detail
 		[[nodiscard]] static ctor_data make_instance(type_seq_t<Args...>, FArgs &&...);
 
 		template<typename T, typename... Args, typename F, std::size_t... Is>
-		constexpr static void invoke_impl(std::index_sequence<Is...>, F &&, T *, std::span<any>);
+		static any invoke_impl(std::index_sequence<Is...>, F &&, std::span<any>);
 		template<typename T, typename... Args, typename F>
-		constexpr static void invoke_impl(type_seq_t<Args...>, F &&, T *, std::span<any>);
+		static any invoke_impl(type_seq_t<Args...>, F &&, std::span<any>);
 
 		constexpr ctor_data() noexcept = default;
 		constexpr ctor_data(ctor_data &&other) noexcept { swap(other); }
@@ -312,9 +313,9 @@ namespace sek::detail
 			std::swap(args, other.args);
 		}
 
-		inline void invoke(void *, std::span<any>) const;
+		[[nodiscard]] inline any invoke(std::span<any>) const;
 
-		void (*invoke_func)(const void *, void *, std::span<any>) = nullptr;
+		any (*invoke_func)(const void *, std::span<any>) = nullptr;
 		std::span<func_arg_data> args;
 	};
 
@@ -389,7 +390,7 @@ namespace sek::detail
 			swap(attributes, other.attributes);
 		}
 
-		inline any get() const;
+		[[nodiscard]] inline any get() const;
 		inline void set(const any &);
 
 		any (*get_func)(const void *) = nullptr;
@@ -502,7 +503,9 @@ namespace sek::detail
 		template<typename T>
 		static type_data *instance() noexcept;
 
-		void (*reset)(type_data *);
+		void reset() noexcept { reset_func(this); }
+
+		void (*reset_func)(type_data *) noexcept;
 
 		std::string_view name;
 

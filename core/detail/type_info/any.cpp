@@ -11,7 +11,10 @@ namespace sek
 	void any::destroy()
 	{
 		if (!empty() && !is_ref()) [[likely]]
+		{
 			m_type->dtor.invoke(data());
+			m_storage.do_delete();
+		}
 	}
 	void any::copy_init(const any &other)
 	{
@@ -20,7 +23,10 @@ namespace sek
 			/* If the `copy_init` functor is set to `nullptr`, there is a custom non-default copy constructor
 			 * specified by the user. In that case, use that constructor. */
 			if (!other.m_type->any_funcs.copy_init)
-				move_init(type().construct(other));
+			{
+				auto tmp = type().construct(other.ref());
+				move_init(tmp);
+			}
 			else
 			{
 				other.m_type->any_funcs.copy_init(other, *this);

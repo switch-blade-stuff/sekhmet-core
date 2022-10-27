@@ -18,6 +18,7 @@ namespace sek
 	class any
 	{
 		friend struct detail::any_vtable;
+		friend struct detail::ctor_data;
 
 		friend class any_tuple;
 		friend class any_range;
@@ -56,15 +57,21 @@ namespace sek
 			storage_t(T *ptr, bool is_const) noexcept : data(std::bit_cast<std::uintptr_t>(ptr)), is_ref(true), is_const(is_const)
 			{
 			}
+			template<typename T>
+			storage_t(T *ptr) noexcept : storage_t(ptr, std::is_const_v<T>) {}
+
+			template<typename T, typename U>
+			storage_t(std::in_place_type_t<T>, U &ref) requires std::is_lvalue_reference_v<T> : storage_t(std::addressof(ref)) {}
 			// clang-format on
 
-			storage_t(std::in_place_type_t<void>, auto &&...) {}
 			template<typename T, typename... Args>
 			storage_t(std::in_place_type_t<T>, Args &&...args)
 			{
-				init<T>(std::forward<Args>(args)...);
+				init<T>([](T *ptr, Args &&...args) { std::construct_at(ptr, std::forward<Args>(args)...); },
+						std::forward<Args>(args)...);
 				init_flags<T>();
 			}
+			storage_t(std::in_place_type_t<void>, auto &&...) {}
 
 			template<typename T>
 			constexpr void init_flags() noexcept
@@ -74,45 +81,32 @@ namespace sek
 				is_const = std::is_const_v<std::remove_reference_t<T>>;
 			}
 
-			template<typename T, typename... Args>
-			void init(Args &&...args)
-			{
-				if constexpr (std::is_aggregate_v<T>)
-					data = std::bit_cast<std::uintptr_t>(new T{std::forward<Args>(args)...});
-				else
-					data = std::bit_cast<std::uintptr_t>(new T(std::forward<Args>(args)...));
-			}
-			template<typename T>
-			void destroy()
-			{
-				if constexpr (std::is_bounded_array_v<T>)
-					delete[] std::bit_cast<T *>(data);
-				else
-					delete std::bit_cast<T *>(data);
-			}
-
 			// clang-format off
-			template<typename T, typename... Args>
-			void init(Args &&...args) requires local_candidate<T>
+			template<typename T, typename F, typename... Args>
+			void init(F &&ctor, Args &&...args)
+			{
+				constexpr auto align = std::align_val_t{alignof(T)};
+				constexpr auto size = sizeof(T);
+
+				auto *ptr = ::operator new(size, align);
+				std::invoke(ctor, ptr, std::forward<Args>(args)...);
+
+				deleter = +[](std::uintptr_t ptr) { ::operator delete(std::bit_cast<void *>(ptr), size, align); };
+				data = std::bit_cast<std::uintptr_t>(ptr);
+			}
+			template<typename T, typename F, typename... Args>
+			void init(F &&ctor, Args &&...args) requires local_candidate<T>
 			{
 				const auto ptr = std::bit_cast<T *>(&data);
-				if constexpr (std::is_aggregate_v<T>)
-					new (ptr) T{std::forward<Args>(args)...};
-				else
-					new (ptr) T(std::forward<Args>(args)...);
+				ctor(ptr, std::forward<Args>(args)...);
 			}
-			template<typename T>
-			void destroy() requires local_candidate<T> { std::destroy_at(std::bit_cast<T *>(&data)); }
-
-			// clang-format off
-			template<typename T, typename U>
-			void init(U &ref) requires std::is_lvalue_reference_v<T>
-			{
-				data = std::bit_cast<std::uintptr_t>(std::addressof(ref));
-			}
-			template<typename T>
-			void destroy() requires std::is_lvalue_reference_v<T> {}
 			// clang-format on
+
+			void do_delete()
+			{
+				if (deleter != nullptr) [[likely]]
+					deleter(data);
+			}
 
 			[[nodiscard]] constexpr void *get() noexcept
 			{
@@ -145,26 +139,56 @@ namespace sek
 
 			constexpr void swap(storage_t &other) noexcept
 			{
+				std::swap(deleter, other.deleter);
 				std::swap(data, other.data);
 				std::swap(is_ref, other.is_ref);
 				std::swap(is_local, other.is_local);
 				std::swap(is_const, other.is_const);
 			}
 
+			void (*deleter)(std::uintptr_t) = nullptr;
 			std::uintptr_t data = {};
 			bool is_ref = false;
 			bool is_local = false;
 			bool is_const = false;
 		};
 
-		constexpr any(const detail::type_data *type, storage_t &&storage) : m_type(type), m_storage(std::move(storage))
+		template<typename T, typename F, typename... Args>
+		[[nodiscard]] static any construct_with(F &&ctor, Args &&...args)
 		{
+			storage_t storage;
+			storage.template init<T>(std::forward<F>(ctor), std::forward<Args>(args)...);
+			storage.template init_flags<T>();
+			return any{detail::type_handle{type_selector<T>}.get(), std::move(storage)};
 		}
+
+		constexpr any(detail::type_data *type, storage_t &&storage) : m_type(type), m_storage(std::move(storage)) {}
 
 	public:
 		/** Initializes an empty `any`. */
 		constexpr any() noexcept = default;
 		~any() { destroy(); }
+
+		// clang-format off
+		/** Constructs an instance of type `T` in-place.
+		 * @param args Arguments passed to constructor of `T`. */
+		template<typename T, typename... Args>
+		any(std::in_place_type_t<T> p, Args &&...args)
+			: m_type(detail::type_handle{type_selector<std::remove_cvref_t<T>>}.get()),
+			  m_storage(p, std::forward<Args>(args)...) {}
+		/** @copydoc any
+		 * @param il Initializer list passed to constructor of `T`. */
+		template<typename T, typename U, typename... Args>
+		any(std::in_place_type_t<T> p, std::initializer_list<U> il, Args &&...args)
+			: m_type(detail::type_handle{type_selector<std::remove_cvref_t<T>>}.get()),
+			  m_storage(p, il, std::forward<Args>(args)...) {}
+		/** Initializes `any` with a reference of type `T`.
+		 * @param ref Reference to an external object. */
+		template<typename T, typename U>
+		any(std::in_place_type_t<T> p, U &ref) requires std::is_lvalue_reference_v<T>
+			: m_type(detail::type_handle{type_selector<std::remove_cvref_t<T>>}.get()),
+			  m_storage(p, ref) {}
+		// clang-format on
 
 		constexpr any(any &&other) noexcept { move_init(other); }
 		constexpr any &operator=(any &&other) noexcept
@@ -331,9 +355,33 @@ namespace sek
 			m_storage = std::move(other.m_storage);
 		}
 
-		const detail::type_data *m_type = nullptr;
+		detail::type_data *m_type = nullptr;
 		storage_t m_storage = {};
 	};
+
+	/** If `value` is an lvalue reference, creates an `any` instance referencing the external object.
+	 * Otherwise, equivalent to `any(std::in_place_type<std::remove_cvref_t<T>>, std::forward<T>(value))`. */
+	template<typename T>
+	[[nodiscard]] any forward_any(T &&value)
+	{
+		using U = std::conditional_t<std::is_lvalue_reference_v<T>, T, std::remove_cvref_t<T>>;
+		return any{std::in_place_type<U>, std::forward<T>(value)};
+	}
+	/** Creates an instance of `any` containing an in-place initialized object of type `T`.
+	 * @param args Arguments passed to constructor of `T`.
+	 * @note Equivalent to any(std::in_place_type<T>, std::forward<Args>(args)...) */
+	template<typename T, typename... Args>
+	[[nodiscard]] any make_any(Args &&...args)
+	{
+		return any{std::in_place_type<T>, std::forward<Args>(args)...};
+	}
+	/** @copydoc make_any
+	 * @param il Initializer list passed to constructor of `T`. */
+	template<typename T, typename U, typename... Args>
+	[[nodiscard]] any make_any(std::initializer_list<U> il, Args &&...args)
+	{
+		return any{std::in_place_type<T>, il, std::forward<Args>(args)...};
+	}
 
 	/** If the managed objects of `a` and `b` are of the same type that is equality comparable,
 	 * returns result of the comparison. Otherwise, returns `false`. */
@@ -355,8 +403,8 @@ namespace sek
 	{
 		any attr_data::get() const { return get_func(data); }
 
-		void dtor_data::invoke(void *ptr) const { return invoke_func(data, ptr); }
-		void ctor_data::invoke(void *ptr, std::span<any> args) const { return invoke_func(data, ptr, args); }
+		void dtor_data::invoke(void *ptr) const { invoke_func(data, ptr); }
+		any ctor_data::invoke(std::span<any> args) const { return invoke_func(data, args); }
 		any func_data::invoke(const void *ptr, std::span<any> args) const { return invoke_func(data, ptr, args); }
 
 		any prop_data::get() const { return get_func(data); }
@@ -369,21 +417,31 @@ namespace sek
 
 			if constexpr (std::copy_constructible<T>)
 			{
+				// clang-format off
+				constexpr auto ctor = []<typename... Args>(T *ptr, Args &&...args)
+				{
+					std::construct_at(ptr, std::forward<Args>(args)...);
+				};
+				// clang-format on
+
 				/* Copy-init & copy-assign operations are used only if there is no custom copy constructor. */
 				result.copy_init = +[](const any &src, any &dst)
 				{
-					dst.m_storage.template init<T>(*src.m_storage.template get<T>());
+					dst.m_storage.template init<T>(ctor, *src.m_storage.template get<T>());
 					dst.m_storage.template init_flags<T>();
 				};
 				result.copy_assign = +[](const any &src, any &dst)
 				{
 					if constexpr (std::is_copy_assignable_v<T>)
 						*dst.m_storage.template get<T>() = *src.m_storage.template get<T>();
-					else
+					else if (!dst.is_ref()) [[likely]]
 					{
-						dst.m_storage.template destroy<T>();
-						dst.m_storage.template init<T>(*src.m_storage.template get<T>());
+						auto *ptr = dst.m_storage.template get<T>();
+						std::destroy_at(ptr);
+						std::construct_at(ptr, *src.m_storage.template get<T>());
 					}
+					else
+						dst.m_storage.template init<T>(ctor, *src.m_storage.template get<T>());
 					dst.m_storage.template init_flags<T>();
 				};
 			}

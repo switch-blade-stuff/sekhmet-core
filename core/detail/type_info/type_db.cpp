@@ -63,7 +63,7 @@ namespace sek
 			}
 
 			/* Reset the type to its original "unreflected" state and remove from the set. */
-			iter->m_data->reset(const_cast<detail::type_data *>(iter->m_data));
+			iter->m_data->reset();
 			m_type_table.erase(iter);
 		}
 	}
