@@ -23,14 +23,10 @@ namespace sek
 
 	const detail::string_type_data *any_string::assert_data(const detail::type_data *data)
 	{
-		if (data->string_data == nullptr) [[unlikely]]
+		if (data == nullptr) [[unlikely]]
+			throw type_error(make_error_code(type_errc::UNEXPECTED_EMPTY_ANY));
+		else if (data->string_data == nullptr) [[unlikely]]
 			throw type_error(make_error_code(type_errc::INVALID_TYPE), fmt::format("<{}> is not a string", data->name));
 		return data->string_data;
 	}
-
-	bool any_string::empty() const { return m_data->empty(m_target.data()); }
-	std::size_t any_string::size() const { return m_data->size(m_target.data()); }
-
-	void *any_string::data() { return m_data->data(m_target); }
-	const void *any_string::data() const { return m_data->cdata(m_target); }
 }	 // namespace sek

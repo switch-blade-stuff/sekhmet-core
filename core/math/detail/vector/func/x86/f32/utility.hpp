@@ -65,8 +65,8 @@ namespace sek::detail
 	SEK_FORCE_INLINE __m128 x86_floor_ps(__m128 v) noexcept
 	{
 		/* Convert to int and subtract 1 to round down. */
-		const auto tmp = _mm_cvtepi32_ps(_mm_cvtps_epi32(v));
-		return _mm_sub_ps(tmp, _mm_and_ps(_mm_cmpgt_ps(tmp, v), _mm_set1_ps(1.0f)));
+		const auto temp = _mm_cvtepi32_ps(_mm_cvtps_epi32(v));
+		return _mm_sub_ps(temp, _mm_and_ps(_mm_cmpgt_ps(temp, v), _mm_set1_ps(1.0f)));
 	}
 	template<std::size_t N, policy_t P>
 	inline void vector_floor(vector_data<float, N, P> &out, const vector_data<float, N, P> &v) noexcept

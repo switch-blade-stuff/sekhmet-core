@@ -54,12 +54,12 @@ namespace sek::detail
 		const auto exp52 = _mm_castpd_si128(_mm_set1_pd(0x0010000000000000));		/* 2^52 */
 		const auto adjust = _mm_set1_pd(442726361368656609280.);					/* 2^67 * 3 + 2^52 */
 
-		const auto tmp = _mm_srai_epi32(v, 16);
+		const auto temp = _mm_srai_epi32(v, 16);
 #ifdef SEK_USE_SSE4_1
-		auto a = _mm_blend_epi16(tmp, _mm_setzero_si128(), 0x33);
+		auto a = _mm_blend_epi16(temp, _mm_setzero_si128(), 0x33);
 #else
 		auto mask = _mm_set1_epi64x(static_cast<std::int64_t>(0x0000'0000'ffff'ffff));
-		auto a = _mm_or_si128(_mm_and_si128(mask, _mm_setzero_si128()), _mm_andnot_si128(mask, tmp));
+		auto a = _mm_or_si128(_mm_and_si128(mask, _mm_setzero_si128()), _mm_andnot_si128(mask, temp));
 #endif
 
 #ifdef SEK_USE_SSE4_1

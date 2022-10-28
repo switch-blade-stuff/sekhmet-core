@@ -55,30 +55,24 @@ namespace sek
 
 			using std::get;
 			if constexpr (requires(T & t) { get<0>(t); })
-				result.get = +[](any &target, std::size_t i) -> any
+				result.get = +[](const any &target, std::size_t i) -> any
 				{
-					if (target.is_const())
+					if (!target.is_const())
 					{
-						auto &obj = *static_cast<std::add_const_t<T> *>(target.cdata());
-						return tuple_type_getter<std::add_const_t<T>>(obj, i);
+						auto &obj = *static_cast<T *>(const_cast<void *>(target.data()));
+						return tuple_type_getter<T>(obj, i);
 					}
 					else
 					{
-						auto &obj = *static_cast<T *>(target.data());
-						return tuple_type_getter<T>(obj, i);
+						auto &obj = *static_cast<const T *>(target.data());
+						return tuple_type_getter<const T>(obj, i);
 					}
-				};
-			if constexpr (requires(std::add_const_t<T> & t) { get<0>(t); })
-				result.cget = +[](const any &target, std::size_t i)
-				{
-					auto &obj = *static_cast<std::add_const_t<T> *>(target.cdata());
-					return tuple_type_getter<std::add_const_t<T>>(obj, i);
 				};
 
 			return result;
 		}
 		template<typename T>
-		constinit const tuple_type_data tuple_type_data::instance = make_instance<T>();
+		constexpr const tuple_type_data tuple_type_data::instance = make_instance<T>();
 	}	 // namespace detail
 
 	/** @brief Proxy structure used to operate on a tuple-like type-erased object. */
@@ -126,9 +120,9 @@ namespace sek
 		[[nodiscard]] constexpr type_info element(size_type i) const noexcept;
 
 		/** Returns the `i`th element of the referenced tuple, or an empty `any` if `i` is out of range. */
-		[[nodiscard]] SEK_CORE_PUBLIC any get(size_type i);
+		[[nodiscard]] any get(size_type i) { return m_data->get ? m_data->get(m_target, i) : any{}; }
 		/** @copydoc get */
-		[[nodiscard]] SEK_CORE_PUBLIC any get(size_type i) const;
+		[[nodiscard]] any get(size_type i) const { return m_data->get ? m_data->get(m_target, i) : any{}; }
 
 		constexpr void swap(any_tuple &other) noexcept
 		{

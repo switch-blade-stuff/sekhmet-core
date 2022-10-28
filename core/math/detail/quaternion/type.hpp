@@ -373,17 +373,17 @@ namespace sek
 	constexpr basic_quat<T, P> &basic_quat<T, P>::rotate(T angle, const basic_vec<T, N, Q> &axis) noexcept
 		requires(N >= 3)
 	{
-		auto tmp = basic_vec<T, 4, policy_t::FAST_SIMD>{axis};
+		auto temp = basic_vec<T, 4, policy_t::FAST_SIMD>{axis};
 
 		/* Axis must be normalised */
-		if (const auto len = magn(tmp); std::abs(len - static_cast<T>(1)) > static_cast<T>(0.001)) [[unlikely]]
-			tmp *= static_cast<T>(1) / len;
+		if (const auto len = magn(temp); std::abs(len - static_cast<T>(1)) > static_cast<T>(0.001)) [[unlikely]]
+			temp *= static_cast<T>(1) / len;
 
 		const auto half_angle = angle * static_cast<T>(0.5);
-		tmp *= std::sin(half_angle);
-		tmp.w() = std::cos(half_angle);
+		temp *= std::sin(half_angle);
+		temp.w() = std::cos(half_angle);
 
-		m_data *= tmp;
+		m_data *= temp;
 		return *this;
 	}
 

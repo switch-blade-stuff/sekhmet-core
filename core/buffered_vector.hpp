@@ -631,9 +631,9 @@ namespace sek
 				}
 
 				/* Save the heap buffer, move local objects & restore the heap buffer. */
-				auto tmp_heap = *src_heap;
+				auto temp_heap = *src_heap;
 				relocate_n(src_local, local_size, dst_local);
-				*dst_heap = tmp_heap;
+				*dst_heap = temp_heap;
 			}
 			else
 			{

@@ -81,16 +81,16 @@ namespace sek
 				return *static_cast<U *>(value.data());
 		}
 
-		template<typename T, typename... Args, typename F, std::size_t... Is>
+		template<typename... Args, typename F, std::size_t... Is>
 		any ctor_data::invoke_impl(std::index_sequence<Is...>, F &&ctor, std::span<any> args)
 		{
 			using arg_seq = type_seq_t<Args...>;
 			return std::invoke(ctor, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
 		}
-		template<typename T, typename... Args, typename F>
+		template<typename... Args, typename F>
 		any ctor_data::invoke_impl(type_seq_t<Args...>, F &&ctor, std::span<any> args)
 		{
-			return invoke_impl<T, Args...>(std::index_sequence<sizeof...(Args)>{}, std::forward<F>(ctor), args);
+			return invoke_impl<Args...>(std::index_sequence<sizeof...(Args)>{}, std::forward<F>(ctor), args);
 		}
 
 		template<typename T, typename... Args>
@@ -101,7 +101,7 @@ namespace sek
 			ctor_data result;
 			result.invoke_func = +[](const void *, std::span<any> args)
 			{
-				auto ctor = make_any<T, Args...>;
+				auto ctor = static_cast<any (*)(Args && ...)>(make_any<T, Args...>);
 				return invoke_impl(arg_types{}, ctor, args);
 			};
 			result.args = arg_types_array<arg_types>;
@@ -330,7 +330,7 @@ namespace sek
 		type_data type_data::make_instance() noexcept
 		{
 			type_data result;
-			result.reset_func = +[](type_data *data) { *data = make_instance<T>(); };
+			result.reset_func = +[](type_data *data) noexcept { *data = make_instance<T>(); };
 			result.name = type_name_v<T>;
 
 			result.is_void = std::is_void_v<T>;
@@ -338,7 +338,7 @@ namespace sek
 			result.is_nullptr = std::same_as<T, std::nullptr_t>;
 
 			/* For all operations that require an `any`-wrapped object to work, the type must be destructible. */
-			if constexpr (std::is_destructible_v<T>)
+			if constexpr (std::is_destructible_v<T> && !std::same_as<T, any>)
 			{
 				/* Add default constructors & destructor. */
 				result.dtor = dtor_data::make_instance<T>();
@@ -361,6 +361,11 @@ namespace sek
 				if constexpr (std::floating_point<T> || std::is_convertible_v<T, long double>)
 					result.conversions.insert(conv_data::make_instance<T, long double>());
 
+				/* Add range, tuple & string bindings. */
+				if constexpr (std::ranges::forward_range<T>) result.range_data = &range_type_data::instance<T>;
+				if constexpr (table_range_type<T>) result.table_data = &table_type_data::instance<T>;
+				if constexpr (tuple_like<T>) result.tuple_data = &tuple_type_data::instance<T>;
+				if constexpr (string_like_type<T>) result.string_data = &string_type_data::instance<T>;
 				result.any_funcs = any_vtable::make_instance<T>();
 			}
 			return result;
@@ -375,10 +380,9 @@ namespace sek
 		friend class type_database;
 
 		using db_handle = typename shared_guard<type_database *>::unique_handle;
-		using data_t = detail::type_data;
 
-		type_factory(shared_guard<type_database *> &&db, data_t *data)
-			: m_db(std::move(db).access()), m_target(&data->attributes), m_data(data)
+		type_factory(shared_guard<type_database *> &&db, detail::type_data *data)
+			: m_db(db.access()), m_target(&data->attributes), m_data(data)
 		{
 		}
 
@@ -496,6 +500,6 @@ namespace sek
 	private:
 		db_handle m_db;
 		detail::attr_table *m_target = nullptr;
-		data_t *m_data = nullptr;
+		detail::type_data *m_data = nullptr;
 	};
 }	 // namespace sek

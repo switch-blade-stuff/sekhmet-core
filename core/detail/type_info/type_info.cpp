@@ -59,41 +59,66 @@ namespace sek
 		return last;
 	}
 
-	bool type_info::has_attribute(type_info type) const noexcept { return m_data->attributes.contains(type.m_data); }
-	bool type_info::has_constant(std::string_view name) const noexcept { return m_data->constants.contains(name); }
+	bool type_info::has_attribute(type_info type) const noexcept
+	{
+		return valid() && m_data->attributes.contains(type.m_data);
+	}
+	bool type_info::has_constant(std::string_view name) const noexcept
+	{
+		return valid() && m_data->constants.contains(name);
+	}
 	bool type_info::has_constant(std::string_view name, type_info type) const noexcept
 	{
-		const auto iter = m_data->constants.find(name);
-		return iter != m_data->constants.end() && type_info{iter->type} == type;
+		if (valid()) [[likely]]
+		{
+			const auto iter = m_data->constants.find(name);
+			return iter != m_data->constants.end() && type_info{iter->type} == type;
+		}
+		return false;
 	}
 	bool type_info::inherits(type_info type) const noexcept
 	{
-		auto &parents = m_data->parents;
-		if (parents.contains(type.m_data)) [[likely]]
-			return true;
-		for (auto &parent : parents)
+		if (valid()) [[likely]]
 		{
-			const auto parent_type = type_info{parent.type};
-			if (parent_type.inherits(type)) [[likely]]
+			auto &parents = m_data->parents;
+			if (parents.contains(type.m_data)) [[likely]]
 				return true;
+			for (auto &parent : parents)
+			{
+				const auto parent_type = type_info{parent.type};
+				if (parent_type.inherits(type)) [[likely]]
+					return true;
+			}
 		}
 		return false;
 	}
 
 	any type_info::attribute(type_info type) const
 	{
-		const auto iter = m_data->attributes.find(type.m_data);
-		return iter != m_data->attributes.end() ? iter->get() : any{};
+		if (valid()) [[likely]]
+		{
+			const auto iter = m_data->attributes.find(type.m_data);
+			return iter != m_data->attributes.end() ? iter->get() : any{};
+		}
+		return {};
 	}
 	any type_info::constant(std::string_view name) const
 	{
-		const auto iter = m_data->constants.find(name);
-		return iter != m_data->constants.end() ? iter->get() : any{};
+		if (valid()) [[likely]]
+		{
+			const auto iter = m_data->constants.find(name);
+			return iter != m_data->constants.end() ? iter->get() : any{};
+		}
+		return {};
 	}
 	any type_info::construct(std::span<any> args) const
 	{
-		const auto iter = find_overload(m_data->constructors, args);
-		return iter != m_data->constructors.end() ? iter->invoke(args) : any{};
+		if (valid()) [[likely]]
+		{
+			const auto iter = find_overload(m_data->constructors, args);
+			return iter != m_data->constructors.end() ? iter->invoke(args) : any{};
+		}
+		return {};
 	}
 
 	bool constant_info::has_attribute(type_info type) const noexcept

@@ -154,7 +154,7 @@ namespace sek
 		constexpr static void move_swap(expected *src, expected *dst)
 		{
 			/* Save temporary error. */
-			auto tmp_err = std::move(src->m_error);
+			auto temp_err = std::move(src->m_error);
 			std::destroy_at(std::addressof(src->m_error));
 
 			/* Move-construct the value. */
@@ -162,7 +162,7 @@ namespace sek
 			std::destroy_at(std::addressof(src->m_value));
 
 			/* Move construct error from temporary. */
-			std::construct_at(std::addressof(dst->m_error), std::move(tmp_err));
+			std::construct_at(std::addressof(dst->m_error), std::move(temp_err));
 		}
 
 		template<typename T2, typename E2>

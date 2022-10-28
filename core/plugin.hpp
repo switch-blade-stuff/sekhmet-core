@@ -255,9 +255,9 @@ namespace sek
 
 			constexpr iterator operator++(int) noexcept
 			{
-				auto tmp = *this;
+				auto temp = *this;
 				++(*this);
-				return tmp;
+				return temp;
 			}
 			constexpr iterator &operator++() noexcept
 			{
@@ -266,9 +266,9 @@ namespace sek
 			}
 			constexpr iterator operator--(int) noexcept
 			{
-				auto tmp = *this;
+				auto temp = *this;
 				--(*this);
-				return tmp;
+				return temp;
 			}
 			constexpr iterator &operator--() noexcept
 			{

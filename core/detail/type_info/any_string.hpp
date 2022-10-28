@@ -30,36 +30,31 @@ namespace sek
 				const auto &obj = *static_cast<const T *>(p);
 				return static_cast<std::size_t>(std::ranges::size(obj));
 			};
-			result.data = +[](any &target) -> void *
+			result.data = +[](const any &target) -> void *
 			{
-				if (target.is_const()) [[unlikely]]
-					return nullptr;
-
-				/* Views do not allow for non-const access. */
-				auto &str = *static_cast<T *>(target.data());
-				if constexpr (!requires { str.data(); })
+				constexpr auto get_data = [](auto &str) -> const void *
 				{
-					const auto iter = std::ranges::begin(str);
-					if constexpr (std::is_convertible_v<decltype(std::to_address(iter)), void *>)
-						return std::to_address(iter);
-				}
-				else if constexpr (std::is_convertible_v<decltype(str.data()), void *>)
-					return str.data();
-				return nullptr;
-			};
-			result.cdata = +[](const any &target) -> const void *
-			{
-				auto &str = *static_cast<const T *>(target.data());
-				if constexpr (!requires { str.data(); })
-					return std::to_address(std::ranges::begin(str));
+					if constexpr (!requires { str.data(); })
+					{
+						const auto iter = std::ranges::begin(str);
+						if constexpr (std::is_convertible_v<decltype(std::to_address(iter)), void *>)
+							return std::to_address(iter);
+					}
+					else if constexpr (std::is_convertible_v<decltype(str.data()), void *>)
+						return str.data();
+					else
+						return nullptr;
+				};
+				if (!target.is_const())
+					return get_data(*static_cast<T *>(const_cast<void *>(target.data())));
 				else
-					return str.data();
+					return get_data(*static_cast<const T *>(target.data()));
 			};
 
 			return result;
 		}
 		template<typename T>
-		constinit const string_type_data string_type_data::instance = make_instance<T>();
+		constexpr const string_type_data string_type_data::instance = make_instance<T>();
 	}	 // namespace detail
 
 	/** @brief Proxy structure used to operate on a string-like type-erased object. */
@@ -196,14 +191,17 @@ namespace sek
 		[[nodiscard]] constexpr type_info traits_type() const noexcept;
 
 		/** Checks if the referenced string is empty. */
-		[[nodiscard]] SEK_CORE_PUBLIC bool empty() const;
+		[[nodiscard]] bool empty() const { return m_data->empty(m_target.data()); }
 		/** Returns size of the referenced string. */
-		[[nodiscard]] SEK_CORE_PUBLIC size_type size() const;
+		[[nodiscard]] size_type size() const { return m_data->size(m_target.data()); }
 
-		/** Returns raw pointer to the data of the string. If the string is const, returns `nullptr`.*/
-		[[nodiscard]] SEK_CORE_PUBLIC void *data();
+		/** Returns raw pointer to the data of the string. If the string is const-qualified, returns `nullptr`.*/
+		[[nodiscard]] void *data()
+		{
+			return !m_target.is_const() && m_data->data ? const_cast<void *>(m_data->data(m_target)) : nullptr;
+		}
 		/** Returns raw pointer to the data of the string. */
-		[[nodiscard]] SEK_CORE_PUBLIC const void *data() const;
+		[[nodiscard]] const void *data() const { return m_data->data ? m_data->data(m_target) : nullptr; }
 		/** @copydoc data */
 		[[nodiscard]] const void *cdata() const { return data(); }
 
