@@ -157,8 +157,8 @@ namespace sek::detail
 
 		/* P1 (a > 1.0) */
 		auto p1 = x86_exp_ps(a);
-		const auto tmp = _mm_div_ps(_mm_set1_ps(-0.5f), p1); /* tmp = (-0.5 / p1) */
-		p1 = x86_fmadd_ps(_mm_set1_ps(0.5f), p1, tmp);		 /* p1 = (0.5 * p1) + tmp */
+		const auto temp = _mm_div_ps(_mm_set1_ps(-0.5f), p1); /* tmp = (-0.5 / p1) */
+		p1 = x86_fmadd_ps(_mm_set1_ps(0.5f), p1, temp);		 /* p1 = (0.5 * p1) + tmp */
 		p1 = _mm_xor_ps(p1, _mm_and_ps(v, sign_mask));		 /* p1 = v < 0 ? -p1 : p1 */
 
 		/* P2 (a <= 1.0) */
@@ -320,8 +320,8 @@ namespace sek::detail
 		b2 = x86_fmadd_ps(_mm_mul_ps(b2, a2), a, a); /* b2 = ((b2 * a2) * a) + a */
 
 		/* a <= 1500.0 && a >= 0.5 */
-		const auto tmp = _mm_sqrt_ps(_mm_add_ps(a2, _mm_set1_ps(1.0f))); /* tmp = sqrt(a2 + 1.0) */
-		const auto b3 = x86_log_ps(_mm_add_ps(a, tmp));					 /* b3 = log(a + tmp) */
+		const auto temp = _mm_sqrt_ps(_mm_add_ps(a2, _mm_set1_ps(1.0f))); /* tmp = sqrt(a2 + 1.0) */
+		const auto b3 = x86_log_ps(_mm_add_ps(a, temp));					 /* b3 = log(a + tmp) */
 
 		/* b = (a > 1500.0) ? b1 : ((a < 0.5) ? b2 : b3) */
 		const auto select1 = _mm_cmpngt_ps(a, _mm_set1_ps(1500.0f));			   /* a > 1500.0 */
@@ -362,8 +362,8 @@ namespace sek::detail
 
 		/* a >= 0.0001 && a >= 0.5 */
 		const auto one = _mm_set1_ps(1.0f);
-		const auto tmp = _mm_div_ps(_mm_add_ps(one, v), _mm_sub_ps(one, v)); /* tmp = (1.0 + v) / (1.0 - v) */
-		const auto a2 = _mm_mul_ps(_mm_set1_ps(0.5f), x86_log_ps(tmp));		 /* a2 = 0.5 * log(tmp); */
+		const auto temp = _mm_div_ps(_mm_add_ps(one, v), _mm_sub_ps(one, v)); /* tmp = (1.0 + v) / (1.0 - v) */
+		const auto a2 = _mm_mul_ps(_mm_set1_ps(0.5f), x86_log_ps(temp));		 /* a2 = 0.5 * log(tmp); */
 
 		/* a >= 0.0001 && a < 0.5 */
 		const auto v2 = _mm_mul_ps(v, v);

@@ -115,11 +115,11 @@ namespace sek
 
 		constexpr static void move_swap(basic_json_object &a, basic_json_object &b)
 		{
-			auto tmp = basic_json_object{std::move(b)};
+			auto temp = basic_json_object{std::move(b)};
 			std::destroy_at(&b);
 			std::construct_at(&b, std::move(a));
 			std::destroy_at(&a);
-			std::construct_at(&a, std::move(tmp));
+			std::construct_at(&a, std::move(temp));
 		}
 
 		template<typename U>

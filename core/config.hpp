@@ -127,9 +127,9 @@ namespace sek
 		 * @return Concatenated path. */
 		[[nodiscard]] cfg_path operator/(const cfg_path &path) const
 		{
-			auto tmp = *this;
+			auto temp = *this;
 			tmp /= path;
-			return tmp;
+			return temp;
 		}
 
 		/** Appends a string to the path.
@@ -159,16 +159,16 @@ namespace sek
 		template<typename S>
 		[[nodiscard]] cfg_path operator/(const S &str) const
 		{
-			auto tmp = *this;
-			tmp /= str;
-			return tmp;
+			auto temp = *this;
+			temp /= str;
+			return temp;
 		}
 		/** @copydoc operator/ */
 		[[nodiscard]] cfg_path operator/(const char *str) const
 		{
-			auto tmp = *this;
-			tmp /= str;
-			return tmp;
+			auto temp = *this;
+			temp /= str;
+			return temp;
 		}
 
 		[[nodiscard]] constexpr auto operator<=>(const cfg_path &other) noexcept { return m_value <=> other.m_value; }

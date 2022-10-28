@@ -136,9 +136,9 @@ namespace sek
 
 			constexpr type_info_iterator operator++(int) noexcept
 			{
-				auto tmp = *this;
+				auto temp = *this;
 				operator++();
-				return tmp;
+				return temp;
 			}
 			constexpr type_info_iterator &operator++() noexcept
 			{
@@ -149,9 +149,9 @@ namespace sek
 			// clang-format off
 			constexpr type_info_iterator operator--(int) noexcept requires is_bidirectional
 			{
-				auto tmp = *this;
+				auto temp = *this;
 				operator--();
-				return tmp;
+				return temp;
 			}
 			constexpr type_info_iterator &operator--() noexcept requires is_bidirectional
 			{
@@ -199,7 +199,7 @@ namespace sek
 		private:
 			Iter m_iter;
 		};
-	}
+	}	 // namespace detail
 
 	/** @brief Structure used to describe a reflected attribute. */
 	class attribute_info;
@@ -406,10 +406,10 @@ namespace sek
 		 * @return `any` instance, containing the instantiated object, or an empty `any`
 		 * if the specified constructor overload does not exist. */
 		template<typename... Args>
-		[[nodiscard]] any construct(Args &&...args) const
+		[[nodiscard]] any construct(std::in_place_t, Args &&...args) const
 		{
 			std::array<any, sizeof...(Args)> local_args = {forward_any(std::forward<Args>(args))...};
-			return construct(local_args);
+			return construct(std::span{local_args});
 		}
 
 		[[nodiscard]] constexpr bool operator==(const type_info &other) const noexcept
@@ -534,25 +534,19 @@ namespace sek
 	template<typename T>
 	std::remove_reference_t<T> &any::as() requires std::is_lvalue_reference_v<T>
 	{
-		const auto result = as(type_info::get<T>());
+		const auto to_type = type_info::get<T>();
+		const auto result = as(to_type);
 		if (result.empty()) [[unlikely]]
-		{
-			throw type_error(make_error_code(type_errc::INVALID_TYPE),
-					 "Cannot convert reference to types that do not "
-					 "share a parent-child relationship");
-		}
+			throw_bad_cast(type(), to_type);
 		return *static_cast<T *>(result.data());
 	}
 	template<typename T>
 	std::add_const_t<std::remove_reference_t<T>> &any::as() const requires std::is_lvalue_reference_v<T>
 	{
-		const auto result = as(type_info::get<T>());
+		const auto to_type = type_info::get<T>();
+		const auto result = as(to_type);
 		if (result.empty()) [[unlikely]]
-		{
-			throw type_error(make_error_code(type_errc::INVALID_TYPE),
-					 "Cannot convert reference to types that do not "
-					 "share a parent-child relationship");
-		}
+			throw_bad_cast(type(), to_type);
 		return *static_cast<T *>(result.data());
 	}
 	// clang-format on
@@ -618,25 +612,25 @@ namespace sek
 			using conv_to_t = std::codecvt<C, char, std::mbstate_t>;
 
 			/* If `Sc` is not `char`, use codecvt to convert to `char`. Otherwise, directly copy the string. */
-			auto tmp_buffer = tmp_string_t{tmp_alloc_t{a}};
+			auto temp_buffer = tmp_string_t{tmp_alloc_t{a}};
 
 			if constexpr (std::same_as<Sc, char>)
-				tmp_buffer.assign(static_cast<const Sc *>(data()), size());
+				temp_buffer.assign(static_cast<const Sc *>(data()), size());
 			else
 			{
 				auto &conv = std::use_facet<conv_from_t>(l);
 				const auto *src_start = static_cast<const Sc *>(data());
 				const auto *src_end = src_start + size();
-				do_convert(src_start, src_end, tmp_buffer, conv);
+				do_convert(src_start, src_end, temp_buffer, conv);
 			}
 			/* If `C` is not `char`, preform a second conversion. Otherwise, use the temporary buffer. */
 			if constexpr (std::same_as<C, char>)
-				dst = std::move(std::basic_string<C, T, A>{tmp_buffer});
+				dst = std::move(std::basic_string<C, T, A>{temp_buffer});
 			else
 			{
 				auto &conv = std::use_facet<conv_to_t>(l);
-				const auto *src_end = tmp_buffer.data() + tmp_buffer.size();
-				const auto *src_start = tmp_buffer.data();
+				const auto *src_end = temp_buffer.data() + temp_buffer.size();
+				const auto *src_start = temp_buffer.data();
 				do_convert(src_start, src_end, dst, conv);
 			}
 		}

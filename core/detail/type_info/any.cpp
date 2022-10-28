@@ -5,9 +5,25 @@
 #include "any.hpp"
 
 #include "type_db.hpp"
+#include <fmt/format.h>
 
 namespace sek
 {
+	void any::throw_bad_cast(type_info from, type_info to)
+	{
+		// clang-format off
+		throw type_error(make_error_code(type_errc::INVALID_TYPE), fmt::format("Invalid parent cast - <{}> is not a base of <{}>",
+																			   from.name(), to.name()));
+		// clang-format on
+	}
+	void any::throw_bad_conv(type_info from, type_info to)
+	{
+		// clang-format off
+		throw type_error(make_error_code(type_errc::INVALID_TYPE), fmt::format("Cannot convert from <{}> to <{}> - no conversion defined",
+																			   from.name(), to.name()));
+		// clang-format on
+	}
+
 	void any::destroy()
 	{
 		if (!empty() && !is_ref()) [[likely]]
@@ -23,10 +39,7 @@ namespace sek
 			/* If the `copy_init` functor is set to `nullptr`, there is a custom non-default copy constructor
 			 * specified by the user. In that case, use that constructor. */
 			if (!other.m_type->any_funcs.copy_init)
-			{
-				auto tmp = type().construct(other.ref());
-				move_init(tmp);
-			}
+				move_init(type().construct(std::in_place, other.ref()));
 			else
 			{
 				other.m_type->any_funcs.copy_init(other, *this);
@@ -52,37 +65,23 @@ namespace sek
 		copy_init(other);
 	}
 
-	/* TODO: Figure out how exceptions will work with `as`. */
-
-	any any::as(type_info type)
+	any any::as(type_info to_type) { return as_impl(to_type, is_const()); }
+	any any::as(type_info to_type) const { return as_impl(to_type, true); }
+	any any::as_impl(type_info to_type, bool const_ref) const
 	{
-		if (type_info{m_type} == type) return ref();
+		/* Do not use `ref()` to enable const-ness override. */
+		if (type() == to_type) return any{m_type, {cdata(), const_ref}};
 
+		const auto to_any = [&](detail::type_handle h, const void *ptr) { return any{h.get(), {ptr, const_ref}}; };
+		const auto data_ptr = cdata();
+
+		if (auto parent = m_type->parents.find(to_type.m_data); parent != m_type->parents.end()) [[likely]]
+			return to_any(parent->type, parent->cast(data_ptr));
 		for (auto &parent : m_type->parents)
 		{
-			const auto parent_type = type_info{parent.type};
-			auto cast = static_cast<any>(parent.cast(ref()));
-
-			if (parent_type == type || !(cast = cast.as(type)).empty())
+			auto cast = to_any(parent.type, parent.cast(data_ptr)).as(to_type);
+			if (!cast.empty()) [[likely]]
 				return cast;
-			else
-				continue;
-		}
-		return {};
-	}
-	any any::as(type_info type) const
-	{
-		if (type_info{m_type} == type) return ref();
-
-		for (auto &parent : m_type->parents)
-		{
-			const auto parent_type = type_info{parent.type};
-			auto cast = static_cast<any>(parent.cast(ref()));
-
-			if (parent_type == type || !(cast = cast.as(type)).empty())
-				return cast;
-			else
-				continue;
 		}
 		return {};
 	}

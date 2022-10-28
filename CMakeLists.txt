@@ -35,7 +35,7 @@ macro(sek_set_build_options)
         target_compile_options(${ARGV0} PUBLIC "-Wall" "-Wextra" "-Wno-shadow" "-Wno-unknown-pragmas" "-Wconversion" "-Werror")
 
         if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-            target_compile_options(${ARGV0} PUBLIC "-fconcepts-diagnostics-depth=32")
+            target_compile_options(${ARGV0} PUBLIC "-fconcepts-diagnostics-depth=32" "-ftemplate-backtrace-limit=0")
         else ()
             # Always set file prefix map to current directory to avoid exposing full directory tree in debug info
             target_compile_options(${ARGV0} PUBLIC "-ffile-prefix-map=\"${CMAKE_CURRENT_LIST_DIR}/\"=\"\"")

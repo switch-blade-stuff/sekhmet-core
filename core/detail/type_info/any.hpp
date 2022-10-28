@@ -31,17 +31,19 @@ namespace sek
 		friend bool SEK_CORE_PUBLIC operator>(const any &a, const any &b) noexcept;
 		friend bool SEK_CORE_PUBLIC operator>=(const any &a, const any &b) noexcept;
 
-		template<typename T, typename U = std::remove_cvref_t<T>>
-		constexpr static bool local_candidate = sizeof(U) <= sizeof(std::uintptr_t) && std::is_trivially_copyable_v<U>;
-
 		struct storage_t
 		{
+			using data_t = std::conditional_t<sizeof(std::uintptr_t) < sizeof(std::uintmax_t), std::uintmax_t, std::uintptr_t>;
+
+			template<typename T, typename U = std::remove_cvref_t<T>>
+			constexpr static bool local_candidate = sizeof(U) <= sizeof(data_t) && std::is_trivially_copyable_v<U>;
+
 			constexpr storage_t() noexcept = default;
 			constexpr storage_t(const storage_t &) noexcept = default;
 			constexpr storage_t &operator=(const storage_t &) noexcept = default;
 
 			constexpr storage_t(storage_t &&other) noexcept
-				: data(std::exchange(other.data, std::uintptr_t{})),
+				: data(std::exchange(other.data, data_t{})),
 				  is_local(std::exchange(other.is_local, false)),
 				  is_const(std::exchange(other.is_const, false))
 			{
@@ -54,7 +56,7 @@ namespace sek
 
 			// clang-format off
 			template<typename T>
-			storage_t(T *ptr, bool is_const) noexcept : data(std::bit_cast<std::uintptr_t>(ptr)), is_ref(true), is_const(is_const)
+			storage_t(T *ptr, bool is_const) noexcept : data(std::bit_cast<data_t>(ptr)), is_ref(true), is_const(is_const)
 			{
 			}
 			template<typename T>
@@ -88,16 +90,16 @@ namespace sek
 				constexpr auto size = sizeof(T);
 
 				auto *ptr = ::operator new(size, align);
-				std::invoke(ctor, ptr, std::forward<Args>(args)...);
+				std::invoke(std::forward<F>(ctor), ptr, std::forward<Args>(args)...);
 
-				deleter = +[](std::uintptr_t ptr) { ::operator delete(std::bit_cast<void *>(ptr), size, align); };
-				data = std::bit_cast<std::uintptr_t>(ptr);
+				deleter = +[](data_t ptr) { ::operator delete(std::bit_cast<void *>(ptr), size, align); };
+				data = std::bit_cast<data_t>(ptr);
 			}
 			template<typename T, typename F, typename... Args>
 			void init(F &&ctor, Args &&...args) requires local_candidate<T>
 			{
 				const auto ptr = std::bit_cast<T *>(&data);
-				ctor(ptr, std::forward<Args>(args)...);
+				std::invoke(std::forward<F>(ctor), ptr, std::forward<Args>(args)...);
 			}
 			// clang-format on
 
@@ -134,7 +136,7 @@ namespace sek
 			}
 
 			[[nodiscard]] storage_t ref() noexcept { return {get(), is_const}; }
-			[[nodiscard]] storage_t ref() const noexcept { return {get(), is_const}; }
+			[[nodiscard]] storage_t ref() const noexcept { return {get(), true}; }
 
 			constexpr void swap(storage_t &other) noexcept
 			{
@@ -145,8 +147,8 @@ namespace sek
 				std::swap(is_const, other.is_const);
 			}
 
-			void (*deleter)(std::uintptr_t) = nullptr;
-			std::uintptr_t data = {};
+			void (*deleter)(data_t) = nullptr;
+			data_t data = {};
 			bool is_ref = false;
 			bool is_local = false;
 			bool is_const = false;
@@ -160,6 +162,9 @@ namespace sek
 			storage.template init_flags<T>();
 			return any{detail::type_handle{type_selector<T>}.get(), std::move(storage)};
 		}
+
+		[[noreturn]] static SEK_CORE_PUBLIC void throw_bad_cast(type_info from, type_info to);
+		[[noreturn]] static SEK_CORE_PUBLIC void throw_bad_conv(type_info from, type_info to);
 
 		constexpr any(detail::type_data *type, storage_t &&storage) : m_type(type), m_storage(std::move(storage)) {}
 
@@ -197,10 +202,10 @@ namespace sek
 		any(T &&value) requires(!std::same_as<std::decay_t<T>, any>) : any(std::in_place_type<T>, std::forward<T>(value)) {}
 		// clang-format on
 
-		constexpr any(any &&other) noexcept { move_init(other); }
+		constexpr any(any &&other) noexcept { move_init(std::move(other)); }
 		constexpr any &operator=(any &&other) noexcept
 		{
-			move_assign(other);
+			move_assign(std::move(other));
 			return *this;
 		}
 
@@ -265,9 +270,9 @@ namespace sek
 		template<typename T>
 		[[nodiscard]] std::add_const_t<T> *get() const noexcept;
 
-		/** Converts reference to the managed object type to the specified type.
+		/** Converts reference to the managed object type to the specified parent type.
 		 * @return Reference to the managed object, converted to the specified type, or an empty `any` instance if the
-		 * managed object's type is not the same as specified or shares a parent-child relationship with it.
+		 * specified type is not same as the managed object's type or a parent of it.
 		 * @note If the type of the managed object is the same as specified, equivalent to `ref()`. */
 		[[nodiscard]] SEK_CORE_PUBLIC any as(type_info type);
 		/** @copydoc as */
@@ -276,7 +281,7 @@ namespace sek
 		// clang-format off
 		/** Converts reference to the managed object type to the specified type.
 		 * @return Reference to the managed object, converted to `T`.
-		 * @throw type_error If the managed object's type is not the same as specified or shares a parent-child relationship with it.
+		 * @throw type_error If the specified type is not same as the managed object's type or a parent of it.
 		 * @note If the type of the managed object is the same as specified, returns reference to the managed object. */
 		template<typename T>
 		[[nodiscard]] inline std::remove_reference_t<T> &as() requires std::is_lvalue_reference_v<T>;
@@ -287,8 +292,8 @@ namespace sek
 
 		// clang-format off
 		/** Converts pointer to the managed object type to the specified type.
-		 * @return Pointer to the managed object, converted to `T`, or `nullptr` if the managed object's type is not
-		 * the same as specified or shares a parent-child relationship with it.
+		 * @return Pointer to the managed object, converted to `T`, or `nullptr` if the
+		 * specified type is not same as the managed object's type or a parent of it.
 		 * @note If the type of the managed object is the same as specified, returns pointer to the managed object. */
 		template<typename T>
 		[[nodiscard]] inline std::remove_pointer_t<T> *as() requires std::is_pointer_v<T>;
@@ -304,8 +309,7 @@ namespace sek
 		/** @copydoc ref */
 		[[nodiscard]] any cref() const noexcept { return ref(); }
 
-		/** Returns a `any_range` proxy for the managed type,
-		 * `type_errc::INVALID_TYPE` if the managed type is not a range,
+		/** Returns a `any_range` proxy for the managed type, `type_errc::INVALID_TYPE` if the managed type is not a range,
 		 * or `type_errc::UNEXPECTED_EMPTY_ANY` if `any` is empty. */
 		[[nodiscard]] expected<any_range, std::error_code> range(std::nothrow_t);
 		/** @copydoc range */
@@ -316,8 +320,7 @@ namespace sek
 		/** @copydoc range */
 		[[nodiscard]] any_range range() const;
 
-		/** Returns a `any_table` proxy for the managed type,
-		 * `type_errc::INVALID_TYPE` if the managed type is not a table,
+		/** Returns a `any_table` proxy for the managed type, `type_errc::INVALID_TYPE` if the managed type is not a table,
 		 * or `type_errc::UNEXPECTED_EMPTY_ANY` if `any` is empty. */
 		[[nodiscard]] expected<any_table, std::error_code> table(std::nothrow_t);
 		/** @copydoc range */
@@ -328,8 +331,7 @@ namespace sek
 		/** @copydoc table */
 		[[nodiscard]] any_table table() const;
 
-		/** Returns a `any_tuple` proxy for the managed type,
-		 * `type_errc::INVALID_TYPE` if the managed type is not a tuple,
+		/** Returns a `any_tuple` proxy for the managed type, `type_errc::INVALID_TYPE` if the managed type is not a tuple,
 		 * or `type_errc::UNEXPECTED_EMPTY_ANY` if `any` is empty. */
 		[[nodiscard]] expected<any_tuple, std::error_code> tuple(std::nothrow_t);
 		/** @copydoc range */
@@ -351,16 +353,18 @@ namespace sek
 		SEK_CORE_PUBLIC void destroy();
 		SEK_CORE_PUBLIC void copy_init(const any &other);
 		SEK_CORE_PUBLIC void copy_assign(const any &other);
-		constexpr void move_init(any &other) noexcept
+		constexpr void move_init(any &&other) noexcept
 		{
 			m_type = std::exchange(other.m_type, nullptr);
 			m_storage = std::move(other.m_storage);
 		}
-		constexpr void move_assign(any &other) noexcept
+		constexpr void move_assign(any &&other) noexcept
 		{
 			std::swap(m_type, other.m_type);
 			m_storage = std::move(other.m_storage);
 		}
+
+		[[nodiscard]] any as_impl(type_info type, bool const_ref) const;
 
 		detail::type_data *m_type = nullptr;
 		storage_t m_storage = {};

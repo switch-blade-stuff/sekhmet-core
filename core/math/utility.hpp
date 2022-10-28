@@ -347,9 +347,9 @@ namespace sek
 		{
 			if constexpr (I < J)
 			{
-				const auto tmp = bytes[I];
+				const auto temp = bytes[I];
 				bytes[I] = bytes[J];
-				bytes[J] = tmp;
+				bytes[J] = temp;
 
 				bswapimpl<I + 1, J - 1>(bytes);
 			}

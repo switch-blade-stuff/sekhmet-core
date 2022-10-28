@@ -8,14 +8,14 @@
 
 namespace sek
 {
+	// clang-format off
 	const detail::tuple_type_data *any_tuple::assert_data(const detail::type_data *data)
 	{
-		if (data->tuple_data == nullptr) [[unlikely]]
-			throw type_error(make_error_code(type_errc::INVALID_TYPE),
-							 fmt::format("<{}> is not a tuple-like type", data->name));
+		if (data == nullptr) [[unlikely]]
+			throw type_error(make_error_code(type_errc::UNEXPECTED_EMPTY_ANY));
+		else if (data->tuple_data == nullptr) [[unlikely]]
+			throw type_error(make_error_code(type_errc::INVALID_TYPE), fmt::format("<{}> is not a tuple-like type", data->name));
 		return data->tuple_data;
 	}
-
-	any any_tuple::get(size_type i) { return m_data->get(m_target, i); }
-	any any_tuple::get(size_type i) const { return m_data->cget(m_target, i); }
+	// clang-format on
 }	 // namespace sek

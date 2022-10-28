@@ -34,9 +34,9 @@ namespace sek::detail
 		auto b = _mm_add_ps(_mm_mul_ps(a, _mm_set1_ps(log2e_f)), _mm_set1_ps(0.5f));
 		b = x86_floor_ps(b); /* b = floor(b) */
 
-		const auto tmp1 = _mm_mul_ps(b, _mm_set1_ps(expc_f[0]));
-		const auto tmp2 = _mm_mul_ps(b, _mm_set1_ps(expc_f[1]));
-		a = _mm_sub_ps(_mm_sub_ps(a, tmp1), tmp2);
+		const auto temp1 = _mm_mul_ps(b, _mm_set1_ps(expc_f[0]));
+		const auto temp2 = _mm_mul_ps(b, _mm_set1_ps(expc_f[1]));
+		a = _mm_sub_ps(_mm_sub_ps(a, temp1), temp2);
 		const auto a2 = _mm_mul_ps(a, a);
 		const auto p = x86_fmadd_ps(x86_polevl_ps(a, expp_f), a2, a);		 /* p = (expp_f(a) * a2) + a */
 		return _mm_mul_ps(_mm_add_ps(p, _mm_set1_ps(1.0f)), x86_pow2_ps(b)); /* return (p + 1) * 2 ^ b */
