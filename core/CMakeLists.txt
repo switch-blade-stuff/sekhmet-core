@@ -2,7 +2,10 @@
 include(${CMAKE_CURRENT_LIST_DIR}/detail/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/system/CMakeLists.txt)
 include(${CMAKE_CURRENT_LIST_DIR}/math/CMakeLists.txt)
-include(${CMAKE_CURRENT_LIST_DIR}/serialization/CMakeLists.txt)
+
+# TODO: Uncomment when Json rework is complete
+#include(${CMAKE_CURRENT_LIST_DIR}/serialization/CMakeLists.txt)
+
 include(${CMAKE_CURRENT_LIST_DIR}/rhi/CMakeLists.txt)
 
 list(APPEND SEK_CORE_INTERFACE_SOURCES
@@ -38,7 +41,6 @@ list(APPEND SEK_CORE_INTERFACE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/type_info.hpp
         ${CMAKE_CURRENT_LIST_DIR}/object.hpp
         ${CMAKE_CURRENT_LIST_DIR}/service.hpp
-        ${CMAKE_CURRENT_LIST_DIR}/config.hpp
 
         ${CMAKE_CURRENT_LIST_DIR}/math.hpp
         ${CMAKE_CURRENT_LIST_DIR}/system.hpp

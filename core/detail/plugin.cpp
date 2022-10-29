@@ -327,7 +327,7 @@ namespace sek
 		auto result = detail::module_db::instance()->load(path);
 		if (result.has_value()) [[likely]]
 			(m_data = *result)->ref_ctr++;
-		return std::move(result);
+		return result;
 	}
 	expected<void, std::error_code> module::unload(std::nothrow_t)
 	{

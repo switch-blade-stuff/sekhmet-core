@@ -130,9 +130,9 @@ namespace sek
 	}
 
 	template<typename T, std::size_t N, std::size_t M, policy_t Q>
-	[[nodiscard]] constexpr hash_t hash(const basic_mat<T, N, M, Q> &m) noexcept
+	[[nodiscard]] constexpr std::size_t hash(const basic_mat<T, N, M, Q> &m) noexcept
 	{
-		hash_t result = 0;
+		std::size_t result = 0;
 		// clang-format off
 		for (std::size_t i = 0; i < N; ++i)
 			hash_combine(result, m[i]);

@@ -121,7 +121,7 @@ namespace sek
 			value_type value;
 
 			std::array<size_type, key_size> next = {};
-			std::array<hash_t, key_size> hash = {};
+			std::array<size_type, key_size> hash = {};
 		};
 
 		using dense_alloc = typename std::allocator_traits<Alloc>::template rebind_alloc<dense_entry>;
@@ -265,10 +265,10 @@ namespace sek
 										  const KeyComp &key_compare = {},
 										  const KeyHash &key_hash = {},
 										  const allocator_type &alloc = allocator_type{})
-			: m_dense_data{dense_alloc{alloc}, key_compare},
-			  m_sparse_data{std::piecewise_construct,
-							std::forward_as_tuple(capacity, sparse_entry{npos}, sparse_alloc{alloc}),
-							std::forward_as_tuple(key_hash)}
+			: m_dense{dense_alloc{alloc}, key_compare},
+			  m_sparse{std::piecewise_construct,
+					   std::forward_as_tuple(capacity, sparse_entry{npos}, sparse_alloc{alloc}),
+					   std::forward_as_tuple(key_hash)}
 		{
 		}
 
@@ -324,12 +324,12 @@ namespace sek
 		 * @param other Map to copy data and bucket allocator from.
 		 * @param alloc Allocator used to allocate set's value array. */
 		constexpr dense_multiset(const dense_multiset &other, const allocator_type &alloc)
-			: m_dense_data{std::piecewise_construct,
-						   std::forward_as_tuple(other.value_vector(), dense_alloc{alloc}),
-						   std::forward_as_tuple(other.m_dense_data.second())},
-			  m_sparse_data{std::piecewise_construct,
-							std::forward_as_tuple(other.bucket_vector(), sparse_alloc{alloc}),
-							std::forward_as_tuple(other.m_sparse_data.second())},
+			: m_dense{std::piecewise_construct,
+					  std::forward_as_tuple(other.value_vector(), dense_alloc{alloc}),
+					  std::forward_as_tuple(other.m_dense.second())},
+			  m_sparse{std::piecewise_construct,
+					   std::forward_as_tuple(other.bucket_vector(), sparse_alloc{alloc}),
+					   std::forward_as_tuple(other.m_sparse.second())},
 			  m_max_load_factor{other.m_max_load_factor}
 		{
 		}
@@ -341,12 +341,12 @@ namespace sek
 		 * @param other Map to move elements and bucket allocator from.
 		 * @param alloc Allocator used to allocate set's value array. */
 		constexpr dense_multiset(dense_multiset &&other, const Alloc &alloc)
-			: m_dense_data{std::piecewise_construct,
-						   std::forward_as_tuple(std::move(other.value_vector()), dense_alloc{alloc}),
-						   std::forward_as_tuple(std::move(other.m_dense_data.second()))},
-			  m_sparse_data{std::piecewise_construct,
-							std::forward_as_tuple(std::move(other.bucket_vector()), sparse_alloc{alloc}),
-							std::forward_as_tuple(std::move(other.m_sparse_data.second()))},
+			: m_dense{std::piecewise_construct,
+					  std::forward_as_tuple(std::move(other.value_vector()), dense_alloc{alloc}),
+					  std::forward_as_tuple(std::move(other.m_dense.second()))},
+			  m_sparse{std::piecewise_construct,
+					   std::forward_as_tuple(std::move(other.bucket_vector()), sparse_alloc{alloc}),
+					   std::forward_as_tuple(std::move(other.m_sparse.second()))},
 			  m_max_load_factor{other.m_max_load_factor}
 		{
 		}
@@ -501,9 +501,9 @@ namespace sek
 		[[nodiscard]] constexpr size_type max_bucket_count() const noexcept { return bucket_vector().max_size(); }
 
 		/** Returns current load factor of the set. */
-		[[nodiscard]] constexpr auto load_factor() const noexcept
+		[[nodiscard]] constexpr float load_factor() const noexcept
 		{
-			return bucket_count() ? static_cast<float>(size()) / static_cast<float>(bucket_count()) : 0.0f;
+			return static_cast<float>(size()) / static_cast<float>(bucket_count());
 		}
 		/** Returns current max load factor of the set. */
 		[[nodiscard]] constexpr auto max_load_factor() const noexcept { return m_max_load_factor; }
@@ -531,43 +531,40 @@ namespace sek
 		constexpr void swap(dense_multiset &other) noexcept
 		{
 			using std::swap;
-			swap(m_sparse_data, other.m_sparse_data);
-			swap(m_dense_data, other.m_dense_data);
+			swap(m_sparse, other.m_sparse);
+			swap(m_dense, other.m_dense);
 			swap(m_max_load_factor, other.m_max_load_factor);
 		}
 		friend constexpr void swap(dense_multiset &a, dense_multiset &b) noexcept { a.swap(b); }
 
 	private:
-		[[nodiscard]] constexpr dense_data &value_vector() noexcept { return m_dense_data.first(); }
-		[[nodiscard]] constexpr const dense_data &value_vector() const noexcept { return m_dense_data.first(); }
-		[[nodiscard]] constexpr sparse_data &bucket_vector() noexcept { return m_sparse_data.first(); }
-		[[nodiscard]] constexpr const sparse_data &bucket_vector() const noexcept { return m_sparse_data.first(); }
+		[[nodiscard]] constexpr dense_data &value_vector() noexcept { return m_dense.first(); }
+		[[nodiscard]] constexpr const dense_data &value_vector() const noexcept { return m_dense.first(); }
+		[[nodiscard]] constexpr sparse_data &bucket_vector() noexcept { return m_sparse.first(); }
+		[[nodiscard]] constexpr const sparse_data &bucket_vector() const noexcept { return m_sparse.first(); }
 
 		[[nodiscard]] constexpr auto value_allocator() const noexcept { return value_vector().get_allocator(); }
-		[[nodiscard]] constexpr auto &get_hash() const noexcept { return m_sparse_data.second(); }
-		[[nodiscard]] constexpr auto &get_comp() const noexcept { return m_dense_data.second(); }
+		[[nodiscard]] constexpr auto &get_hash() const noexcept { return m_sparse.second(); }
+		[[nodiscard]] constexpr auto &get_comp() const noexcept { return m_dense.second(); }
 
-		[[nodiscard]] constexpr auto key_hash(const auto &k) const { return m_sparse_data.second()(k); }
-		[[nodiscard]] constexpr auto key_comp(const auto &a, const auto &b) const
-		{
-			return m_dense_data.second()(a, b);
-		}
+		[[nodiscard]] constexpr auto key_hash(const auto &k) const { return m_sparse.second()(k); }
+		[[nodiscard]] constexpr auto key_comp(const auto &a, const auto &b) const { return m_dense.second()(a, b); }
 
 		template<size_type I>
-		[[nodiscard]] constexpr size_type *get_chain(hash_t h) noexcept
+		[[nodiscard]] constexpr size_type *get_chain(std::size_t h) noexcept
 		{
-			const auto idx = h % bucket_vector().size();
+			const auto idx = h % bucket_count();
 			return &(bucket_vector()[idx][I]);
 		}
 		template<size_type I>
-		[[nodiscard]] constexpr const size_type *get_chain(hash_t h) const noexcept
+		[[nodiscard]] constexpr const size_type *get_chain(std::size_t h) const noexcept
 		{
-			const auto idx = h % bucket_vector().size();
+			const auto idx = h % bucket_count();
 			return &(bucket_vector()[idx][I]);
 		}
 
 		template<size_type I>
-		[[nodiscard]] constexpr size_type find_impl(hash_t h, const auto &key) const noexcept
+		[[nodiscard]] constexpr size_type find_impl(std::size_t h, const auto &key) const noexcept
 		{
 			for (auto *idx = get_chain<I>(h); *idx != npos;)
 			{
@@ -706,7 +703,7 @@ namespace sek
 		constexpr void maybe_rehash()
 		{
 			if (load_factor() > m_max_load_factor) [[unlikely]]
-				rehash(std::max(bucket_count() * 2, initial_capacity));
+				rehash(bucket_count() * 2);
 		}
 		constexpr void rehash_impl(size_type new_cap) { rehash_impl(std::make_index_sequence<key_size>{}, new_cap); }
 		template<size_type... Is>
@@ -724,8 +721,8 @@ namespace sek
 			}
 		}
 
-		packed_pair<dense_data, key_equal> m_dense_data;
-		packed_pair<sparse_data, hash_type> m_sparse_data;
+		packed_pair<dense_data, key_equal> m_dense;
+		packed_pair<sparse_data, hash_type> m_sparse = {sparse_data(initial_capacity, npos), hash_type{}};
 
 		float m_max_load_factor = initial_load_factor;
 	};

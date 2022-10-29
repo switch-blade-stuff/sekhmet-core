@@ -209,11 +209,24 @@ namespace sek
 		using access_guard<P, Mutex, false>::access_guard;
 
 		/** Acquires a shared lock and returns an accessor handle. */
-		[[nodiscard]] constexpr shared_handle access_shared() { return {m_ptr, shared_lock{*m_mtx}}; }
+		[[nodiscard]] constexpr shared_handle access_shared() & { return {m_ptr, shared_lock{*m_mtx}}; }
 		/** @copydoc access_shared */
-		[[nodiscard]] constexpr shared_handle get() const { return access_shared(); }
+		[[nodiscard]] constexpr shared_handle access_shared() && { return {std::move(m_ptr), shared_lock{*m_mtx}}; }
 		/** @copydoc access_shared */
-		[[nodiscard]] constexpr shared_handle operator->() const { return access_shared(); }
+		[[nodiscard]] constexpr shared_handle access_shared() const & { return {m_ptr, shared_lock{*m_mtx}}; }
+		/** @copydoc access_shared */
+		[[nodiscard]] constexpr shared_handle access_shared() const &&
+		{
+			return {std::move(m_ptr), shared_lock{*m_mtx}};
+		}
+		/** @copydoc access_shared */
+		[[nodiscard]] constexpr shared_handle get() const & { return access_shared(); }
+		/** @copydoc access_shared */
+		[[nodiscard]] constexpr shared_handle get() const && { return access_shared(); }
+		/** @copydoc access_shared */
+		[[nodiscard]] constexpr shared_handle operator->() const & { return access_shared(); }
+		/** @copydoc access_shared */
+		[[nodiscard]] constexpr shared_handle operator->() const && { return access_shared(); }
 
 		/** Attempts to acquire a unique lock and returns an optional accessor handle. */
 		[[nodiscard]] constexpr std::optional<shared_handle> try_access_shared() const

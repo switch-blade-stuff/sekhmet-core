@@ -177,31 +177,31 @@ namespace sek
 	};
 
 	template<typename C, typename T>
-	shared_guard<basic_logger<C, T>> basic_logger<C, T>::info()
+	shared_guard<basic_logger<C, T> *> basic_logger<C, T>::info()
 	{
 		static guarded_instance instance{static_string_cast<C, T>("INFO").data()};
 		return {instance.logger, instance.mtx};
 	}
 	template<typename C, typename T>
-	shared_guard<basic_logger<C, T>> basic_logger<C, T>::warn()
+	shared_guard<basic_logger<C, T> *> basic_logger<C, T>::warn()
 	{
 		static guarded_instance instance{static_string_cast<C, T>("WARN").data()};
 		return {instance.logger, instance.mtx};
 	}
 	template<typename C, typename T>
-	shared_guard<basic_logger<C, T>> basic_logger<C, T>::debug()
+	shared_guard<basic_logger<C, T> *> basic_logger<C, T>::debug()
 	{
 		static guarded_instance instance{static_string_cast<C, T>("DEBUG").data()};
 		return {instance.logger, instance.mtx};
 	}
 	template<typename C, typename T>
-	shared_guard<basic_logger<C, T>> basic_logger<C, T>::error()
+	shared_guard<basic_logger<C, T> *> basic_logger<C, T>::error()
 	{
 		static guarded_instance instance{static_string_cast<C, T>("ERROR").data()};
 		return {instance.logger, instance.mtx};
 	}
 	template<typename C, typename T>
-	shared_guard<basic_logger<C, T>> basic_logger<C, T>::fatal()
+	shared_guard<basic_logger<C, T> *> basic_logger<C, T>::fatal()
 	{
 		static guarded_instance instance{static_string_cast<C, T>("FATAL").data()};
 		return {instance.logger, instance.mtx};

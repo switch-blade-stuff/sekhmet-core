@@ -69,7 +69,7 @@ namespace sek::detail
 		}
 
 		constexpr sparse_table_bucket() noexcept = default;
-		constexpr explicit sparse_table_bucket(ValueType *ptr, hash_t hash) noexcept : hash(hash), data(ptr) {}
+		constexpr explicit sparse_table_bucket(ValueType *ptr, std::size_t hash) noexcept : hash(hash), data(ptr) {}
 
 		[[nodiscard]] constexpr bool is_empty() const noexcept { return data == nullptr; }
 		[[nodiscard]] constexpr bool is_tombstone() const noexcept { return data == tombstone_ptr(); }
@@ -87,7 +87,7 @@ namespace sek::detail
 			swap(data, other.data);
 		}
 
-		hash_t hash = 0;
+		std::size_t hash = 0;
 		ValueType *data;
 	};
 

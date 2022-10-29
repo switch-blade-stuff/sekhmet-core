@@ -121,7 +121,7 @@ namespace sek::detail
 			{
 			}
 			template<typename... Args>
-			constexpr entry_type(entry_node &n, hash_t h, Args &&...args) : entry_base(std::forward<Args>(args)...)
+			constexpr entry_type(entry_node &n, std::size_t h, Args &&...args) : entry_base(std::forward<Args>(args)...)
 			{
 				node_base::link_before(&n);
 				entry_base::hash = h;
@@ -388,7 +388,7 @@ namespace sek::detail
 		}
 		[[nodiscard]] constexpr float load_factor() const noexcept
 		{
-			return bucket_count() ? static_cast<float>(size()) / static_cast<float>(bucket_count()) : 0.0f;
+			return static_cast<float>(size()) / static_cast<float>(bucket_count());
 		}
 
 		[[nodiscard]] constexpr size_type bucket_count() const noexcept { return bucket_vector().size(); }
@@ -606,14 +606,14 @@ namespace sek::detail
 
 		[[nodiscard]] constexpr auto key_hash(const auto &k) const { return m_sparse.second()(k); }
 		[[nodiscard]] constexpr auto key_comp(const auto &a, const auto &b) const { return m_dense.second()(a, b); }
-		[[nodiscard]] constexpr auto *get_chain(hash_t h) noexcept
+		[[nodiscard]] constexpr auto *get_chain(std::size_t h) noexcept
 		{
-			auto idx = h % bucket_vector().size();
+			auto idx = h % bucket_count();
 			return bucket_vector().data() + idx;
 		}
-		[[nodiscard]] constexpr auto *get_chain(hash_t h) const noexcept
+		[[nodiscard]] constexpr auto *get_chain(std::size_t h) const noexcept
 		{
-			auto idx = h % bucket_vector().size();
+			auto idx = h % bucket_count();
 			return bucket_vector().data() + idx;
 		}
 
@@ -626,7 +626,7 @@ namespace sek::detail
 			return const_iterator{value_vector().data() + static_cast<difference_type>(idx)};
 		}
 
-		[[nodiscard]] constexpr size_type find_impl(hash_t h, const auto &key) const noexcept
+		[[nodiscard]] constexpr size_type find_impl(std::size_t h, const auto &key) const noexcept
 		{
 			for (auto *idx = get_chain(h); *idx != npos;)
 				if (auto &entry = value_vector()[*idx]; entry.hash == h && key_comp(key, entry.key()))
@@ -637,7 +637,7 @@ namespace sek::detail
 		}
 
 		template<typename... Args>
-		[[nodiscard]] constexpr iterator insert_new(hash_t h, auto *chain_idx, Args &&...args) noexcept
+		[[nodiscard]] constexpr iterator insert_new(std::size_t h, auto *chain_idx, Args &&...args) noexcept
 		{
 			const auto pos = *chain_idx = size();
 			value_vector().emplace_back(m_head, h, std::forward<Args>(args)...);
@@ -689,7 +689,7 @@ namespace sek::detail
 		constexpr void maybe_rehash()
 		{
 			if (load_factor() > max_load_factor) [[unlikely]]
-				rehash(std::max(bucket_count() * 2, initial_capacity));
+				rehash(bucket_count() * 2);
 		}
 		constexpr void rehash_impl(size_type new_cap)
 		{
@@ -709,7 +709,7 @@ namespace sek::detail
 			}
 		}
 
-		constexpr auto erase_impl(hash_t h, const auto &key)
+		constexpr auto erase_impl(std::size_t h, const auto &key)
 		{
 			/* Remove the entry from its chain. */
 			for (auto *chain_idx = get_chain(h); *chain_idx != npos;)
@@ -754,7 +754,7 @@ namespace sek::detail
 		}
 
 		packed_pair<dense_data, Cmp> m_dense;
-		packed_pair<sparse_data, Hash> m_sparse;
+		packed_pair<sparse_data, Hash> m_sparse = {sparse_data(initial_capacity, npos), Hash{}};;
 
 		entry_node m_head = {&m_head, &m_head};
 

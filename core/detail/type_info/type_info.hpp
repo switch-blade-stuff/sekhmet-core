@@ -201,6 +201,8 @@ namespace sek
 	class attribute_info;
 	/** @brief Structure used to describe a reflected type constant. */
 	class constant_info;
+	/** @brief Structure used to describe a conversion cast between reflected types. */
+	class conversion_info;
 
 	/** @brief Handle to information about a reflected type. */
 	class type_info
@@ -216,6 +218,7 @@ namespace sek
 
 		friend class attribute_info;
 		friend class constant_info;
+		friend class conversion_info;
 
 	public:
 		/** Returns type info for type `T`.
@@ -255,6 +258,7 @@ namespace sek
 		using data_view = detail::type_info_view<V, T>;
 		using attr_view = data_view<attribute_info, detail::attr_table>;
 		using const_view = data_view<constant_info, detail::const_table>;
+		using conv_view = data_view<conversion_info, detail::conv_table>;
 
 		template<typename T>
 		[[nodiscard]] constexpr static handle_t handle() noexcept
@@ -379,6 +383,15 @@ namespace sek
 		/** Checks if the referenced type has a defined conversion to another type.
 		 * @note Does not check if types are the same. */
 		[[nodiscard]] SEK_CORE_PUBLIC bool convertible_to(type_info type) const noexcept;
+
+		/** Returns a view of conversions of the referenced type. */
+		[[nodiscard]] constexpr conv_view conversions() const noexcept
+		{
+			if (!valid()) [[unlikely]]
+				return {};
+			return conv_view{m_data->conversions};
+		}
+
 		/** @copydoc convertible_to */
 		template<typename T>
 		[[nodiscard]] bool convertible_to() const noexcept
@@ -415,7 +428,7 @@ namespace sek
 		data_t *m_data = nullptr;
 	};
 
-	[[nodiscard]] constexpr hash_t hash(const type_info &type) noexcept
+	[[nodiscard]] constexpr std::size_t hash(const type_info &type) noexcept
 	{
 		const auto name = type.name();
 		return fnv1a(name.data(), name.size());
@@ -489,6 +502,30 @@ namespace sek
 
 		/** Returns the value of the constant. */
 		[[nodiscard]] any value() const noexcept { return base_t::get(); }
+	};
+	class conversion_info : detail::conv_data
+	{
+		template<typename, typename>
+		friend class detail::type_info_iterator;
+
+		using base_t = detail::conv_data;
+
+	public:
+		conversion_info() = delete;
+		conversion_info(const conversion_info &) = delete;
+		conversion_info &operator=(const conversion_info &) = delete;
+		conversion_info(conversion_info &&) = delete;
+		conversion_info &operator=(conversion_info &&) = delete;
+
+		/** Returns the target type of the conversion. */
+		[[nodiscard]] constexpr type_info type() const noexcept { return type_info{base_t::to_type}; }
+
+		/** Converts the passed to the target type.
+		 * @throw type_error If the type of the passed object is not the same as the parent type of the conversion. */
+		[[nodiscard]] SEK_CORE_PUBLIC any convert() const;
+		/** Converts the passed to the target type.
+		 * @throw type_error If the type of the passed object is not the same as the parent type of the conversion. */
+		[[nodiscard]] SEK_CORE_PUBLIC any convert(any &) const;
 	};
 
 	template<typename T>

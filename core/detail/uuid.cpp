@@ -30,7 +30,7 @@ namespace sek
 
 	static auto uuid_rng = xoroshiro<std::uint64_t, 256>{sysrandom_seq{}};
 
-	void uuid::version4_t::operator()(uuid &id) const noexcept
+	void uuid::version4::operator()(uuid &id) const noexcept
 	{
 		/* Fill with random bits. */
 		for (std::size_t i = 0; i < SEK_ARRAY_SIZE(id.m_bytes) / sizeof(std::uint64_t); ++i)
@@ -42,7 +42,7 @@ namespace sek
 		constexpr std::uint8_t variant_mask = 0b0011'1111;
 		constexpr std::uint8_t variant_bits = 0b1000'0000;
 
-		id.m_bytes[6] = static_cast<std::byte>((static_cast<std::uint8_t>(id.m_bytes[6]) & version_mask) | version_bits);
-		id.m_bytes[8] = static_cast<std::byte>((static_cast<std::uint8_t>(id.m_bytes[8]) & variant_mask) | variant_bits);
+		id.m_bytes[6] = (static_cast<std::uint8_t>(id.m_bytes[6]) & version_mask) | version_bits;
+		id.m_bytes[8] = (static_cast<std::uint8_t>(id.m_bytes[8]) & variant_mask) | variant_bits;
 	}
 }	 // namespace sek

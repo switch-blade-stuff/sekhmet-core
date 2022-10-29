@@ -2,8 +2,7 @@
  * Created by switchblade on 2022-10-04.
  */
 
-#include "type_info.hpp"
-
+#include "type_db.hpp"
 #include <fmt/format.h>
 
 SEK_EXPORT_TYPE_INFO(sek::any)
@@ -11,7 +10,7 @@ SEK_EXPORT_TYPE_INFO(sek::type_info)
 
 namespace sek
 {
-	[[nodiscard]] static std::string format_args(std::span<type_info> args)
+	[[maybe_unused]] [[nodiscard]] static std::string format_args(std::span<type_info> args)
 	{
 		std::string result;
 		for (auto type : args)
@@ -22,7 +21,7 @@ namespace sek
 		}
 		return result;
 	}
-	[[nodiscard]] static std::string format_args(std::span<any> args)
+	[[maybe_unused]] [[nodiscard]] static std::string format_args(std::span<any> args)
 	{
 		std::string result;
 		for (auto &arg : args)
@@ -50,13 +49,13 @@ namespace sek
 	{
 		for (auto overload = range.begin(); overload != range.end(); ++overload)
 		{
-			if (((!overload->is_static && instance.empty()) || overload->is_const == instance.is_const()) &&
+			const auto instance_type = type_info{overload->instance_type};
+			if (instance_type == instance.type() && overload->is_const == instance.is_const() &&
 				std::ranges::equal(overload->args, args, check_arg))
 				return overload;
 		}
 		return range.end();
 	}
-
 	std::error_code type_info::convert_args(std::span<const detail::func_arg_data> expected, std::span<any> args)
 	{
 		SEK_ASSERT_ALWAYS(args.size() <= std::numeric_limits<std::uint16_t>::max());
@@ -93,23 +92,6 @@ namespace sek
 		return {};
 	}
 
-	bool type_info::has_attribute(type_info type) const noexcept
-	{
-		return valid() && m_data->attributes.contains(type.m_data);
-	}
-	bool type_info::has_constant(std::string_view name) const noexcept
-	{
-		return valid() && m_data->constants.contains(name);
-	}
-	bool type_info::has_constant(std::string_view name, type_info type) const noexcept
-	{
-		if (valid() && type.valid()) [[likely]]
-		{
-			const auto iter = m_data->constants.find(name);
-			return iter != m_data->constants.end() && type_info{iter->type} == type;
-		}
-		return false;
-	}
 	bool type_info::inherits(type_info type) const noexcept
 	{
 		if (valid() && type.valid()) [[likely]]
@@ -135,10 +117,28 @@ namespace sek
 				return true;
 			for (auto &conv : conversions)
 			{
-				const auto conv_type = type_info{conv.type};
+				const auto conv_type = type_info{conv.to_type};
 				if (conv_type.convertible_to(type)) [[likely]]
 					return true;
 			}
+		}
+		return false;
+	}
+
+	bool type_info::has_attribute(type_info type) const noexcept
+	{
+		return valid() && m_data->attributes.contains(type.m_data);
+	}
+	bool type_info::has_constant(std::string_view name) const noexcept
+	{
+		return valid() && m_data->constants.contains(name);
+	}
+	bool type_info::has_constant(std::string_view name, type_info type) const noexcept
+	{
+		if (valid() && type.valid()) [[likely]]
+		{
+			const auto iter = m_data->constants.find(name);
+			return iter != m_data->constants.end() && type_info{iter->type} == type;
 		}
 		return false;
 	}
@@ -149,15 +149,6 @@ namespace sek
 		{
 			const auto iter = m_data->attributes.find(type.m_data);
 			return iter != m_data->attributes.end() ? iter->get() : any{};
-		}
-		return {};
-	}
-	any type_info::constant(std::string_view name) const
-	{
-		if (valid()) [[likely]]
-		{
-			const auto iter = m_data->constants.find(name);
-			return iter != m_data->constants.end() ? iter->get() : any{};
 		}
 		return {};
 	}
@@ -172,6 +163,15 @@ namespace sek
 				convert_args(iter->args, args);
 				return iter->invoke(args);
 			}
+		}
+		return {};
+	}
+	any type_info::constant(std::string_view name) const
+	{
+		if (valid()) [[likely]]
+		{
+			const auto iter = m_data->constants.find(name);
+			return iter != m_data->constants.end() ? iter->get() : any{};
 		}
 		return {};
 	}

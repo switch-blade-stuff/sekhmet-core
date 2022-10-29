@@ -482,7 +482,7 @@ namespace sek
 	}
 
 	template<typename C, std::size_t N, typename T>
-	[[nodiscard]] constexpr hash_t hash(const basic_static_string<C, N, T> &s) noexcept
+	[[nodiscard]] constexpr std::size_t hash(const basic_static_string<C, N, T> &s) noexcept
 	{
 		return fnv1a(s.value, s.size());
 	}

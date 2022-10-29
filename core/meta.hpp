@@ -85,22 +85,19 @@ namespace sek
 	{
 		template<typename, std::size_t, typename...>
 		struct pack_element;
-		template<typename T, typename U0, typename... Us>
-		struct pack_element<T, 0, U0, Us...>
+		template<template<typename...> typename T, typename... Ts, typename U0, typename... Us>
+		struct pack_element<T<Ts...>, 0, U0, Us...>
 		{
 			typedef U0 type;
 		};
-		template<typename T, std::size_t I, typename U0, typename... Us>
-		struct pack_element<T, I, U0, Us...> : public pack_element<T, I - 1, Us...>
+		template<template<typename...> typename T, typename... Ts, std::size_t I, typename U0, typename... Us>
+		struct pack_element<T<Ts...>, I, U0, Us...> : public pack_element<T<Ts...>, I - 1, Us...>
 		{
 		};
-
-		// clang-format off
-		template<template<typename...> typename T, typename... Ts, std::size_t I> requires(I < sizeof...(Ts))
+		template<template<typename...> typename T, typename... Ts, std::size_t I>
 		struct pack_element<T<Ts...>, I> : public pack_element<T<Ts...>, I, Ts...>
 		{
 		};
-		// clang-format on
 	}	 // namespace detail
 
 	/** @brief Helper type used to obtain `I`th element of a template parameter pack of type `T`. */

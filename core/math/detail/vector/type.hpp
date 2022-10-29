@@ -21,7 +21,7 @@ private:                                                                        
 	data_t m_data = {};                                                                                                \
                                                                                                                        \
 	template<typename U, std::size_t M, policy_t Q>                                                                    \
-	friend constexpr sek::hash_t hash(const vec_mask<basic_vec<U, M, Q>> &) noexcept;                                  \
+	friend constexpr std::size_t hash(const vec_mask<basic_vec<U, M, Q>> &) noexcept;                                  \
 	template<typename U, std::size_t M, policy_t Q>                                                                    \
 	friend constexpr void swap(vec_mask<basic_vec<U, M, Q>> &, vec_mask<basic_vec<U, M, Q>> &) noexcept;               \
                                                                                                                        \
@@ -70,7 +70,7 @@ private:                                                                        
 	data_t m_data = {};                                                                                                \
                                                                                                                        \
 	template<typename U, std::size_t M, policy_t Q>                                                                    \
-	friend constexpr sek::hash_t hash(const basic_vec<U, M, Q> &) noexcept;                                            \
+	friend constexpr std::size_t hash(const basic_vec<U, M, Q> &) noexcept;                                            \
 	template<typename U, std::size_t M, policy_t Q>                                                                    \
 	friend constexpr void swap(basic_vec<U, M, Q> &, basic_vec<U, M, Q> &) noexcept;                                   \
                                                                                                                        \
@@ -220,9 +220,9 @@ namespace sek
 	};
 
 	template<typename U, std::size_t M, policy_t Q>
-	[[nodiscard]] constexpr sek::hash_t hash(const vec_mask<basic_vec<U, M, Q>> &m) noexcept
+	[[nodiscard]] constexpr std::size_t hash(const vec_mask<basic_vec<U, M, Q>> &m) noexcept
 	{
-		hash_t result = 0;
+		std::size_t result = 0;
 		for (std::size_t i = 0; i < M; ++i) hash_combine(result, m[i]);
 		return result;
 	}
@@ -334,9 +334,9 @@ namespace sek
 	};
 
 	template<typename U, std::size_t M, policy_t Q>
-	[[nodiscard]] constexpr sek::hash_t hash(const basic_vec<U, M, Q> &v) noexcept
+	[[nodiscard]] constexpr std::size_t hash(const basic_vec<U, M, Q> &v) noexcept
 	{
-		hash_t result = 0;
+		std::size_t result = 0;
 		for (std::size_t i = 0; i < M; ++i) hash_combine(result, v[i]);
 		return result;
 	}

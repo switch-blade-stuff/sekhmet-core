@@ -51,7 +51,8 @@ namespace sek
 					return forward_any(Conv{}(*obj));
 				}
 			};
-			result.type = type_handle{type_selector<To>};
+			result.from_type = type_handle{type_selector<From>};
+			result.to_type = type_handle{type_selector<To>};
 			return result;
 		}
 		template<typename F>
@@ -85,7 +86,10 @@ namespace sek
 		any ctor_data::invoke_impl(std::index_sequence<Is...>, F &&ctor, std::span<any> args)
 		{
 			using arg_seq = type_seq_t<Args...>;
-			return std::invoke(ctor, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
+			if constexpr (arg_seq::size != 0)
+				return std::invoke(ctor, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
+			else
+				return std::invoke(ctor);
 		}
 		template<typename... Args, typename F>
 		any ctor_data::invoke_impl(type_seq_t<Args...>, F &&ctor, std::span<any> args)
@@ -202,7 +206,10 @@ namespace sek
 		constexpr decltype(auto) func_overload::invoke_impl(std::index_sequence<Is...>, F &&func, I *ptr, std::span<any> args)
 		{
 			using arg_seq = type_seq_t<Args...>;
-			return std::invoke(func, ptr, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
+			if constexpr (arg_seq::size != 0)
+				return std::invoke(func, ptr, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
+			else
+				return std::invoke(func, ptr);
 		}
 		template<typename I, typename... Args, typename F>
 		constexpr decltype(auto) func_overload::invoke_impl(type_seq_t<Args...>, F &&func, I *ptr, std::span<any> args)
@@ -213,7 +220,10 @@ namespace sek
 		constexpr decltype(auto) func_overload::invoke_impl(std::index_sequence<Is...>, F &&func, std::span<any> args)
 		{
 			using arg_seq = type_seq_t<Args...>;
-			return std::invoke(func, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
+			if constexpr (arg_seq::size != 0)
+				return std::invoke(func, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
+			else
+				return std::invoke(func);
 		}
 		template<typename... Args, typename F>
 		constexpr decltype(auto) func_overload::invoke_impl(type_seq_t<Args...>, F &&func, std::span<any> args)
@@ -233,14 +243,11 @@ namespace sek
 			{
 				using instance_type = typename traits::instance_type;
 				if constexpr (!std::is_const_v<instance_type>)
-				{
 					result.invoke_func = +[](const void *, const void *ptr, std::span<any> args)
 					{
 						auto *obj = static_cast<instance_type *>(const_cast<void *>(ptr));
 						return forward_any(invoke_impl(arg_types{}, F, obj, args));
 					};
-					result.is_const = false;
-				}
 				else
 				{
 					result.invoke_func = +[](const void *, const void *ptr, std::span<any> args)
@@ -250,7 +257,7 @@ namespace sek
 					};
 					result.is_const = true;
 				}
-				result.is_static = false;
+				result.instance_type = type_handle{type_selector<instance_type>};
 			}
 			else
 			{
@@ -260,8 +267,6 @@ namespace sek
 					return forward_any(invoke_impl(arg_types{}, F, args));
 				};
 				// clang-format on
-				result.is_static = true;
-				result.is_const = false;
 			}
 			result.args = arg_types_array<arg_types>;
 			result.ret = type_handle{type_selector<return_type>};
@@ -288,15 +293,12 @@ namespace sek
 			{
 				using instance_type = typename traits::instance_type;
 				if constexpr (!std::is_const_v<instance_type>)
-				{
 					result.invoke_func = +[](const void *data, const void *ptr, std::span<any> args)
 					{
 						auto *obj = static_cast<instance_type *>(const_cast<void *>(ptr));
 						auto *func = cast_func(data);
 						return forward_any(invoke_impl(arg_types{}, *func, obj, args));
 					};
-					result.is_const = false;
-				}
 				else
 				{
 					result.invoke_func = +[](const void *data, const void *ptr, std::span<any> args)
@@ -307,7 +309,7 @@ namespace sek
 					};
 					result.is_const = true;
 				}
-				result.is_static = false;
+				result.instance_type = type_handle{type_selector<instance_type>};
 			}
 			else
 			{
@@ -318,8 +320,6 @@ namespace sek
 					return forward_any(invoke_impl(arg_types{}, *func, args));
 				};
 				// clang-format on
-				result.is_static = true;
-				result.is_const = false;
 			}
 			result.args = arg_types_array<arg_types>;
 			result.ret = type_handle{type_selector<return_type>};

@@ -107,7 +107,7 @@ namespace sek
 		auto type_db = type_database::instance().access_shared();
 		auto query = type_db->query().template with_attribute<detail::service_impl_tag>();
 
-		for (auto &type : query)
+		for (auto &type : query.types())
 			if (type.has_attribute(attr_type)) /* Check for the actual service attribute. */
 			{
 				/* Can safely cast to the generic data. */

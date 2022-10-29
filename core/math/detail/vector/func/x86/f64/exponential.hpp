@@ -25,10 +25,7 @@ namespace sek::detail
 	template<policy_t P>
 	inline void vector_rsqrt(vector_data<double, 2, P> &out, const vector_data<double, 2, P> &v) noexcept
 	{
-		if constexpr (!check_policy_v<P, policy_t::PRECISION_MASK, policy_t::FAST>)
-			x86_vector_apply(out, v, [](auto v) { return _mm_div_pd(_mm_set1_pd(1.0f), _mm_sqrt_pd(v)); });
-		else
-			x86_vector_apply(out, v, _mm_rsqrt_pd);
+		x86_vector_apply(out, v, [](auto v) { return _mm_div_pd(_mm_set1_pd(1.0f), _mm_sqrt_pd(v)); });
 	}
 
 	SEK_CORE_PUBLIC __m128d x86_exp_pd(__m128d v) noexcept;
@@ -97,10 +94,7 @@ namespace sek::detail
 	template<std::size_t N, policy_t P>
 	inline void vector_rsqrt(vector_data<double, N, P> &out, const vector_data<double, N, P> &v) noexcept
 	{
-		if constexpr (!check_policy_v<P, policy_t::PRECISION_MASK, policy_t::FAST>)
-			x86_vector_apply(out, v, [](auto v) { return _mm_div_pd(_mm_set1_pd(1.0f), _mm_sqrt_pd(v)); });
-		else
-			x86_vector_apply(out, v, _mm_rsqrt_pd);
+		x86_vector_apply(out, v, [](auto v) { return _mm_div_pd(_mm_set1_pd(1.0f), _mm_sqrt_pd(v)); });
 	}
 #endif
 }	 // namespace sek::detail

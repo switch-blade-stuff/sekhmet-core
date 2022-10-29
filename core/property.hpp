@@ -243,7 +243,7 @@ namespace sek
 		/** Initializes property wrapper with the specified instance and getter.
 		 * @param ptr Pointer to the bound instance.
 		 * @param get Value of the getter functor.
-		 * @note This overload is available only if `std::is_void_v<I>` and `std::is_void_v<Get>` evaluate to `false`. */0
+		 * @note This overload is available only if `std::is_void_v<I>` and `std::is_void_v<Get>` evaluate to `false`. */
 		constexpr property_wrapper(I *ptr, const Get &get) noexcept(std::is_nothrow_default_constructible_v<setter_base> &&
 																	std::is_nothrow_copy_constructible_v<Get>)
 			requires(std::is_copy_constructible_v<Get> && !std::is_void_v<I> && !std::is_void_v<Get>)

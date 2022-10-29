@@ -581,8 +581,8 @@ namespace sek
 		{
 			typedef std::true_type is_transparent;
 
-			constexpr hash_t operator()(const header_t *s) const noexcept { return operator()(s->sv()); }
-			constexpr hash_t operator()(sv_t sv) const noexcept { return fnv1a(sv.data(), sv.size()); }
+			constexpr std::size_t operator()(const header_t *s) const noexcept { return operator()(s->sv()); }
+			constexpr std::size_t operator()(sv_t sv) const noexcept { return fnv1a(sv.data(), sv.size()); }
 		};
 		struct intern_cmp
 		{
@@ -706,7 +706,7 @@ namespace sek
 	}
 
 	template<typename C, typename T>
-	[[nodiscard]] constexpr hash_t hash(const basic_interned_string<C, T> &s) noexcept
+	[[nodiscard]] constexpr std::size_t hash(const basic_interned_string<C, T> &s) noexcept
 	{
 		return fnv1a(s.data(), s.size());
 	}
@@ -799,11 +799,11 @@ struct std::hash<sek::basic_interned_string<C, T>>
 {
 	typedef std::true_type is_transparent;
 
-	[[nodiscard]] constexpr sek::hash_t operator()(const sek::basic_interned_string<C, T> &s) const noexcept
+	[[nodiscard]] constexpr std::size_t operator()(const sek::basic_interned_string<C, T> &s) const noexcept
 	{
 		return sek::fnv1a(s.data(), s.size());
 	}
-	[[nodiscard]] constexpr sek::hash_t operator()(std::basic_string_view<C, T> sv) const noexcept
+	[[nodiscard]] constexpr std::size_t operator()(std::basic_string_view<C, T> sv) const noexcept
 	{
 		return sek::fnv1a(sv.data(), sv.size());
 	}

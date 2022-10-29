@@ -32,7 +32,7 @@ macro(sek_set_build_options)
         endif ()
     elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         # Enable all warnings & errors for the current project & children
-        target_compile_options(${ARGV0} PUBLIC "-Wall" "-Wextra" "-Wno-shadow" "-Wno-unknown-pragmas" "-Wconversion" "-Werror")
+        target_compile_options(${ARGV0} PUBLIC "-Wall" "-Wextra" "-Wno-shadow" "-Wno-unknown-pragmas" "-Wno-attributes" "-Wconversion" "-Werror")
 
         if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
             target_compile_options(${ARGV0} PUBLIC "-fconcepts-diagnostics-depth=32" "-ftemplate-backtrace-limit=0")

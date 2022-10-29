@@ -11,8 +11,6 @@
 
 namespace sek
 {
-	typedef std::size_t hash_t;
-
 	constexpr std::uint32_t crc32_table[] = {
 		0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3, 0x0edb8832,
 		0x79dcb8a4, 0xe0d5e91e, 0x97d2d988, 0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91, 0x1db71064, 0x6ab020f2,
@@ -44,7 +42,7 @@ namespace sek
 		0x24b4a3a6, 0xbad03605, 0xcdd70693, 0x54de5729, 0x23d967bf, 0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94,
 		0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d,
 	};
-	[[nodiscard]] constexpr std::uint32_t crc32(const std::byte *data, std::size_t n) noexcept
+	[[nodiscard]] constexpr std::uint32_t crc32(const std::uint8_t *data, std::size_t n) noexcept
 	{
 		std::uint32_t result = 0xffff'ffff;
 		for (std::size_t i = 0; i < n; i++)
@@ -90,9 +88,9 @@ namespace sek
 		class md5_generator
 		{
 		public:
-			[[nodiscard]] constexpr std::array<std::byte, 16> operator()(const std::byte *data, std::uint64_t n) noexcept
+			[[nodiscard]] constexpr std::array<std::uint8_t, 16> operator()(const std::uint8_t *data, std::uint64_t n) noexcept
 			{
-				update(std::bit_cast<const std::uint8_t *>(data), n);
+				update(data, n);
 				finalize();
 				return digest;
 			}
@@ -183,35 +181,30 @@ namespace sek
 
 				for (unsigned int i = 0; i < 4; ++i)
 				{
-					digest[(i * 4) + 0] = static_cast<std::byte>((buffer[i] & 0x000000ff));
-					digest[(i * 4) + 1] = static_cast<std::byte>((buffer[i] & 0x0000ff00) >> 8);
-					digest[(i * 4) + 2] = static_cast<std::byte>((buffer[i] & 0x00ff0000) >> 16);
-					digest[(i * 4) + 3] = static_cast<std::byte>((buffer[i] & 0xff000000) >> 24);
+					digest[(i * 4) + 0] = static_cast<std::uint8_t>((buffer[i] & 0x000000ff));
+					digest[(i * 4) + 1] = static_cast<std::uint8_t>((buffer[i] & 0x0000ff00) >> 8);
+					digest[(i * 4) + 2] = static_cast<std::uint8_t>((buffer[i] & 0x00ff0000) >> 16);
+					digest[(i * 4) + 3] = static_cast<std::uint8_t>((buffer[i] & 0xff000000) >> 24);
 				}
 			}
 
 			std::uint64_t size = 0;
 			std::uint32_t buffer[4] = {md5_a, md5_b, md5_c, md5_d};
 			std::uint8_t input[64];
-			std::array<std::byte, 16> digest;
+			std::array<std::uint8_t, 16> digest;
 		};
 	}	 // namespace detail
 
-	[[nodiscard]] constexpr std::array<std::byte, 16> md5(const std::byte *data, std::size_t n) noexcept
+	[[nodiscard]] constexpr std::array<std::uint8_t, 16> md5(const std::uint8_t *data, std::size_t n) noexcept
 	{
 		return detail::md5_generator{}(data, n);
 	}
-	[[nodiscard]] constexpr std::array<std::byte, 16> md5(const void *data, std::size_t n) noexcept
+	[[nodiscard]] constexpr std::array<std::uint8_t, 16> md5(const void *data, std::size_t n) noexcept
 	{
-		return md5(static_cast<const std::byte *>(data), n);
-	}
-	template<typename T>
-	[[nodiscard]] constexpr std::array<std::byte, 16> md5(const T *data, std::size_t n) noexcept
-	{
-		return md5(std::bit_cast<const std::byte *>(data), n * sizeof(T));
+		return md5(static_cast<const std::uint8_t *>(data), n);
 	}
 
-	[[nodiscard]] constexpr std::size_t sdbm(const std::uint8_t *data, std::size_t len, uint32_t seed)
+	[[nodiscard]] constexpr std::size_t sdbm(const std::uint8_t *data, std::size_t len, std::uint32_t seed) noexcept
 	{
 		std::size_t result = seed;
 		for (; len > 0; --len, ++data) result = *data + (result << 6) + (result << 16) - result;
@@ -219,17 +212,17 @@ namespace sek
 	}
 
 #if INTPTR_MAX < INT64_MAX
-	constexpr hash_t fnv1a_prime = 0x01000193;
-	constexpr hash_t fnv1a_offset = 0x811c9dc5;
+	constexpr std::size_t fnv1a_prime = 0x01000193;
+	constexpr std::size_t fnv1a_offset = 0x811c9dc5;
 #else
-	constexpr hash_t fnv1a_prime = 0x00000100000001b3;
-	constexpr hash_t fnv1a_offset = 0xcbf29ce484222325;
+	constexpr std::size_t fnv1a_prime = 0x00000100000001b3;
+	constexpr std::size_t fnv1a_offset = 0xcbf29ce484222325;
 #endif
 
 	namespace detail
 	{
 		template<std::size_t Size, std::size_t Byte = 1>
-		[[nodiscard]] constexpr hash_t fnv1a_iteration(std::size_t value, hash_t result) noexcept
+		[[nodiscard]] constexpr std::size_t fnv1a_iteration(std::size_t value, std::size_t result) noexcept
 		{
 			/* Iterating by std::size_t value in order to allow for compile-time evaluation. */
 			if constexpr (Byte <= Size)
@@ -243,34 +236,34 @@ namespace sek
 		}
 	}	 // namespace detail
 
-	template<typename T>
-	[[nodiscard]] constexpr hash_t fnv1a(const T *data, std::size_t len, hash_t seed = fnv1a_offset)
+	template<std::integral T>
+	[[nodiscard]] constexpr std::size_t fnv1a(const T *data, std::size_t len, std::size_t seed = fnv1a_offset) noexcept
 	{
-		hash_t result = seed;
+		std::size_t result = seed;
 		while (len--) { result = detail::fnv1a_iteration<sizeof(T)>(static_cast<std::size_t>(data[len]), result); }
 		return result;
 	}
-	[[nodiscard]] constexpr hash_t byte_hash(const void *data, std::size_t len, hash_t seed = fnv1a_offset) noexcept
+	[[nodiscard]] constexpr std::size_t byte_hash(const void *data, std::size_t len, std::size_t seed = fnv1a_offset) noexcept
 	{
-		return fnv1a(static_cast<const uint8_t *>(data), len, seed);
+		return fnv1a(static_cast<const std::uint8_t *>(data), len, seed);
 	}
 
-	[[nodiscard]] constexpr hash_t hash(std::nullptr_t) noexcept { return 0; }
+	[[nodiscard]] constexpr std::size_t hash(std::nullptr_t) noexcept { return 0; }
 
 	template<std::integral I>
-	[[nodiscard]] constexpr hash_t hash(I value) noexcept
+	[[nodiscard]] constexpr std::size_t hash(I value) noexcept
 	{
-		return static_cast<hash_t>(value);
+		return static_cast<std::size_t>(value);
 	}
 	template<typename T>
-	[[nodiscard]] constexpr hash_t hash(T *value) noexcept
+	[[nodiscard]] constexpr std::size_t hash(T *value) noexcept
 	{
-		return std::bit_cast<hash_t>(value);
+		return std::bit_cast<std::size_t>(value);
 	}
 
 	// clang-format off
 	template<typename E>
-	[[nodiscard]] constexpr hash_t hash(E value) noexcept requires std::is_enum_v<E>
+	[[nodiscard]] constexpr std::size_t hash(E value) noexcept requires std::is_enum_v<E>
 	{
 		return hash(static_cast<std::underlying_type_t<E>>(value));
 	}
@@ -285,19 +278,27 @@ namespace sek
 	 * @return Copy of seed.
 	 * @note Value type must have a hash function defined for it. The function is looked up via ADL. */
 	template<has_hash T>
-	constexpr hash_t hash_combine(hash_t &seed, const T &value) noexcept
+	constexpr std::size_t hash_combine(std::size_t &seed, const T &value) noexcept
 	{
 		return seed = (seed ^ (hash(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2)));
 	}
 
-	template<std::ranges::forward_range R>
-	[[nodiscard]] constexpr hash_t hash(const R &r) noexcept
-		requires has_hash<std::ranges::range_value_t<R>>
+	// clang-format off
+	template<std::ranges::contiguous_range R>
+	[[nodiscard]] constexpr std::size_t hash(const R &r) noexcept requires std::integral<std::ranges::range_value_t<R>>
 	{
-		hash_t result = {};
+		const auto data = std::to_address(std::ranges::begin(r));
+		const auto size = std::ranges::size(r);
+		return fnv1a(data, size);
+	}
+	template<std::ranges::forward_range R>
+	[[nodiscard]] constexpr std::size_t hash(const R &r) noexcept requires(!std::ranges::contiguous_range<R> && has_hash<std::ranges::range_value_t<R>>)
+	{
+		std::size_t result = {};
 		for (const auto &value : r) hash_combine(result, value);
 		return result;
 	}
+	// clang-format on
 
 	namespace detail
 	{
@@ -322,12 +323,12 @@ namespace sek
 	}	 // namespace detail
 
 	template<detail::tuple_like_hash T>
-	[[nodiscard]] constexpr hash_t hash(const T &value) noexcept
+	[[nodiscard]] constexpr std::size_t hash(const T &value) noexcept
 	{
-		hash_t result = hash(std::get<0>(value));
+		std::size_t result = hash(std::get<0>(value));
 		if constexpr (std::tuple_size_v<T> != 1)
 		{
-			constexpr auto unwrap = []<std::size_t... Is>(hash_t & seed, const T &t, std::index_sequence<Is...>)
+			constexpr auto unwrap = []<std::size_t... Is>(std::size_t & seed, const T &t, std::index_sequence<Is...>)
 			{
 				(hash_combine(seed, hash(std::get<Is + 1>(t))), ...);
 			};
@@ -336,7 +337,7 @@ namespace sek
 		return result;
 	}
 	template<detail::pair_like_hash P>
-	[[nodiscard]] constexpr hash_t hash(const P &p) noexcept
+	[[nodiscard]] constexpr std::size_t hash(const P &p) noexcept
 	{
 		auto result = hash(p.first);
 		return hash_combine(result, hash(p.second));
@@ -349,12 +350,13 @@ namespace sek
 		typedef std::true_type is_transparent;
 
 		template<typename T>
-		[[nodiscard]] constexpr hash_t operator()(const T &value) const noexcept
+		[[nodiscard]] constexpr std::size_t operator()(const T &value) const noexcept
 		{
-			if constexpr (has_hash<T>)
-				return hash(value);
-			else
+			using sek::hash;
+			if constexpr (!requires { hash(value); })
 				return std::hash<T>{}(value);
+			else
+				return hash(value);
 		}
 	};
 }	 // namespace sek

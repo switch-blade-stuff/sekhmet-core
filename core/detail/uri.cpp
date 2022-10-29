@@ -472,6 +472,10 @@ namespace sek
 	bool uri::has_components(uri_component mask) const noexcept { return m_data && m_data->has_components(mask); }
 	bool uri::is_local() const noexcept { return has_scheme() && m_value.starts_with("file:"); }
 
+	typename uri::string_view_type uri::host() const noexcept { return view(m_data->host()); }
+
+	uri &uri::set_host(string_view_type) { return *this; }
+
 	uri &uri::set_filename(string_view_type value)
 	{
 		size_type offset = 0;

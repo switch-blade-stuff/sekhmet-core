@@ -89,15 +89,13 @@ namespace sek
 	}
 	type_query &type_query::with_constant(std::string_view name)
 	{
-		const auto pred = [n = name](auto &c) { return c.name() == n; };
-
 		if (!m_started) [[unlikely]]
 		{
 			/* If the query does not have a set yet, go through each reflected type & check it. */
 			for (auto &candidate : m_db.m_type_table)
 			{
 				if (candidate.has_constant(name)) [[unlikely]]
-						m_types.insert(candidate);
+					m_types.insert(candidate);
 			}
 			m_started = true;
 		}
@@ -107,14 +105,13 @@ namespace sek
 			for (auto pos = m_types.end(), end = m_types.begin(); pos-- != end;)
 			{
 				if (!pos->has_constant(name)) [[likely]]
-						m_types.erase(pos);
+					m_types.erase(pos);
 			}
 		}
+		return *this;
 	}
 	type_query &type_query::with_constant(std::string_view name, type_info type)
 	{
-		const auto pred = [n = name](auto &c) { return c.name() == n; };
-
 		if (!m_started) [[unlikely]]
 		{
 			/* If the query does not have a set yet, go through each reflected type & check it. */
@@ -134,6 +131,7 @@ namespace sek
 					m_types.erase(pos);
 			}
 		}
+		return *this;
 	}
 
 	type_query &type_query::inherits_from(type_info type)
@@ -144,29 +142,6 @@ namespace sek
 			for (auto &candidate : m_db.m_type_table)
 			{
 				if (candidate.inherits(type)) [[unlikely]]
-						m_types.insert(candidate);
-			}
-			m_started = true;
-		}
-		else
-		{
-			/* Otherwise, remove all types that are not part of the attribute's set. */
-			for (auto pos = m_types.end(), end = m_types.begin(); pos-- != end;)
-			{
-				if (!pos->inherits(type)) [[likely]]
-						m_types.erase(pos);
-			}
-		}
-	}
-	type_query &type_query::convertible_to(type_info type)
-	{
-		if (!m_started) [[unlikely]]
-		{
-			/* If the query does not have a set yet, go through each reflected type & check it. */
-			for (auto &candidate : m_db.m_type_table)
-			{
-				const auto conversions = candidate.conversions();
-				if (std::ranges::find(conversions, type) == conversions.end()) [[unlikely]]
 					m_types.insert(candidate);
 			}
 			m_started = true;
@@ -176,10 +151,33 @@ namespace sek
 			/* Otherwise, remove all types that are not part of the attribute's set. */
 			for (auto pos = m_types.end(), end = m_types.begin(); pos-- != end;)
 			{
-				const auto conversions = pos->conversions();
-				if (std::ranges::find(conversions, type) == conversions.end()) [[likely]]
+				if (!pos->inherits(type)) [[likely]]
 					m_types.erase(pos);
 			}
 		}
+		return *this;
+	}
+	type_query &type_query::convertible_to(type_info type)
+	{
+		if (!m_started) [[unlikely]]
+		{
+			/* If the query does not have a set yet, go through each reflected type & check it. */
+			for (auto &candidate : m_db.m_type_table)
+			{
+				if (candidate.convertible_to(type)) [[unlikely]]
+					m_types.insert(candidate);
+			}
+			m_started = true;
+		}
+		else
+		{
+			/* Otherwise, remove all types that are not part of the attribute's set. */
+			for (auto pos = m_types.end(), end = m_types.begin(); pos-- != end;)
+			{
+				if (!pos->convertible_to(type)) [[likely]]
+					m_types.erase(pos);
+			}
+		}
+		return *this;
 	}
 }	 // namespace sek

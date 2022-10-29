@@ -47,7 +47,7 @@ namespace sek
 
 	/** Creates an instance of  `std::error_code` from the specified `archive_errc` value.
 	 * Equivalent to `std::error_code{static_cast<int>(e), archive_category()}`. */
-	[[nodiscard]] std::error_code make_error_code(archive_errc e) noexcept
+	[[nodiscard]] inline std::error_code make_error_code(archive_errc e) noexcept
 	{
 		return std::error_code{static_cast<int>(e), archive_category()};
 	}

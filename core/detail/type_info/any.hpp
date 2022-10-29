@@ -89,7 +89,7 @@ namespace sek
 				constexpr auto align = std::align_val_t{alignof(T)};
 				constexpr auto size = sizeof(T);
 
-				auto *ptr = ::operator new(size, align);
+				auto *ptr = static_cast<T *>(::operator new(size, align));
 				std::invoke(std::forward<F>(ctor), ptr, std::forward<Args>(args)...);
 
 				deleter = +[](data_t ptr) { ::operator delete(std::bit_cast<void *>(ptr), size, align); };
@@ -225,9 +225,9 @@ namespace sek
 		 * @param type Type of the pointed-to object.
 		 * @param ptr Pointer to the object.
 		 * @warning If the pointed-to object's type is not the same as `type`, results in undefined behavior. */
-		any(type_info type, void *ptr) noexcept;
+		inline any(type_info type, void *ptr) noexcept;
 		/** @copydoc any */
-		any(type_info type, const void *ptr) noexcept;
+		inline any(type_info type, const void *ptr) noexcept;
 
 		/** Checks if the `any` instance is empty. */
 		[[nodiscard]] constexpr bool empty() const noexcept { return m_type == nullptr; }

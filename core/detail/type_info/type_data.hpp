@@ -39,8 +39,8 @@ namespace sek::detail
 	{
 		typedef std::true_type is_transparent;
 
-		[[nodiscard]] constexpr hash_t operator()(std::string_view type) const noexcept;
-		[[nodiscard]] constexpr hash_t operator()(const type_data *type) const noexcept;
+		[[nodiscard]] constexpr std::size_t operator()(std::string_view type) const noexcept;
+		[[nodiscard]] constexpr std::size_t operator()(const type_data *type) const noexcept;
 	};
 	struct type_data_cmp
 	{
@@ -122,7 +122,7 @@ namespace sek::detail
 	{
 		using type_data_hash::operator();
 
-		[[nodiscard]] constexpr hash_t operator()(const attr_data &data) const noexcept
+		[[nodiscard]] constexpr std::size_t operator()(const attr_data &data) const noexcept
 		{
 			return operator()(data.type.get());
 		}
@@ -180,7 +180,7 @@ namespace sek::detail
 	{
 		using type_data_hash::operator();
 
-		[[nodiscard]] constexpr hash_t operator()(const base_data &data) const noexcept
+		[[nodiscard]] constexpr std::size_t operator()(const base_data &data) const noexcept
 		{
 			return operator()(data.type.get());
 		}
@@ -228,19 +228,21 @@ namespace sek::detail
 		constexpr void swap(conv_data &other) noexcept
 		{
 			std::swap(convert, other.convert);
-			std::swap(type, other.type);
+			std::swap(from_type, other.from_type);
+			std::swap(to_type, other.to_type);
 		}
 
 		any (*convert)(const any &) = nullptr;
-		type_handle type;
+		type_handle from_type;
+		type_handle to_type;
 	};
 	struct conv_hash : type_data_hash
 	{
 		using type_data_hash::operator();
 
-		[[nodiscard]] constexpr hash_t operator()(const conv_data &data) const noexcept
+		[[nodiscard]] constexpr std::size_t operator()(const conv_data &data) const noexcept
 		{
-			return operator()(data.type.get());
+			return operator()(data.to_type.get());
 		}
 	};
 	struct conv_cmp : type_data_cmp
@@ -249,23 +251,23 @@ namespace sek::detail
 
 		[[nodiscard]] constexpr bool operator()(const conv_data &a, const conv_data &b) const noexcept
 		{
-			return &a == &b || operator()(a.type.get(), b.type.get());
+			return &a == &b || operator()(a.to_type.get(), b.to_type.get());
 		}
 		[[nodiscard]] constexpr bool operator()(const type_data *a, const conv_data &b) const noexcept
 		{
-			return operator()(a, b.type.get());
+			return operator()(a, b.to_type.get());
 		}
 		[[nodiscard]] constexpr bool operator()(const conv_data &a, const type_data *b) const noexcept
 		{
-			return operator()(a.type.get(), b);
+			return operator()(a.to_type.get(), b);
 		}
 		[[nodiscard]] constexpr bool operator()(const conv_data &a, std::string_view b) const noexcept
 		{
-			return operator()(a.type.get(), b);
+			return operator()(a.to_type.get(), b);
 		}
 		[[nodiscard]] constexpr bool operator()(std::string_view a, const conv_data &b) const noexcept
 		{
-			return operator()(a, b.type.get());
+			return operator()(a, b.to_type.get());
 		}
 	};
 	using conv_table = dense_set<conv_data, conv_hash, conv_cmp>;
@@ -374,11 +376,11 @@ namespace sek::detail
 	{
 		typedef std::true_type is_transparent;
 
-		[[nodiscard]] constexpr hash_t operator()(std::string_view name) const noexcept
+		[[nodiscard]] constexpr std::size_t operator()(std::string_view name) const noexcept
 		{
 			return fnv1a(name.data(), name.size());
 		}
-		[[nodiscard]] constexpr hash_t operator()(const type_member_data &data) const noexcept
+		[[nodiscard]] constexpr std::size_t operator()(const type_member_data &data) const noexcept
 		{
 			return operator()(data.name);
 		}
@@ -438,15 +440,15 @@ namespace sek::detail
 		{
 			using std::swap;
 			swap(args, other.args);
+			swap(instance_type, other.instance_type);
 			swap(is_const, other.is_const);
-			swap(is_static, other.is_static);
 		}
 
 		[[nodiscard]] constexpr bool operator==(const signature_data &other) const noexcept;
 
 		std::span<const func_arg_data> args;
 
-		bool is_static = false;
+		type_handle instance_type;
 		bool is_const = false;
 	};
 	struct func_overload : generic_type_data, signature_data
@@ -626,11 +628,11 @@ namespace sek::detail
 		return &value;
 	}
 
-	constexpr hash_t type_data_hash::operator()(std::string_view type) const noexcept
+	constexpr std::size_t type_data_hash::operator()(std::string_view type) const noexcept
 	{
 		return fnv1a(type.data(), type.size());
 	}
-	constexpr hash_t type_data_hash::operator()(const type_data *type) const noexcept { return operator()(type->name); }
+	constexpr std::size_t type_data_hash::operator()(const type_data *type) const noexcept { return operator()(type->name); }
 
 	constexpr bool type_data_cmp::operator()(const type_data *a, const type_data *b) const noexcept
 	{
@@ -651,6 +653,7 @@ namespace sek::detail
 	}
 	constexpr bool signature_data::operator==(const signature_data &other) const noexcept
 	{
-		return is_static == other.is_static && is_const == other.is_const && std::ranges::equal(args, other.args);
+		return (instance_type.get == other.instance_type.get || instance_type->name == other.instance_type->name) &&
+			   is_const == other.is_const && std::ranges::equal(args, other.args);
 	}
 }	 // namespace sek::detail

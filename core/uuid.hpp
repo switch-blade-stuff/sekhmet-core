@@ -18,7 +18,7 @@ namespace sek
 		template<typename, typename, typename>
 		friend struct fmt::formatter;
 
-		friend constexpr hash_t hash(const uuid &) noexcept;
+		friend constexpr std::size_t hash(const uuid &) noexcept;
 
 	public:
 		/** @brief Parent for UUID generators. */
@@ -36,10 +36,10 @@ namespace sek
 		};
 
 		/** @brief UUID generator used to generate MD5 hash-based (version 3 variant 1) UUID. */
-		struct version3_t final : public generator
+		struct version3 final : public generator
 		{
 			/** Initializes version 3 UUID generator from a pre-calculated MD5 hash. */
-			constexpr explicit version3_t(std::array<std::byte, 16> hash) noexcept : m_hash(hash)
+			constexpr explicit version3(std::array<std::uint8_t, 16> hash) noexcept : m_hash(hash)
 			{
 				/* Apply version & variant. */
 				constexpr std::uint8_t version_mask = 0b0000'1111;
@@ -47,12 +47,12 @@ namespace sek
 				constexpr std::uint8_t variant_mask = 0b0011'1111;
 				constexpr std::uint8_t variant_bits = 0b1000'0000;
 
-				m_hash[6] = static_cast<std::byte>((static_cast<std::uint8_t>(m_hash[6]) & version_mask) | version_bits);
-				m_hash[8] = static_cast<std::byte>((static_cast<std::uint8_t>(m_hash[8]) & variant_mask) | variant_bits);
+				m_hash[6] = (static_cast<std::uint8_t>(m_hash[6]) & version_mask) | version_bits;
+				m_hash[8] = (static_cast<std::uint8_t>(m_hash[8]) & variant_mask) | variant_bits;
 			}
 			/** Initializes version 3 UUID generator from a namespace and name strings. */
 			template<typename C, typename T>
-			constexpr version3_t(std::basic_string_view<C, T> ns, std::basic_string_view<C, T> name) noexcept
+			constexpr version3(std::basic_string_view<C, T> ns, std::basic_string_view<C, T> name) noexcept
 			{
 				auto full_str = std::basic_string<C, T>{ns};
 				full_str.append(name);
@@ -62,16 +62,15 @@ namespace sek
 			constexpr void operator()(uuid &id) const noexcept final { id.m_bytes = m_hash; }
 
 		private:
-			std::array<std::byte, 16> m_hash;
+			std::array<std::uint8_t, 16> m_hash;
 		};
 		/** @brief UUID generator used to generate a random (version 4 variant 1) UUID.
 		 * @note Seed is based on OS-provided entropy. */
-		struct version4_t final : public generator
+		struct version4 final : public generator
 		{
 			SEK_CORE_PUBLIC void operator()(uuid &) const noexcept final;
 		};
 
-		static const version4_t version4;
 		static const uuid nil;
 
 	private:
@@ -118,9 +117,9 @@ namespace sek
 		{
 		}
 		/** Initializes a UUID from a byte array. */
-		constexpr explicit uuid(std::array<std::byte, 16> data) noexcept : m_bytes(data) {}
+		constexpr explicit uuid(std::array<std::uint8_t, 16> data) noexcept : m_bytes(data) {}
 		/** @copydoc uuid */
-		constexpr explicit uuid(const std::byte (&data)[16]) noexcept { std::copy_n(data, 16, m_bytes.data()); }
+		constexpr explicit uuid(const std::uint8_t (&data)[16]) noexcept { std::copy_n(data, 16, m_bytes.data()); }
 
 		/** Converts the UUID to string.
 		 * @tparam C Character type of the output sequence.
@@ -146,7 +145,7 @@ namespace sek
 		}
 
 		/** Returns array of bytes of this UUID. */
-		[[nodiscard]] constexpr std::array<std::byte, 16> bytes() const noexcept { return m_bytes; }
+		[[nodiscard]] constexpr std::array<std::uint8_t, 16> bytes() const noexcept { return m_bytes; }
 
 		constexpr void swap(uuid &other) noexcept { std::swap(m_bytes, other.m_bytes); }
 		friend constexpr void swap(uuid &a, uuid &b) noexcept { a.swap(b); }
@@ -169,7 +168,7 @@ namespace sek
 					if (c == '-') [[unlikely]]
 						continue;
 					auto idx = i++;
-					m_bytes[idx / 2] |= static_cast<std::byte>(parse_digit(c) << (idx % 2 ? 0 : 4));
+					m_bytes[idx / 2] |= static_cast<std::uint8_t>(parse_digit(c) << (idx % 2 ? 0 : 4));
 				}
 		}
 		template<typename C, typename Iter>
@@ -198,13 +197,15 @@ namespace sek
 			return out;
 		}
 
-		alignas(std::uint64_t[2]) std::array<std::byte, 16> m_bytes = {};
+		alignas(std::uint64_t[2]) std::array<std::uint8_t, 16> m_bytes = {};
 	};
 
-	constexpr uuid::version4_t uuid::version4;
 	constexpr uuid uuid::nil = {};
 
-	[[nodiscard]] constexpr hash_t hash(const uuid &id) noexcept { return fnv1a(id.m_bytes.data(), id.m_bytes.size()); }
+	[[nodiscard]] constexpr std::size_t hash(const uuid &id) noexcept
+	{
+		return fnv1a(id.m_bytes.data(), id.m_bytes.size());
+	}
 
 	namespace literals
 	{
@@ -234,7 +235,7 @@ namespace sek
 template<>
 struct std::hash<sek::uuid>
 {
-	[[nodiscard]] constexpr sek::hash_t operator()(sek::uuid id) const noexcept { return sek::hash(id); }
+	[[nodiscard]] constexpr std::size_t operator()(sek::uuid id) const noexcept { return sek::hash(id); }
 };
 
 template<typename C>

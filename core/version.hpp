@@ -146,7 +146,7 @@ namespace sek
 			return v.patch;
 	}
 
-	[[nodiscard]] constexpr hash_t hash(const version &v) noexcept { return hash(v.as_uint64()); }
+	[[nodiscard]] constexpr std::size_t hash(const version &v) noexcept { return hash(v.as_uint64()); }
 
 	namespace literals
 	{
@@ -176,7 +176,7 @@ namespace sek
 template<>
 struct std::hash<sek::version>
 {
-	[[nodiscard]] constexpr sek::hash_t operator()(const sek::version &v) const noexcept { return sek::hash(v); }
+	[[nodiscard]] constexpr std::size_t operator()(const sek::version &v) const noexcept { return sek::hash(v); }
 };
 template<>
 struct std::tuple_size<sek::version> : std::integral_constant<std::size_t, 3>

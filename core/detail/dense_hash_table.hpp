@@ -57,7 +57,7 @@ namespace sek::detail
 
 		Value value;
 		size_type bucket_next = npos;
-		hash_t hash = {};
+		std::size_t hash = {};
 	};
 
 	template<typename Value, typename Hash, typename Cmp, typename KeyGet>
@@ -310,30 +310,30 @@ namespace sek::detail
 		{
 		}
 		constexpr dense_hash_table(size_type bucket_count, const Cmp &equal, const Hash &hash, const Alloc &alloc)
-			: m_dense_data{dense_alloc{alloc}, equal},
-			  m_sparse_data{std::piecewise_construct,
-							std::forward_as_tuple(bucket_count, npos, sparse_alloc{alloc}),
-							std::forward_as_tuple(hash)}
+			: m_dense{dense_alloc{alloc}, equal},
+			  m_sparse{std::piecewise_construct,
+					   std::forward_as_tuple(bucket_count, npos, sparse_alloc{alloc}),
+					   std::forward_as_tuple(hash)}
 		{
 		}
 		constexpr dense_hash_table(const dense_hash_table &other, const Alloc &alloc)
-			: m_dense_data{std::piecewise_construct,
-						   std::forward_as_tuple(other.value_vector(), dense_alloc{alloc}),
-						   std::forward_as_tuple(other.m_dense_data.second())},
-			  m_sparse_data{std::piecewise_construct,
-							std::forward_as_tuple(other.bucket_vector(), sparse_alloc{alloc}),
-							std::forward_as_tuple(other.m_sparse_data.second())},
+			: m_dense{std::piecewise_construct,
+					  std::forward_as_tuple(other.value_vector(), dense_alloc{alloc}),
+					  std::forward_as_tuple(other.m_dense.second())},
+			  m_sparse{std::piecewise_construct,
+					   std::forward_as_tuple(other.bucket_vector(), sparse_alloc{alloc}),
+					   std::forward_as_tuple(other.m_sparse.second())},
 			  max_load_factor{other.max_load_factor}
 		{
 		}
 
 		constexpr dense_hash_table(dense_hash_table &&other, const Alloc &alloc)
-			: m_dense_data{std::piecewise_construct,
-						   std::forward_as_tuple(std::move(other.value_vector()), dense_alloc{alloc}),
-						   std::forward_as_tuple(std::move(other.m_dense_data.second()))},
-			  m_sparse_data{std::piecewise_construct,
-							std::forward_as_tuple(std::move(other.bucket_vector()), sparse_alloc{alloc}),
-							std::forward_as_tuple(std::move(other.m_sparse_data.second()))},
+			: m_dense{std::piecewise_construct,
+					  std::forward_as_tuple(std::move(other.value_vector()), dense_alloc{alloc}),
+					  std::forward_as_tuple(std::move(other.m_dense.second()))},
+			  m_sparse{std::piecewise_construct,
+					   std::forward_as_tuple(std::move(other.bucket_vector()), sparse_alloc{alloc}),
+					   std::forward_as_tuple(std::move(other.m_sparse.second()))},
 			  max_load_factor{other.max_load_factor}
 		{
 		}
@@ -533,41 +533,38 @@ namespace sek::detail
 		// clang-format on
 
 		[[nodiscard]] constexpr auto allocator() const noexcept { return value_vector().get_allocator(); }
-		[[nodiscard]] constexpr auto &get_hash() const noexcept { return m_sparse_data.second(); }
-		[[nodiscard]] constexpr auto &get_comp() const noexcept { return m_dense_data.second(); }
+		[[nodiscard]] constexpr auto &get_hash() const noexcept { return m_sparse.second(); }
+		[[nodiscard]] constexpr auto &get_comp() const noexcept { return m_dense.second(); }
 
 		constexpr void swap(dense_hash_table &other) noexcept
 		{
 			using std::swap;
-			swap(m_sparse_data, other.m_sparse_data);
-			swap(m_dense_data, other.m_dense_data);
+			swap(m_sparse, other.m_sparse);
+			swap(m_dense, other.m_dense);
 			swap(max_load_factor, other.max_load_factor);
 		}
 
 	private:
-		[[nodiscard]] constexpr dense_data &value_vector() noexcept { return m_dense_data.first(); }
-		[[nodiscard]] constexpr const dense_data &value_vector() const noexcept { return m_dense_data.first(); }
-		[[nodiscard]] constexpr sparse_data &bucket_vector() noexcept { return m_sparse_data.first(); }
-		[[nodiscard]] constexpr const sparse_data &bucket_vector() const noexcept { return m_sparse_data.first(); }
+		[[nodiscard]] constexpr dense_data &value_vector() noexcept { return m_dense.first(); }
+		[[nodiscard]] constexpr const dense_data &value_vector() const noexcept { return m_dense.first(); }
+		[[nodiscard]] constexpr sparse_data &bucket_vector() noexcept { return m_sparse.first(); }
+		[[nodiscard]] constexpr const sparse_data &bucket_vector() const noexcept { return m_sparse.first(); }
 
-		[[nodiscard]] constexpr auto key_hash(const auto &k) const { return m_sparse_data.second()(k); }
-		[[nodiscard]] constexpr auto key_comp(const auto &a, const auto &b) const
-		{
-			return m_dense_data.second()(a, b);
-		}
+		[[nodiscard]] constexpr auto key_hash(const auto &k) const { return m_sparse.second()(k); }
+		[[nodiscard]] constexpr auto key_comp(const auto &a, const auto &b) const { return m_dense.second()(a, b); }
 
-		[[nodiscard]] constexpr size_type *get_chain(hash_t h) noexcept
+		[[nodiscard]] constexpr size_type *get_chain(std::size_t h) noexcept
 		{
-			const auto idx = h % bucket_vector().size();
+			const auto idx = h % bucket_count();
 			return bucket_vector().data() + idx;
 		}
-		[[nodiscard]] constexpr const size_type *get_chain(hash_t h) const noexcept
+		[[nodiscard]] constexpr const size_type *get_chain(std::size_t h) const noexcept
 		{
-			const auto idx = h % bucket_vector().size();
+			const auto idx = h % bucket_count();
 			return bucket_vector().data() + idx;
 		}
 
-		[[nodiscard]] constexpr size_type find_impl(hash_t h, const auto &key) const noexcept
+		[[nodiscard]] constexpr size_type find_impl(std::size_t h, const auto &key) const noexcept
 		{
 			for (auto *idx = get_chain(h); *idx != npos;)
 				if (auto &entry = value_vector()[*idx]; entry.hash == h && key_comp(key, entry.key()))
@@ -578,7 +575,7 @@ namespace sek::detail
 		}
 
 		template<typename... Args>
-		[[nodiscard]] constexpr iterator insert_new(hash_t h, auto *chain_idx, Args &&...args)
+		[[nodiscard]] constexpr iterator insert_new(std::size_t h, auto *chain_idx, Args &&...args)
 		{
 			const auto pos = *chain_idx = size();
 			value_vector().emplace_back(std::forward<Args>(args)...).hash = h;
@@ -651,7 +648,7 @@ namespace sek::detail
 			}
 		}
 
-		constexpr auto erase_impl(hash_t h, const auto &key)
+		constexpr auto erase_impl(std::size_t h, const auto &key)
 		{
 			/* Remove the entry from its chain. */
 			for (auto *chain_idx = get_chain(h); *chain_idx != npos;)
@@ -685,8 +682,8 @@ namespace sek::detail
 			return end();
 		}
 
-		packed_pair<dense_data, Cmp> m_dense_data;
-		packed_pair<sparse_data, Hash> m_sparse_data = {sparse_data(initial_capacity, npos), Hash{}};
+		packed_pair<dense_data, Cmp> m_dense;
+		packed_pair<sparse_data, Hash> m_sparse = {sparse_data(initial_capacity, npos), Hash{}};
 
 	public:
 		float max_load_factor = initial_load_factor;

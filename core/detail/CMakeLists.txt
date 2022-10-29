@@ -30,7 +30,6 @@ list(APPEND SEK_CORE_PRIVATE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/logger.cpp
         ${CMAKE_CURRENT_LIST_DIR}/plugin.cpp
         ${CMAKE_CURRENT_LIST_DIR}/service.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/config.cpp
 
         ${CMAKE_CURRENT_LIST_DIR}/intern.cpp
         ${CMAKE_CURRENT_LIST_DIR}/object.cpp

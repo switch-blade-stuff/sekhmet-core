@@ -45,13 +45,13 @@ namespace sek
 			typedef std::true_type is_transparent;
 
 			template<typename T>
-			constexpr hash_t operator()(const T &name) const noexcept
+			constexpr std::size_t operator()(const T &name) const noexcept
 				requires std::is_convertible_v<T, std::string_view>
 			{
 				const auto sv = static_cast<std::string_view>(name);
 				return fnv1a(sv.data(), sv.size());
 			}
-			constexpr hash_t operator()(const type_info &type) const noexcept { return hash(type); }
+			constexpr std::size_t operator()(const type_info &type) const noexcept { return hash(type); }
 		};
 
 		using type_table_t = dense_set<type_info, type_hash, type_cmp>;
