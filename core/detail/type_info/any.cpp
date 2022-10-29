@@ -28,7 +28,7 @@ namespace sek
 	{
 		if (!empty() && !is_ref()) [[likely]]
 		{
-			m_type->dtor.invoke(data());
+			m_type->destructor.invoke(data());
 			m_storage.do_delete();
 		}
 	}
@@ -69,13 +69,13 @@ namespace sek
 	any any::as(type_info to_type) const { return as_impl(to_type, true); }
 	any any::as_impl(type_info to_type, bool const_ref) const
 	{
-		/* Do not use `ref()` to enable const-ness override. */
+		/* Do not use `ref()` to enable constness override. */
 		if (type() == to_type) return any{m_type, {cdata(), const_ref}};
 
 		const auto to_any = [&](detail::type_handle h, const void *ptr) { return any{h.get(), {ptr, const_ref}}; };
 		const auto data_ptr = cdata();
 
-		if (auto parent = m_type->parents.find(to_type.m_data); parent != m_type->parents.end()) [[likely]]
+		if (const auto parent = m_type->parents.find(to_type.m_data); parent != m_type->parents.end()) [[likely]]
 			return to_any(parent->type, parent->cast(data_ptr));
 		for (auto &parent : m_type->parents)
 		{
@@ -86,61 +86,21 @@ namespace sek
 		return {};
 	}
 
-	expected<any_range, std::error_code> any::range(std::nothrow_t)
+	any any::conv(type_info to_type) const
 	{
-		if (empty()) [[unlikely]]
-			return unexpected{make_error_code(type_errc::UNEXPECTED_EMPTY_ANY)};
-		else if (m_type->range_data == nullptr) [[unlikely]]
-			return unexpected{make_error_code(type_errc::INVALID_TYPE)};
-		return any_range{std::in_place, ref()};
-	}
-	expected<any_range, std::error_code> any::range(std::nothrow_t) const
-	{
-		if (empty()) [[unlikely]]
-			return unexpected{make_error_code(type_errc::UNEXPECTED_EMPTY_ANY)};
-		else if (m_type->range_data == nullptr) [[unlikely]]
-			return unexpected{make_error_code(type_errc::INVALID_TYPE)};
-		return any_range{std::in_place, ref()};
-	}
-	expected<any_table, std::error_code> any::table(std::nothrow_t)
-	{
-		if (empty()) [[unlikely]]
-			return unexpected{make_error_code(type_errc::UNEXPECTED_EMPTY_ANY)};
-		else if (m_type->table_data == nullptr) [[unlikely]]
-			return unexpected{make_error_code(type_errc::INVALID_TYPE)};
-		return any_table{std::in_place, ref()};
-	}
-	expected<any_table, std::error_code> any::table(std::nothrow_t) const
-	{
-		if (empty()) [[unlikely]]
-			return unexpected{make_error_code(type_errc::UNEXPECTED_EMPTY_ANY)};
-		else if (m_type->table_data == nullptr) [[unlikely]]
-			return unexpected{make_error_code(type_errc::INVALID_TYPE)};
-		return any_table{std::in_place, ref()};
-	}
-	expected<any_tuple, std::error_code> any::tuple(std::nothrow_t)
-	{
-		if (empty()) [[unlikely]]
-			return unexpected{make_error_code(type_errc::UNEXPECTED_EMPTY_ANY)};
-		else if (m_type->tuple_data == nullptr) [[unlikely]]
-			return unexpected{make_error_code(type_errc::INVALID_TYPE)};
-		return any_tuple{std::in_place, ref()};
-	}
-	expected<any_tuple, std::error_code> any::tuple(std::nothrow_t) const
-	{
-		if (empty()) [[unlikely]]
-			return unexpected{make_error_code(type_errc::UNEXPECTED_EMPTY_ANY)};
-		else if (m_type->tuple_data == nullptr) [[unlikely]]
-			return unexpected{make_error_code(type_errc::INVALID_TYPE)};
-		return any_tuple{std::in_place, ref()};
-	}
+		/* Return a copy of `this` if the types are the same. */
+		if (type() == to_type) return *this;
 
-	any_range any::range() { return any_range{ref()}; }
-	any_range any::range() const { return any_range{ref()}; }
-	any_table any::table() { return any_table{ref()}; }
-	any_table any::table() const { return any_table{ref()}; }
-	any_tuple any::tuple() { return any_tuple{ref()}; }
-	any_tuple any::tuple() const { return any_tuple{ref()}; }
+		if (const auto conv = m_type->conversions.find(to_type.m_data); conv != m_type->conversions.end()) [[likely]]
+			return conv->convert(*this);
+		for (auto &conv : m_type->conversions)
+		{
+			auto result = conv.convert(*this).conv(to_type);
+			if (!result.empty()) [[likely]]
+				return result;
+		}
+		return {};
+	}
 
 	bool operator==(const any &a, const any &b) noexcept
 	{

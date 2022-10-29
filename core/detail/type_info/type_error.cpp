@@ -22,7 +22,7 @@ namespace sek
 		[[nodiscard]] std::string param_message(type_errc errc) const
 		{
 			constexpr auto param_errc_mask = ~(type_errc::PARAM_MASK | type_errc::INVALID_PARAM);
-			const auto arg_idx = static_cast<std::uint8_t>(errc & type_errc::PARAM_MASK);
+			const auto arg_idx = static_cast<std::uint16_t>(errc & type_errc::PARAM_MASK);
 			if ((errc & param_errc_mask) != type_errc{})
 				return fmt::format("Invalid argument ({}): {}", arg_idx, message(errc & param_errc_mask));
 			else

@@ -38,16 +38,16 @@ namespace sek
 		constexpr conv_data conv_data::make_instance() noexcept
 		{
 			conv_data result;
-			result.convert = +[](any value) -> any
+			result.convert = +[](const any &value) -> any
 			{
 				if (requires(const From &value) { Conv{}(value); } && !value.is_const())
 				{
-					auto *obj = static_cast<From *>(value.data());
+					auto *obj = static_cast<From *>(const_cast<void *>(value.data()));
 					return forward_any(Conv{}(*obj));
 				}
 				else
 				{
-					auto *obj = static_cast<const From *>(value.cdata());
+					auto *obj = static_cast<const From *>(value.data());
 					return forward_any(Conv{}(*obj));
 				}
 			};
@@ -199,36 +199,36 @@ namespace sek
 		}
 
 		template<typename I, typename... Args, typename F, std::size_t... Is>
-		constexpr decltype(auto) func_data::invoke_impl(std::index_sequence<Is...>, F &&func, I *ptr, std::span<any> args)
+		constexpr decltype(auto) func_overload::invoke_impl(std::index_sequence<Is...>, F &&func, I *ptr, std::span<any> args)
 		{
 			using arg_seq = type_seq_t<Args...>;
 			return std::invoke(func, ptr, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
 		}
 		template<typename I, typename... Args, typename F>
-		constexpr decltype(auto) func_data::invoke_impl(type_seq_t<Args...>, F &&func, I *ptr, std::span<any> args)
+		constexpr decltype(auto) func_overload::invoke_impl(type_seq_t<Args...>, F &&func, I *ptr, std::span<any> args)
 		{
 			return invoke_impl<I, Args...>(std::index_sequence<sizeof...(Args)>{}, std::forward<F>(func), ptr, args);
 		}
 		template<typename... Args, typename F, std::size_t... Is>
-		constexpr decltype(auto) func_data::invoke_impl(std::index_sequence<Is...>, F &&func, std::span<any> args)
+		constexpr decltype(auto) func_overload::invoke_impl(std::index_sequence<Is...>, F &&func, std::span<any> args)
 		{
 			using arg_seq = type_seq_t<Args...>;
 			return std::invoke(func, forward_any_arg<pack_element_t<Is, arg_seq>>(args[Is])...);
 		}
 		template<typename... Args, typename F>
-		constexpr decltype(auto) func_data::invoke_impl(type_seq_t<Args...>, F &&func, std::span<any> args)
+		constexpr decltype(auto) func_overload::invoke_impl(type_seq_t<Args...>, F &&func, std::span<any> args)
 		{
 			return invoke_impl<Args...>(std::index_sequence<sizeof...(Args)>{}, std::forward<F>(func), args);
 		}
 
 		template<typename T, auto F>
-		constexpr func_data func_data::make_instance() noexcept
+		constexpr func_overload func_overload::make_instance() noexcept
 		{
 			using traits = func_traits<F>;
 			using arg_types = typename traits::arg_types;
 			using return_type = typename traits::return_type;
 
-			func_data result;
+			func_overload result;
 			if constexpr (requires { typename traits::instance_type; })
 			{
 				using instance_type = typename traits::instance_type;
@@ -268,7 +268,7 @@ namespace sek
 			return result;
 		}
 		template<typename T, typename F, typename... FArgs>
-		func_data func_data::make_instance(FArgs &&...f_args)
+		func_overload func_overload::make_instance(FArgs &&...f_args)
 		{
 			using traits = callable_traits<F>;
 			using arg_types = typename traits::arg_types;
@@ -282,7 +282,7 @@ namespace sek
 					return static_cast<const F *>(ptr);
 			};
 
-			func_data result;
+			func_overload result;
 			result.template init<F>(std::forward<FArgs>(f_args)...);
 			if constexpr (requires { typename traits::instance_type; })
 			{
@@ -341,7 +341,7 @@ namespace sek
 			if constexpr (std::is_destructible_v<T> && !std::same_as<T, any>)
 			{
 				/* Add default constructors & destructor. */
-				result.dtor = dtor_data::make_instance<T>();
+				result.destructor = dtor_data::make_instance<T>();
 				if constexpr (std::is_default_constructible_v<T>)
 					result.constructors.emplace_back(ctor_data::make_instance<T>(type_seq<>));
 				if constexpr (std::is_copy_constructible_v<T>)
@@ -354,18 +354,13 @@ namespace sek
 					result.conversions.insert(conv_data::make_instance<T, underlying_t>());
 					result.enum_type = type_handle{type_selector<underlying_t>};
 				}
-				if constexpr (std::signed_integral<T> || std::is_convertible_v<T, std::intmax_t>)
+				if constexpr (std::signed_integral<T> || std::convertible_to<T, std::intmax_t>)
 					result.conversions.insert(conv_data::make_instance<T, std::intmax_t>());
-				if constexpr (std::unsigned_integral<T> || std::is_convertible_v<T, std::uintmax_t>)
+				if constexpr (std::unsigned_integral<T> || std::convertible_to<T, std::uintmax_t>)
 					result.conversions.insert(conv_data::make_instance<T, std::uintmax_t>());
-				if constexpr (std::floating_point<T> || std::is_convertible_v<T, long double>)
+				if constexpr (std::floating_point<T> || std::convertible_to<T, long double>)
 					result.conversions.insert(conv_data::make_instance<T, long double>());
 
-				/* Add range, tuple & string bindings. */
-				if constexpr (std::ranges::forward_range<T>) result.range_data = &range_type_data::instance<T>;
-				if constexpr (table_range_type<T>) result.table_data = &table_type_data::instance<T>;
-				if constexpr (tuple_like<T>) result.tuple_data = &tuple_type_data::instance<T>;
-				if constexpr (string_like_type<T>) result.string_data = &string_type_data::instance<T>;
 				result.any_funcs = any_vtable::make_instance<T>();
 			}
 			return result;
@@ -451,8 +446,8 @@ namespace sek
 		 * };
 		 *
 		 * sek:type_info::reflect<my_enum>()
-		 * 		.constant<"MY_VALUE_1", my_enum::MY_VALUE_1>()
-		 * 		.constant<"MY_VALUE_2", my_enum::MY_VALUE_2>();
+		 * 	.constant<my_enum::MY_VALUE_1>("MY_VALUE_1")
+		 * 	.constant<my_enum::MY_VALUE_2>("MY_VALUE_2");
 		 * @endcode */
 		template<auto Value>
 		type_factory &constant(std::string_view name)
@@ -484,8 +479,8 @@ namespace sek
 		 * };
 		 *
 		 * sek:type_info::reflect<my_enum>()
-		 * 		.constant<"MY_VALUE_1", get_my_value_1>()
-		 * 		.constant<"MY_VALUE_2", get_my_value_2>();
+		 * 	.constant<get_my_value_1>("MY_VALUE_1")
+		 * 	.constant<get_my_value_2>("MY_VALUE_2");
 		 * @endcode */
 		template<std::invocable Factory>
 		type_factory &constant(std::string_view name)
@@ -497,7 +492,87 @@ namespace sek
 			return *this;
 		}
 
+		/** @brief Adds a static or member function to the type and changes the attribute target.
+		 *
+		 * If `F` is a free function or a functor that accepts pointer to `T` as the first argument,
+		 * it is treated as a member function instead. Additionally, if the first argument is a const
+		 * `T` pointer, the function is treated as a constant member function. If a function with the
+		 * same name but different arguments already exists, creates an overload.
+		 *
+		 * @tparam F Free or member function pointer, or a functor instance.
+		 * @param name Name of the function.
+		 * @return Reference to this type factory.
+		 *
+		 * @example
+		 * @code{cpp}
+		 * sek:type_info::reflect<my_type>()
+		 * 	.function<&my_type::member_func>("member_func")
+		 * 	.function<my_type::static_func>("static_func")
+		 * 	.function<functor_type{}>("functor");
+		 * @endcode */
+		template<auto F>
+		type_factory &function(std::string_view name)
+		{
+			return function_impl(name, detail::func_overload::make_instance<T, F>());
+		}
+		/** @copybrief function
+		 *
+		 * If `F` accepts pointer to `T` as the first argument, it is treated as a member function instead.
+		 * Additionally, if the first argument is a const `T` pointer, the function is treated as a constant member
+		 * function. If a function with the same name but different arguments already exists, creates an overload.
+		 *
+		 * @tparam F Functor to use as a member function.
+		 * @param name Name of the function.
+		 * @param args Arguments passed to constructor of `F`.
+		 * @return Reference to this type factory.
+		 *
+		 * @example
+		 * @code{cpp}
+		 *
+		 * struct mem_func
+		 * {
+		 * 		void operator()(my_type *) const;
+		 * };
+		 * struct const_mem_func
+		 * {
+		 * 		void operator()(const my_type *) const;
+		 * };
+		 * struct static_func
+		 * {
+		 * 		void operator()(const my_type *) const;
+		 * };
+		 *
+		 * sek:type_info::reflect<my_type>()
+		 * 	.function<mem_func>("member_func")			// Mutable overload of `member_func`
+		 * 	.function<const_mem_func>("member_func")	// Constant overload of `member_func`
+		 * 	.function<static_func>("static_func");
+		 * @endcode */
+		template<std::invocable F, typename... Args>
+		type_factory &function(std::string_view name, Args &&...args)
+		{
+			static_assert(std::constructible_from<F, Args...>);
+			return function_impl(name, detail::func_overload::make_instance<T, F>(std::forward<Args>(args)...));
+		}
+
 	private:
+		type_factory &function_impl(std::string_view name, detail::func_overload &&overload)
+		{
+			/* Create the function entry. */
+			auto func = m_data->functions.find(name);
+			if (func == m_data->functions.end()) [[unlikely]]
+				func = m_data->functions.emplace(name).first;
+
+			/* Create or replace the function overload. */
+			auto target = std::ranges::find(func->overloads, overload);
+			if (target == func->overloads.end()) [[likely]]
+				target = func->overloads.emplace(func->overloads.end(), std::move(overload));
+			else
+				*target = std::move(overload);
+
+			m_target = &target->attributes;
+			return *this;
+		}
+
 		db_handle m_db;
 		detail::attr_table *m_target = nullptr;
 		detail::type_data *m_data = nullptr;

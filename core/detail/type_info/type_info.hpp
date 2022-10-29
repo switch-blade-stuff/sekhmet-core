@@ -5,10 +5,6 @@
 #pragma once
 
 #include "any.hpp"
-#include "any_range.hpp"
-#include "any_string.hpp"
-#include "any_table.hpp"
-#include "any_tuple.hpp"
 #include "type_factory.hpp"
 
 namespace sek
@@ -266,8 +262,11 @@ namespace sek
 			return handle_t{type_selector<std::remove_cvref_t<T>>};
 		}
 
-		static auto find_overload(auto &range, std::span<type_info> args);
-		static auto find_overload(auto &range, std::span<any> args);
+		static bool check_arg(const detail::func_arg_data &exp, any &value) noexcept;
+		static auto find_overload(std::vector<detail::ctor_data> &range, std::span<any> args) noexcept;
+		static auto find_overload(std::vector<detail::func_overload> &range, any &instance, std::span<any> args) noexcept;
+
+		static std::error_code convert_args(std::span<const detail::func_arg_data> expected, std::span<any> args);
 
 		constexpr explicit type_info(data_t *data) noexcept : m_data(data) {}
 		constexpr explicit type_info(handle_t handle) noexcept : m_data(handle.get ? handle.get() : nullptr) {}
@@ -291,8 +290,6 @@ namespace sek
 		/** Checks if the referenced type is `std::nullptr_t`, or can be implicitly converted to `std::nullptr_t`. */
 		[[nodiscard]] constexpr bool is_nullptr() const noexcept { return valid() && m_data->is_nullptr; }
 
-		/** Checks if the referenced type is an enum (as if via `std::is_enum_v`). */
-		[[nodiscard]] constexpr bool is_enum() const noexcept { return valid() && m_data->enum_type.get; }
 		/** Checks if the referenced type is a signed integral type or can be implicitly converted to `std::intptr_t`. */
 		[[nodiscard]] constexpr bool is_signed() const noexcept { return valid() && m_data->is_int; }
 		/** Checks if the referenced type is an unsigned integral type or can be implicitly converted to `std::uintptr_t`. */
@@ -300,29 +297,12 @@ namespace sek
 		/** Checks if the referenced type is a floating-point type or can be implicitly converted to `long double`. */
 		[[nodiscard]] constexpr bool is_floating() const noexcept { return valid() && m_data->is_float; }
 
-		/** Checks if the referenced type is a range. */
-		[[nodiscard]] constexpr bool is_range() const noexcept { return valid() && m_data->range_data; }
-		/** Checks if the referenced type is a table (range who's value type is a key-value pair). */
-		[[nodiscard]] constexpr bool is_table() const noexcept { return valid() && m_data->table_data; }
-		/** Checks if the referenced type is tuple-like. */
-		[[nodiscard]] constexpr bool is_tuple() const noexcept { return valid() && m_data->tuple_data; }
-		/** Checks if the referenced type is string-like. */
-		[[nodiscard]] constexpr bool is_string() const noexcept { return valid() && m_data->string_data; }
-
+		/** Checks if the referenced type is an enum (as if via `std::is_enum_v`). */
+		[[nodiscard]] constexpr bool is_enum() const noexcept { return valid() && m_data->enum_type.get; }
 		/** Returns the referenced type of an enum (as if via `std::underlying_type_t`), or an invalid type info it the type is not an enum. */
 		[[nodiscard]] constexpr type_info enum_type() const noexcept
 		{
 			return valid() ? type_info{m_data->enum_type} : type_info{};
-		}
-		/** Returns the size of the tuple, or `0` if the type is not a tuple. */
-		[[nodiscard]] constexpr std::size_t tuple_size() const noexcept
-		{
-			return is_tuple() ? m_data->tuple_data->types.size() : 0;
-		}
-		/** Returns the `i`th element type of the tuple, or an invalid type info if the type is not a tuple or `i` is out of range. */
-		[[nodiscard]] constexpr type_info tuple_element(std::size_t i) const noexcept
-		{
-			return i < tuple_size() ? type_info{m_data->tuple_data->types[i]} : type_info{};
 		}
 
 		/** Returns a view of attributes of the referenced type. */
@@ -394,6 +374,16 @@ namespace sek
 		[[nodiscard]] bool inherits() const noexcept
 		{
 			return inherits(get<T>());
+		}
+
+		/** Checks if the referenced type has a defined conversion to another type.
+		 * @note Does not check if types are the same. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool convertible_to(type_info type) const noexcept;
+		/** @copydoc convertible_to */
+		template<typename T>
+		[[nodiscard]] bool convertible_to() const noexcept
+		{
+			return convertible_to(get<T>());
 		}
 
 		/** Constructs an instance of the referenced type using the provided arguments.
@@ -562,117 +552,6 @@ namespace sek
 	{
 		return static_cast<const T *>(as(type_info::get<T>()).data());
 	}
-	// clang-format on
-
-	constexpr type_info any_range::value_type() const noexcept { return type_info{m_data->value_type}; }
-
-	constexpr type_info any_table::value_type() const noexcept { return type_info{m_data->value_type}; }
-	constexpr type_info any_table::key_type() const noexcept { return type_info{m_data->key_type}; }
-	constexpr type_info any_table::mapped_type() const noexcept { return type_info{m_data->mapped_type}; }
-
-	constexpr type_info any_tuple::element(std::size_t i) const noexcept
-	{
-		return i < size() ? type_info{m_data->types[i]} : type_info{};
-	}
-
-	constexpr type_info any_string::char_type() const noexcept { return type_info{m_data->char_type}; }
-	constexpr type_info any_string::value_type() const noexcept { return type_info{m_data->char_type}; }
-	constexpr type_info any_string::traits_type() const noexcept { return type_info{m_data->traits_type}; }
-
-	template<typename C>
-	C *any_string::chars()
-	{
-		if (char_type() != type_info::get<C>()) [[unlikely]]
-			return nullptr;
-		return static_cast<C *>(data());
-	}
-	template<typename C>
-	const C *any_string::chars() const
-	{
-		if (char_type() != type_info::get<C>()) [[unlikely]]
-			return nullptr;
-		return static_cast<C *>(data());
-	}
-
-	template<typename Sc, typename C, typename T, typename A>
-	bool any_string::convert_with(std::basic_string<C, T, A> &dst, const std::locale &l, const A &a) const
-	{
-		/* Ignore this overload if the type is different. */
-		if (char_type() != type_info::get<Sc>()) [[likely]]
-			return false;
-
-		if constexpr (std::same_as<Sc, C>)
-			dst.assign(static_cast<const Sc *>(data()), size());
-		else
-		{
-			using tmp_alloc_t = typename std::allocator_traits<A>::template rebind_alloc<char>;
-			using tmp_traits_t = std::conditional_t<std::same_as<C, char>, T, std::char_traits<char>>;
-			using tmp_string_t = std::basic_string<char, tmp_traits_t, tmp_alloc_t>;
-			using conv_from_t = std::codecvt<Sc, char, std::mbstate_t>;
-			using conv_to_t = std::codecvt<C, char, std::mbstate_t>;
-
-			/* If `Sc` is not `char`, use codecvt to convert to `char`. Otherwise, directly copy the string. */
-			auto temp_buffer = tmp_string_t{tmp_alloc_t{a}};
-
-			if constexpr (std::same_as<Sc, char>)
-				temp_buffer.assign(static_cast<const Sc *>(data()), size());
-			else
-			{
-				auto &conv = std::use_facet<conv_from_t>(l);
-				const auto *src_start = static_cast<const Sc *>(data());
-				const auto *src_end = src_start + size();
-				do_convert(src_start, src_end, temp_buffer, conv);
-			}
-			/* If `C` is not `char`, preform a second conversion. Otherwise, use the temporary buffer. */
-			if constexpr (std::same_as<C, char>)
-				dst = std::move(std::basic_string<C, T, A>{temp_buffer});
-			else
-			{
-				auto &conv = std::use_facet<conv_to_t>(l);
-				const auto *src_end = temp_buffer.data() + temp_buffer.size();
-				const auto *src_start = temp_buffer.data();
-				do_convert(src_start, src_end, dst, conv);
-			}
-		}
-		return true;
-	}
-	template<typename C, typename T, typename A>
-	expected<std::basic_string<C, T, A>, std::error_code> any_string::as_str(std::nothrow_t, const std::locale &l, const A &a) const
-	{
-		/* Check if the requested type it is one of the standard character types.
-		 * If so, convert using `std::codecvt`. Otherwise, return type error. */
-		expected<std::basic_string<C, T, A>, std::error_code> result;
-		if (convert_with<char>(*result, l, a) || convert_with<wchar_t>(*result, l, a) || convert_with<char8_t>(*result, l, a) ||
-			convert_with<char16_t>(*result, l, a) || convert_with<char32_t>(*result, l, a)) [[likely]]
-			return result;
-
-		/* Characters are incompatible and cannot be converted via codecvt. */
-		return unexpected{make_error_code(type_errc::INVALID_TYPE)};
-	}
-	template<typename C, typename T, typename A>
-	std::basic_string<C, T, A> any_string::as_str(const std::locale &l, const A &a) const
-	{
-		/* Check if the requested type it is one of the standard character types.
-		 * If so, convert using `std::codecvt`. Otherwise throw. */
-		std::basic_string<C, T, A> result;
-		if (convert_with<char>(result, l, a) || convert_with<wchar_t>(result, l, a) || convert_with<char8_t>(result, l, a) ||
-			convert_with<char16_t>(result, l, a) || convert_with<char32_t>(result, l, a)) [[likely]]
-			return result;
-
-		/* Characters are incompatible and cannot be converted via codecvt. */
-		throw type_error(make_error_code(type_errc::INVALID_TYPE), "Cannot convert to requested string type");
-	}
-
-	// clang-format off
-	extern template SEK_API_IMPORT expected<std::basic_string<char>, std::error_code> any_string::as_str(
-		std::nothrow_t, const std::locale &, const typename std::basic_string<char>::allocator_type &) const;
-	extern template SEK_API_IMPORT expected<std::basic_string<wchar_t>, std::error_code> any_string::as_str(
-		std::nothrow_t, const std::locale &, const typename std::basic_string<wchar_t>::allocator_type &) const;
-
-	extern template SEK_API_IMPORT std::basic_string<char> any_string::as_str(
-		const std::locale &, const typename std::basic_string<char>::allocator_type &) const;
-	extern template SEK_API_IMPORT std::basic_string<wchar_t> any_string::as_str(
-		const std::locale &, const typename std::basic_string<wchar_t>::allocator_type &) const;
 	// clang-format on
 
 	/* Type names for reflection types. */

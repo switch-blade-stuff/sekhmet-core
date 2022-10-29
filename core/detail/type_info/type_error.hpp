@@ -30,25 +30,25 @@ namespace sek
 	enum class type_errc : int
 	{
 		/** Mask used to obtain `INVALID_PARAM` argument index. */
-		PARAM_MASK = 0xff,
-		/** Incorrect argument to a function. Index (`std::uint8_t`) of the invalid argument is OR'ed with the error code. */
-		INVALID_PARAM = 0x100,
+		PARAM_MASK = 0xffff,
+		/** Incorrect argument to a function. Index (`std::uint16_t`) of the invalid argument is OR'ed with the error code. */
+		INVALID_PARAM = 0x1'0000,
 
 		/** Unexpected/invalid type. */
-		INVALID_TYPE = 0x200,
+		INVALID_TYPE = 0x2'0000,
 		/** Unexpected/invalid type qualifier (ex. expected non-const but got const). */
-		INVALID_QUALIFIER = INVALID_TYPE | 0x400,
+		INVALID_QUALIFIER = INVALID_TYPE | 0x4'0000,
 		/** Requested member of a type does not exist. */
-		INVALID_MEMBER = INVALID_TYPE | 0xa00,
+		INVALID_MEMBER = INVALID_TYPE | 0xa'0000,
 		/** Requested member property of a type does not exist. */
-		INVALID_PROPERTY = INVALID_MEMBER | 0x1000,
+		INVALID_PROPERTY = INVALID_MEMBER | 0x10'0000,
 		/** Requested member function of a type does not exist. */
-		INVALID_FUNCTION = INVALID_MEMBER | 0x2000,
+		INVALID_FUNCTION = INVALID_MEMBER | 0x20'0000,
 
 		/** Provided `any` instance is not a reference. */
-		EXPECTED_REF_ANY = 0xa000,
+		EXPECTED_REF_ANY = 0xa0'0000,
 		/** Unexpected empty `any` instance. */
-		UNEXPECTED_EMPTY_ANY = 0x1'0000,
+		UNEXPECTED_EMPTY_ANY = 0x100'0000,
 	};
 
 	[[nodiscard]] constexpr type_errc operator&(type_errc a, type_errc b)
@@ -68,21 +68,21 @@ namespace sek
 	[[nodiscard]] constexpr type_errc &operator^=(type_errc &a, type_errc b) { return a = a ^ b; }
 	[[nodiscard]] constexpr type_errc operator~(type_errc e) { return static_cast<type_errc>(~static_cast<int>(e)); }
 
-	[[nodiscard]] constexpr type_errc operator&(type_errc a, std::uint8_t b)
+	[[nodiscard]] constexpr type_errc operator&(type_errc a, std::uint16_t b)
 	{
 		return static_cast<type_errc>(static_cast<int>(a) & static_cast<int>(b));
 	}
-	[[nodiscard]] constexpr type_errc operator|(type_errc a, std::uint8_t b)
+	[[nodiscard]] constexpr type_errc operator|(type_errc a, std::uint16_t b)
 	{
 		return static_cast<type_errc>(static_cast<int>(a) | static_cast<int>(b));
 	}
-	[[nodiscard]] constexpr type_errc operator^(type_errc a, std::uint8_t b)
+	[[nodiscard]] constexpr type_errc operator^(type_errc a, std::uint16_t b)
 	{
 		return static_cast<type_errc>(static_cast<int>(a) ^ static_cast<int>(b));
 	}
-	[[nodiscard]] constexpr type_errc &operator&=(type_errc &a, std::uint8_t b) { return a = a & b; }
-	[[nodiscard]] constexpr type_errc &operator|=(type_errc &a, std::uint8_t b) { return a = a | b; }
-	[[nodiscard]] constexpr type_errc &operator^=(type_errc &a, std::uint8_t b) { return a = a ^ b; }
+	[[nodiscard]] constexpr type_errc &operator&=(type_errc &a, std::uint16_t b) { return a = a & b; }
+	[[nodiscard]] constexpr type_errc &operator|=(type_errc &a, std::uint16_t b) { return a = a | b; }
+	[[nodiscard]] constexpr type_errc &operator^=(type_errc &a, std::uint16_t b) { return a = a ^ b; }
 
 	/** Returns a reference to `std::error_category` used for reflection errors. */
 	[[nodiscard]] SEK_CORE_PUBLIC const std::error_category &type_category() noexcept;

@@ -302,45 +302,16 @@ namespace sek
 		[[nodiscard]] inline std::add_const_t<std::remove_pointer_t<T>> *as() const requires std::is_pointer_v<T>;
 		// clang-format on
 
+		/** Converts the managed object to the specified type as-if via `static_cast<To>(value)`.
+		 * @return Result of the conversion, or an empty `any` if the types are not convertible. */
+		[[nodiscard]] SEK_CORE_PUBLIC any conv(type_info type) const;
+
 		/** Creates an `any` instance referencing the managed object. */
 		[[nodiscard]] any ref() noexcept { return any{m_type, m_storage.ref()}; }
 		/** Creates an `any` instance referencing the managed object via const-reference. */
 		[[nodiscard]] any ref() const noexcept { return any{m_type, m_storage.ref()}; }
 		/** @copydoc ref */
 		[[nodiscard]] any cref() const noexcept { return ref(); }
-
-		/** Returns a `any_range` proxy for the managed type, `type_errc::INVALID_TYPE` if the managed type is not a range,
-		 * or `type_errc::UNEXPECTED_EMPTY_ANY` if `any` is empty. */
-		[[nodiscard]] expected<any_range, std::error_code> range(std::nothrow_t);
-		/** @copydoc range */
-		[[nodiscard]] expected<any_range, std::error_code> range(std::nothrow_t) const;
-		/** Returns a `any_range` proxy for the managed type.
-		 * @throw type_error If the managed type is not a range or `any` is empty. */
-		[[nodiscard]] any_range range();
-		/** @copydoc range */
-		[[nodiscard]] any_range range() const;
-
-		/** Returns a `any_table` proxy for the managed type, `type_errc::INVALID_TYPE` if the managed type is not a table,
-		 * or `type_errc::UNEXPECTED_EMPTY_ANY` if `any` is empty. */
-		[[nodiscard]] expected<any_table, std::error_code> table(std::nothrow_t);
-		/** @copydoc range */
-		[[nodiscard]] expected<any_table, std::error_code> table(std::nothrow_t) const;
-		/** Returns a `any_table` proxy for the managed type.
-		 * @throw type_error If the managed type is not a table or `any` is empty. */
-		[[nodiscard]] any_table table();
-		/** @copydoc table */
-		[[nodiscard]] any_table table() const;
-
-		/** Returns a `any_tuple` proxy for the managed type, `type_errc::INVALID_TYPE` if the managed type is not a tuple,
-		 * or `type_errc::UNEXPECTED_EMPTY_ANY` if `any` is empty. */
-		[[nodiscard]] expected<any_tuple, std::error_code> tuple(std::nothrow_t);
-		/** @copydoc range */
-		[[nodiscard]] expected<any_tuple, std::error_code> tuple(std::nothrow_t) const;
-		/** Returns a `any_tuple` proxy for the managed type.
-		 * @throw type_error If the managed type is not a tuple or `any` is empty. */
-		[[nodiscard]] any_tuple tuple();
-		/** @copydoc tuple */
-		[[nodiscard]] any_tuple tuple() const;
 
 		constexpr void swap(any &other) noexcept
 		{
@@ -420,10 +391,10 @@ namespace sek
 
 		void dtor_data::invoke(void *ptr) const { invoke_func(data, ptr); }
 		any ctor_data::invoke(std::span<any> args) const { return invoke_func(data, args); }
-		any func_data::invoke(const void *ptr, std::span<any> args) const { return invoke_func(data, ptr, args); }
+		any func_overload::invoke(const void *ptr, std::span<any> args) const { return invoke_func(data, ptr, args); }
 
 		any prop_data::get() const { return get_func(data); }
-		void prop_data::set(const any &value) { set_func(data, value); }
+		void prop_data::set(const any &value) const { set_func(data, value); }
 
 		template<typename T>
 		constexpr any_vtable any_vtable::make_instance() noexcept
