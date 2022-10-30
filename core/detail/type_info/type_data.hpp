@@ -8,9 +8,9 @@
 #include <memory>
 
 #include "../../dense_set.hpp"
-#include "../../meta.hpp"
 #include "../../property.hpp"
 #include "../../type_name.hpp"
+#include "fwd.hpp"
 #include "traits.hpp"
 
 namespace sek::detail
@@ -632,7 +632,10 @@ namespace sek::detail
 	{
 		return fnv1a(type.data(), type.size());
 	}
-	constexpr std::size_t type_data_hash::operator()(const type_data *type) const noexcept { return operator()(type->name); }
+	constexpr std::size_t type_data_hash::operator()(const type_data *type) const noexcept
+	{
+		return operator()(type->name);
+	}
 
 	constexpr bool type_data_cmp::operator()(const type_data *a, const type_data *b) const noexcept
 	{

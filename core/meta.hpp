@@ -445,4 +445,97 @@ namespace sek
 		p.second;
 	};
 	// clang-format on
+
+	/** @brief Helper structure used to obtain traits of a callable object. */
+
+	namespace detail
+	{
+		template<typename T>
+		class has_invoke
+		{
+			template<typename U>
+			[[maybe_unused]] constexpr static std::false_type test_func(...) noexcept;
+			template<typename U>
+			[[maybe_unused]] constexpr static std::true_type test_func(decltype(&U::operator())) noexcept;
+
+		public:
+			constexpr static auto value = std::is_same_v<decltype(test_func<T>(nullptr)), std::true_type>;
+		};
+	}	 // namespace detail
+
+	/** @brief Concept used to check if the type defines a member `operator()` operator. */
+	template<typename T>
+	concept callable = detail::has_invoke<T>::value;
+
+	/** @brief Helper used to obtain traits of a free or member function pointer. */
+	template<auto>
+	struct func_traits;
+
+	template<typename R, typename... Args, R (*F)(Args...)>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (*F)(I *, Args...)>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = I;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (*F)(const I *, Args...)>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = const I;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (*F)(volatile I *, Args...)>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = volatile I;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (*F)(const volatile I *, Args...)>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = const volatile I;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (I::*F)(Args...)>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = I;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (I::*F)(Args...) const>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = const I;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (I::*F)(Args...) volatile>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = volatile I;
+		using arg_types = type_seq_t<Args...>;
+	};
+	template<typename R, typename I, typename... Args, R (I::*F)(Args...) const volatile>
+	struct func_traits<F>
+	{
+		using return_type = R;
+		using instance_type = const volatile I;
+		using arg_types = type_seq_t<Args...>;
+	};
+
+	// clang-format off
+	template<typename T, typename... Ts>
+	concept allowed_types = std::disjunction_v<std::is_same<Ts, std::remove_cvref_t<T>>...>;
+	// clang-format on
 }	 // namespace sek

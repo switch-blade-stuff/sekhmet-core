@@ -138,8 +138,7 @@ namespace sek
 			{
 				const auto ctor = [&](Args &&...args)
 				{
-					using traits = callable_traits<F>;
-					if constexpr (!traits::is_const)
+					if constexpr (!requires(const F &f, T *i, Args &&...args) { f(i, std::forward<Args>(args)...); })
 					{
 						auto *func = static_cast<F *>(const_cast<void *>(data));
 						return any::construct_with<T>(*func, std::forward<Args>(args)...);
@@ -185,8 +184,7 @@ namespace sek
 			result.template init<F>(std::forward<Args>(args)...);
 			result.invoke_func = +[](const void *data, void *ptr)
 			{
-				using traits = callable_traits<F>;
-				if constexpr (!traits::is_const)
+				if constexpr (!requires(const F &f, T *i) { f(i); })
 				{
 					auto *func = static_cast<F *>(const_cast<void *>(ptr));
 					auto *obj = static_cast<T *>(ptr);
@@ -275,7 +273,7 @@ namespace sek
 		template<typename T, typename F, typename... FArgs>
 		func_overload func_overload::make_instance(FArgs &&...f_args)
 		{
-			using traits = callable_traits<F>;
+			using traits = callable_traits<decltype(&F::operator())>;
 			using arg_types = typename traits::arg_types;
 			using return_type = typename traits::return_type;
 

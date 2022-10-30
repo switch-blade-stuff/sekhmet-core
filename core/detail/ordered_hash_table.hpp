@@ -467,7 +467,7 @@ namespace sek::detail
 					candidate.hash == h && key_comp(entry.key(), candidate.key()))
 				{
 					/* Found a candidate for replacing. Move-assign it and remove the temporary. */
-					candidate = std::move(entry);
+					candidate.value = std::move(entry.value);
 					value_vector().pop_back();
 					return {iterator{&candidate}, false};
 				}

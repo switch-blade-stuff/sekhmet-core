@@ -22,7 +22,7 @@ namespace sek
 
 	public:
 		/** @brief Parent for UUID generators. */
-		struct generator
+		struct SEK_CORE_PUBLIC generator
 		{
 			/** Initializes the passed UUID. */
 			virtual void operator()(uuid &) const = 0;
@@ -66,9 +66,9 @@ namespace sek
 		};
 		/** @brief UUID generator used to generate a random (version 4 variant 1) UUID.
 		 * @note Seed is based on OS-provided entropy. */
-		struct version4 final : public generator
+		struct SEK_CORE_PUBLIC version4 final : public generator
 		{
-			SEK_CORE_PUBLIC void operator()(uuid &) const noexcept final;
+			void operator()(uuid &) const noexcept final;
 		};
 
 		static const uuid nil;

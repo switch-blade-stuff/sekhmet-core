@@ -347,6 +347,20 @@ namespace sek
 	 * If such function is not available, uses `std::hash`. */
 	struct default_hash
 	{
+		template<typename T>
+		[[nodiscard]] constexpr std::size_t operator()(const T &value) const noexcept
+		{
+			using sek::hash;
+			if constexpr (!requires { hash(value); })
+				return std::hash<T>{}(value);
+			else
+				return hash(value);
+		}
+	};
+	/** @brief Transparent hasher that calls `hash` function on the passed object via ADL.
+	 * If such function is not available, uses `std::hash`. */
+	struct default_transparent_hash
+	{
 		typedef std::true_type is_transparent;
 
 		template<typename T>

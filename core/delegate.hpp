@@ -8,8 +8,8 @@
 #include <stdexcept>
 #include <utility>
 
-#include "define.h"
 #include "detail/ebo_base_helper.hpp"
+#include "meta.hpp"
 
 namespace sek
 {
@@ -160,7 +160,7 @@ namespace sek
 
 			[[nodiscard]] constexpr static control_block *heap_cb(std::uintptr_t ptr) noexcept
 			{
-				return std::bit_cast<control_block *>(ptr);
+				return std::bit_cast<control_block *>(ptr & ~(external_flag | managed_flag));
 			}
 			[[nodiscard]] constexpr static void *heap_ptr(std::uintptr_t ptr) noexcept
 			{
@@ -205,10 +205,10 @@ namespace sek
 			constexpr ~data_t() { destroy(); }
 
 			// clang-format off
-			template<typename T, typename... TArgs>
-			constexpr explicit data_t(std::in_place_type_t<T>, TArgs &&...args) requires std::is_function_v<std::remove_pointer_t<T>>
+			template<typename T>
+			constexpr explicit data_t(std::in_place_type_t<T *>, T *func) requires std::is_function_v<T>
 			{
-				init_managed<T>(std::forward<TArgs>(args)...);
+				init_managed<T *>(func);
 			}
 			template<typename T, typename... TArgs>
 			constexpr explicit data_t(std::in_place_type_t<T>, TArgs &&...args)
@@ -380,7 +380,7 @@ namespace sek
 			m_proxy = +[](std::uintptr_t  data, Args...args) -> R
 			{
 			    const auto func = static_cast<F *>(data_t::get(data));
-				return (func)(std::forward<Args>(args)...);
+				return (*func)(std::forward<Args>(args)...);
 			};
 			m_data = data_t{std::in_place_type<F>, std::forward<FArgs>(args)...};
 			return *this;
@@ -724,4 +724,32 @@ namespace sek
 	delegate(delegate_func_t<F>, volatile I &) -> delegate<R(Args...)>;
 	template<typename R, typename I, typename... Args, R (I::*F)(Args...) const volatile>
 	delegate(delegate_func_t<F>, const volatile I &) -> delegate<R(Args...)>;
+
+	namespace detail
+	{
+		template<typename>
+		struct signature_selector;
+		template<typename R, typename C, typename... Args>
+		struct signature_selector<R (C::*)(Args...)>
+		{
+			using type = R(Args...);
+		};
+		template<typename R, typename C, typename... Args>
+		struct signature_selector<R (C::*)(Args...) const>
+		{
+			using type = R(Args...);
+		};
+		template<typename R, typename C, typename... Args>
+		struct signature_selector<R (C::*)(Args...) const volatile>
+		{
+			using type = R(Args...);
+		};
+	}	 // namespace detail
+
+	// clang-format off
+	template<callable F>
+	delegate(F &&) -> delegate<typename detail::signature_selector<decltype(&F::operator())>::type>;
+	template<callable F, typename... Args>
+	delegate(std::in_place_type_t<F>, Args &&...) -> delegate<typename detail::signature_selector<decltype(&F::operator())>::type>;
+	// clang-format on
 }	 // namespace sek

@@ -30,6 +30,8 @@ namespace sek
 
 	static auto uuid_rng = xoroshiro<std::uint64_t, 256>{sysrandom_seq{}};
 
+	void uuid::generator::operator()(sek::uuid &) const {};
+
 	void uuid::version4::operator()(uuid &id) const noexcept
 	{
 		/* Fill with random bits. */

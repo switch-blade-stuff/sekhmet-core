@@ -440,7 +440,7 @@ namespace sek::detail
 					candidate.hash == h && key_comp(entry.key(), candidate.key()))
 				{
 					/* Found a candidate for replacing. */
-					candidate = std::move(value_vector().back());
+					candidate.value = std::move(entry.value);
 					value_vector().pop_back(); /* Pop the temporary. */
 					return {begin() + static_cast<difference_type>(*chain_idx), false};
 				}

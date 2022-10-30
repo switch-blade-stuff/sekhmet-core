@@ -46,7 +46,7 @@ namespace sek
 		using table_traits::npos;
 
 		template<size_type I>
-		using n_key_type = std::tuple_element<I, key_type>;
+		using n_key_type = std::tuple_element_t<I, key_type>;
 		template<size_type I>
 		using n_key_ref = const std::remove_cvref_t<n_key_type<I>> &;
 
@@ -359,7 +359,7 @@ namespace sek
 		constexpr dense_multiset &operator=(dense_multiset &&) = default;
 
 		/** Returns iterator to the start of the set. */
-		[[nodiscard]] constexpr iterator begin() noexcept { iterator{value_vector().begin()}; }
+		[[nodiscard]] constexpr iterator begin() noexcept { return iterator{value_vector().begin()}; }
 		/** Returns iterator to the end of the set. */
 		[[nodiscard]] constexpr iterator end() noexcept { return iterator{value_vector().end()}; }
 		/** Returns const iterator to the start of the set. */
@@ -389,7 +389,7 @@ namespace sek
 		 * @param key Key to search for.
 		 * @return Iterator to the element who's `I`th key is equal to `key`, or end iterator. */
 		template<size_type I>
-		constexpr const_iterator find(const key_type &key) const noexcept
+		constexpr const_iterator find(const n_key_type<I> &key) const noexcept
 		{
 			const auto entry_idx = find_impl<I>(key_hash(key), key);
 			return begin() + static_cast<difference_type>(entry_idx);
@@ -397,7 +397,11 @@ namespace sek
 		/** Checks if the set contains an element with a matching `I`th key.
 		 * @tparam I Index of the key to use.
 		 * @param key Key to search for. */
-		constexpr bool contains(const key_type &key) const noexcept { return find(key) != end(); }
+		template<size_type I>
+		constexpr bool contains(const n_key_type<I> &key) const noexcept
+		{
+			return find<I>(key) != end();
+		}
 		// clang-format off
 		/** @copydoc find
 		 * @note This overload participates in overload resolution only
@@ -411,9 +415,10 @@ namespace sek
 		/** @copydoc contains
 		 * @note This overload participates in overload resolution only
 		 * if both key hasher and key comparator are transparent. */
+		template<size_type I>
 		constexpr bool contains(const auto &key) const noexcept requires transparent_key
 		{
-			return find(key) != end();
+			return find<I>(key) != end();
 		}
 		// clang-format on
 
@@ -478,6 +483,53 @@ namespace sek
 		{
 			return insert(value).first;
 		}
+
+		/** Removes the specified element from the set.
+		 * @param where Iterator to the target element.
+		 * @return Iterator to the element after the erased one. */
+		constexpr iterator erase(const_iterator where) { return erase_impl(static_cast<size_type>(where - begin())); }
+		/** Removes all elements in the [first, last) range.
+		 * @param first Iterator to the first element of the target range.
+		 * @param last Iterator to the last element of the target range.
+		 * @return Iterator to the element after the erased sequence. */
+		constexpr iterator erase(const_iterator first, const_iterator last)
+		{
+			/* Iterate backwards here, since iterators after the erased one can be invalidated. */
+			auto result = end();
+			while (first < last) result = erase(--last);
+			return result;
+		}
+		/** Removes the specified element from the set if it is present using the `I`th key.
+		 * @tparam I Index of the key to use.
+		 * @param key Key to search for.
+		 * @return `true` if the element was removed, `false` otherwise. */
+		template<size_type I>
+		constexpr bool erase(const n_key_type<I> &value)
+		{
+			if (const auto pos = find_impl<I>(key_hash(value), value); pos != size())
+			{
+				erase_impl(pos);
+				return true;
+			}
+			else
+				return false;
+		}
+		// clang-format off
+		/** @copydoc erase
+		 * @note This overload participates in overload resolution only
+		 * if both key hasher and key comparator are transparent. */
+		template<size_type I>
+		constexpr bool erase(const auto &value) requires transparent_key
+		{
+			if (const auto pos = find_impl<I>(key_hash(value), value); pos != size())
+			{
+				erase_impl(pos);
+				return true;
+			}
+			else
+				return false;
+		}
+		// clang-format on
 
 		/** Returns current amount of elements in the set. */
 		[[nodiscard]] constexpr size_type size() const noexcept { return value_vector().size(); }
@@ -602,6 +654,26 @@ namespace sek
 			dst = std::move(src);
 		}
 
+		template<size_type I>
+		constexpr void unlink_entry(dense_entry &entry)
+		{
+			const auto &key = entry.template key<I>();
+			const auto hash = entry.hash[I];
+			for (auto *chain_idx = get_chain<I>(hash); *chain_idx != npos;)
+			{
+				const auto pos = *chain_idx;
+				auto entry_ptr = value_vector().data() + static_cast<difference_type>(pos);
+
+				/* Un-link the entry from the chain. */
+				if (entry_ptr->hash[I] == hash && key_comp(key, entry_ptr->template key<I>()))
+				{
+					*chain_idx = entry_ptr->next[I];
+					break;
+				}
+				chain_idx = &(entry_ptr->next[I]);
+			}
+		}
+
 		template<typename... Args>
 		[[nodiscard]] constexpr std::pair<iterator, size_type> insert_impl(Args &&...args)
 		{
@@ -610,6 +682,8 @@ namespace sek
 		template<size_type... Is, typename... Args>
 		[[nodiscard]] constexpr std::pair<iterator, size_type> insert_impl(std::index_sequence<Is...>, Args &&...args)
 		{
+			maybe_rehash();
+
 			auto insert_pos = value_vector().size(); /* Position could be modified during replacement. */
 			auto *entry_ptr = &value_vector().emplace_back(std::forward<Args>(args)...);
 
@@ -624,12 +698,13 @@ namespace sek
 				while (*chain_idx != npos)
 				{
 					const auto conflict_pos = *chain_idx;
-					auto conflict_entry = value_vector().data()[conflict_pos];
+					auto &conflict_entry = value_vector().data()[conflict_pos];
 					if (conflict_entry.hash[I] == hash && key_comp(key, conflict_entry.template key<I>()))
 					{
-						/* Save the target index pointer and the old next index. */
-						const auto old_next = conflict_entry.next[I];
-						auto *target_idx = chain_idx;
+						/* Unlink the conflicting entry from every bucket chain. Replacing the entry in-place is
+						 * impossible, since different keys will belong to different bucket chains, thus requireing
+						 * an erase & move. */
+						(unlink_entry<Is>(conflict_entry), ...);
 
 						/* If the conflicting entry is not at the end, swap it with the last entry. */
 						if (const auto end_pos = size() - 1; conflict_pos != end_pos)
@@ -644,9 +719,9 @@ namespace sek
 							}
 						}
 
-						/* Replace the target index with the inserted position. */
-						entry_ptr->next[I] = old_next;
-						*target_idx = insert_pos;
+						/* Insert the entry into the current bucket chain. */
+						entry_ptr->next[I] = *chain_idx;
+						*chain_idx = insert_pos;
 
 						/* Pop the erased entry. */
 						value_vector().pop_back();
@@ -669,46 +744,32 @@ namespace sek
 		template<size_type... Is>
 		constexpr auto erase_impl(std::index_sequence<Is...>, size_type pos)
 		{
-			const auto chain_erase = [&]<size_type I>(index_selector_t<I>)
-			{
-				auto &entry = value_vector()[pos];
-				const auto &key = entry.template key<I>();
-				const auto hash = entry.hash[I];
-				for (auto *chain_idx = get_chain<I>(hash); *chain_idx != npos;)
-				{
-					const auto pos = *chain_idx;
-					auto entry_ptr = value_vector().data() + static_cast<difference_type>(pos);
-
-					/* Un-link the entry from the chain. */
-					if (entry_ptr->hash[I] == hash && key_comp(key, entry_ptr->template key<I>()))
-					{
-						*chain_idx = entry_ptr->next[I];
-						break;
-					}
-					chain_idx = &(entry_ptr->next[I]);
-				}
-			};
-
 			/* Remove the entry from every bucket chain. */
-			(chain_erase(index_selector<Is>), ...);
+			auto &entry = value_vector()[pos];
+			(unlink_entry<Is>(entry), ...);
 			/* If the entry is not at the end, swap it with the last entry. */
-			if (const auto end_pos = size() - 1; pos != end_pos)
-			{
+			if (const auto end_pos = size() - 1; pos != end_pos) [[likely]]
 				move_entry(std::index_sequence<Is...>{}, end_pos, pos);
-				value_vector().pop_back();
-			}
+			value_vector().pop_back();
 			return begin() + static_cast<difference_type>(pos);
 		}
 
 		constexpr void maybe_rehash()
 		{
-			if (load_factor() > m_max_load_factor) [[unlikely]]
+			if (load_factor() >= m_max_load_factor) [[unlikely]]
 				rehash(bucket_count() * 2);
 		}
 		constexpr void rehash_impl(size_type new_cap) { rehash_impl(std::make_index_sequence<key_size>{}, new_cap); }
 		template<size_type... Is>
 		constexpr void rehash_impl(std::index_sequence<Is...>, size_type new_cap)
 		{
+			const auto chain_insert = [&]<size_type I>(index_selector_t<I>, dense_entry &entry, size_type pos)
+			{
+				auto *chain_idx = get_chain<I>(entry.hash[I]);
+				entry.next[I] = *chain_idx;
+				*chain_idx = pos;
+			};
+
 			/* Clear & reserve the vector filled with npos. */
 			bucket_vector().clear();
 			bucket_vector().resize(new_cap, sparse_entry{npos});
@@ -717,12 +778,12 @@ namespace sek
 			for (size_type i = 0; i < value_vector().size(); ++i)
 			{
 				auto &entry = value_vector()[i];
-				(chain_insert<Is>(entry, i), ...);
+				(chain_insert(index_selector<Is>, entry, i), ...);
 			}
 		}
 
 		packed_pair<dense_data, key_equal> m_dense;
-		packed_pair<sparse_data, hash_type> m_sparse = {sparse_data(initial_capacity, npos), hash_type{}};
+		packed_pair<sparse_data, hash_type> m_sparse = {sparse_data(initial_capacity, sparse_entry{npos}), hash_type{}};
 
 		float m_max_load_factor = initial_load_factor;
 	};
