@@ -11,7 +11,7 @@ namespace sek
 {
 	namespace detail
 	{
-		struct type_handle;
+		struct type_handle_t;
 		struct type_data;
 	}	 // namespace detail
 
@@ -19,7 +19,7 @@ namespace sek
 	enum class type_errc;
 
 	template<typename>
-	struct type_info_factory;
+	class type_factory;
 
 	class type_info;
 	class type_query;

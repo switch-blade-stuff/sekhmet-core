@@ -668,7 +668,7 @@ namespace sekubj
 						emit_type(detail::token_t::INT64);
 						emit_literal(static_cast<std::int64_t>(value));
 						break;
-					default: [[unlikely]] SEK_NEVER_REACHED;
+					default: [[unlikely]] SEK_UNREACHABLE;
 				}
 			}
 

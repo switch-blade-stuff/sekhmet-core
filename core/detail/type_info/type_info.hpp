@@ -4,24 +4,56 @@
 
 #pragma once
 
-#include "any.hpp"
-#include "type_factory.hpp"
+#include "type_data.hpp"
+#include "type_error.hpp"
 
 namespace sek
 {
 	namespace detail
 	{
+		template<typename Value, typename Container>
+		class type_info_view;
 		template<typename Value, typename Iter>
 		class type_info_iterator;
+
+		template<typename Value>
+		class type_info_ptr
+		{
+			template<typename, typename>
+			friend class type_info_iterator;
+
+		public:
+			typedef Value element_type;
+			typedef const Value *pointer;
+
+		private:
+			template<typename... Args>
+			constexpr type_info_ptr(Args &&...args) : m_value(std::forward<Args>(args)...)
+			{
+			}
+
+		public:
+			type_info_ptr() = delete;
+
+			constexpr type_info_ptr(const type_info_ptr &) noexcept = default;
+			constexpr type_info_ptr &operator=(const type_info_ptr &) noexcept = default;
+			constexpr type_info_ptr(type_info_ptr &&) noexcept = default;
+			constexpr type_info_ptr &operator=(type_info_ptr &&) noexcept = default;
+
+			[[nodiscard]] constexpr pointer get() const noexcept { return &m_value; }
+			[[nodiscard]] constexpr pointer operator->() const noexcept { return get(); }
+			[[nodiscard]] constexpr Value operator*() const noexcept { return *get(); }
+
+		private:
+			Value m_value;
+		};
 
 		template<typename Value, typename Container, bool = std::bidirectional_iterator<std::ranges::iterator_t<Container>>>
 		struct type_info_view_defs
 		{
 			typedef Value value_type;
-			typedef const Value *pointer;
-			typedef const Value *const_pointer;
-			typedef const Value &reference;
-			typedef const Value &const_reference;
+			typedef type_info_ptr<Value> pointer;
+			typedef type_info_ptr<Value> const_pointer;
 			typedef typename Container::difference_type difference_type;
 			typedef typename Container::size_type size_type;
 
@@ -37,8 +69,235 @@ namespace sek
 			typedef std::reverse_iterator<iterator> reverse_iterator;
 			typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 		};
+	}	 // namespace detail
 
-		/* Custom view, as CLang has issues with `std::ranges::subrange` at this time. */
+	/** @brief Helper type used to check if a type has been exported via `SEK_EXTERN_TYPE_INFO`. */
+	template<typename T>
+	struct is_exported_type : std::false_type
+	{
+	};
+	/** @brief Alias for `is_exported_type<T>::value`. */
+	template<typename T>
+	constexpr static auto is_exported_type_v = is_exported_type<T>::value;
+
+	/* Type names for reflection types. */
+	template<>
+	struct type_name<any>
+	{
+		constexpr static std::string_view value = "sek::any";
+	};
+	template<>
+	struct type_name<type_info>
+	{
+		constexpr static std::string_view value = "sek::type_info";
+	};
+
+	/** @brief Structure representing information about a reflected attribute. */
+	class attribute_info;
+	/** @brief Structure representing information about a constant of a reflected type. */
+	class constant_info;
+	/** @brief Structure representing information about a conversion cast between reflected types. */
+	class conversion_info;
+	/** @brief Structure representing information about a constructor of a reflected type. */
+	class constructor_info;
+	/** @brief Structure representing information about a property of a reflected type. */
+	class property_info;
+	/** @brief Structure representing information about a function of a reflected type. */
+	class function_info;
+
+	/** @brief Handle to information about a reflected type. */
+	class type_info
+	{
+		template<typename>
+		friend class type_factory;
+		friend class type_database;
+
+	public:
+		/** Returns type info for type `T`.
+		 * @note Removes any const & volatile qualifiers and decays references.
+		 * @note The returned type info is generated at compile time and may not be present within the type database. */
+		template<typename T>
+		[[nodiscard]] inline static type_info get() noexcept;
+		/** Searches for a reflected type in the type database.
+		 * @return Type info of the type, or an invalid type info if such type is not found. */
+		[[nodiscard]] inline static type_info get(std::string_view name);
+
+		/** Reflects type `T`, making it available for runtime lookup by name.
+		 * @return Type factory for type `T`, which can be used to specify additional information about the type.
+		 * @throw type_error If the type is already reflected. */
+		template<typename T>
+		inline static type_factory<T> reflect();
+		/** Resets a reflected type, removing it from the type database.
+		 * @note The type will no longer be available for runtime lookup. */
+		inline static void reset(std::string_view name);
+		/** @copydoc reset */
+		static void reset(type_info type) { reset(type.name()); }
+		/** @copydoc reset */
+		template<typename T>
+		static void reset() noexcept
+		{
+			reset(type_name_v<std::remove_cvref_t<T>>);
+		}
+
+	private:
+		using handle_t = detail::type_handle_t;
+		using data_t = detail::type_data;
+
+		template<typename V, typename T>
+		using data_view = detail::type_info_view<V, T>;
+		using attr_view = data_view<attribute_info, detail::attr_table>;
+		using const_view = data_view<constant_info, detail::const_table>;
+		using conv_view = data_view<conversion_info, detail::conv_table>;
+		using ctor_view = data_view<constructor_info, std::vector<detail::ctor_data>>;
+
+		static bool check_arg(const detail::func_arg &exp, any &value) noexcept;
+		static auto find_overload(std::vector<detail::ctor_data> &range, std::span<any> args) noexcept;
+		static auto find_overload(std::vector<detail::func_overload> &range, any &instance, std::span<any> args) noexcept;
+
+		static std::error_code convert_args(std::span<const detail::func_arg> expected, std::span<any> args);
+
+		constexpr type_info(handle_t handle) noexcept : type_info(handle()) {}
+		constexpr explicit type_info(data_t *data) noexcept : m_data(data) {}
+
+	public:
+		/** Initializes an invalid type info handle. */
+		constexpr type_info() noexcept = default;
+
+		/** Checks if the type info references a valid type. */
+		[[nodiscard]] constexpr bool valid() const noexcept { return m_data != nullptr; }
+		/** If the type info references a valid type, returns it's name. Otherwise, returns an empty string view. */
+		[[nodiscard]] constexpr std::string_view name() const noexcept
+		{
+			return valid() ? m_data->name : std::string_view{};
+		}
+
+		/** Checks if the referenced type is `void`. */
+		[[nodiscard]] constexpr bool is_void() const noexcept { return valid() && m_data->is_void; }
+		/** Checks if the referenced type is empty (as if via `std::is_empty_v`). */
+		[[nodiscard]] constexpr bool is_empty() const noexcept { return valid() && m_data->is_empty; }
+		/** Checks if the referenced type is a signed integral type or can be implicitly converted to `std::intptr_t`. */
+		[[nodiscard]] constexpr bool is_signed() const noexcept { return valid() && m_data->is_signed; }
+		/** Checks if the referenced type is an unsigned integral type or can be implicitly converted to `std::uintptr_t`. */
+		[[nodiscard]] constexpr bool is_unsigned() const noexcept { return valid() && m_data->is_unsigned; }
+		/** Checks if the referenced type is a floating-point type or can be implicitly converted to `long double`. */
+		[[nodiscard]] constexpr bool is_floating() const noexcept { return valid() && m_data->is_floating; }
+
+		/** Checks if the referenced type is an enum (as if via `std::is_enum_v`). */
+		[[nodiscard]] constexpr bool is_enum() const noexcept { return valid() && m_data->enum_type.get; }
+		/** Returns the referenced type of an enum (as if via `std::underlying_type_t`), or an invalid type info it the type is not an enum. */
+		[[nodiscard]] constexpr type_info enum_type() const noexcept
+		{
+			return valid() ? m_data->enum_type() : type_info{};
+		}
+
+		/** Returns a view of attributes of the referenced type. */
+		[[nodiscard]] constexpr attr_view attributes() const noexcept;
+		/** Returns a view of constants of the referenced type. */
+		[[nodiscard]] constexpr const_view constants() const noexcept;
+		/** Returns a view of conversions of the referenced type. */
+		[[nodiscard]] constexpr conv_view conversions() const noexcept;
+		/** Returns a view of constructors of the referenced type. */
+		[[nodiscard]] constexpr ctor_view constructors() const noexcept;
+
+		/** Checks if the referenced type has an attribute of the specified type.
+		 * @param type Type of the attribute. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool has_attribute(type_info type) const noexcept;
+
+		/** Checks if the referenced type has a constant with the specified name.
+		 * @param name Name of the constant. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool has_constant(std::string_view name) const noexcept;
+		/** Checks if the referenced type has a constant with the specified name and type.
+		 * @param name Name of the constant.
+		 * @param type Type of the constant. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool has_constant(std::string_view name, type_info type) const noexcept;
+
+		/** Checks if the referenced type inherits another. That is, the other type is one of it's direct or inherited parents.
+		 * @note Does not check if types are the same. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool inherits(type_info type) const noexcept;
+
+		/** @brief Checks if the referenced type has a constructor overload that accepts the specified arguments.
+		 * @param args Span of `type_info`, containing argument types of the constructor overload. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool has_constructor(std::span<const type_info> args) const noexcept;
+		/** @copybrief has_constructor
+		 * @param args Span of `any`, containing arguments of the constructor overload. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool has_constructor(std::span<const any> args) const noexcept;
+
+		/** Checks if the referenced type has a defined conversion to another type.
+		 * @note Does not check if types are the same. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool convertible_to(type_info type) const noexcept;
+
+		/** Checks if the referenced type has any function overload with the specified name.
+		 * @param name Name of the overloaded function. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool has_function(std::string_view name) const noexcept;
+		/** @brief Checks if the referenced type has a function overload with the specified name that accepts the specified arguments.
+		 * @param name Name of the overloaded function.
+		 * @param args Span of `type_info`, containing argument types of the function overload. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool has_function(std::string_view name, std::span<const type_info> args) const noexcept;
+		/** @copybrief has_function
+		 * @param name Name of the overloaded function.
+		 * @param args Span of `any`, containing arguments of the function overload. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool has_function(std::string_view name, std::span<const any> args) const noexcept;
+
+		/** Checks if the referenced type has a property with the specified name.
+		 * @param name Name of the property. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool has_property(std::string_view name) const noexcept;
+		/** Checks if the referenced type has a property with the specified name and type.
+		 * @param name Name of the property.
+		 * @param type Type of the property. */
+		[[nodiscard]] SEK_CORE_PUBLIC bool has_property(std::string_view name, type_info type) const noexcept;
+
+		/** Returns value of the specified attribute.
+		 * @param type Type of the attribute.
+		 * @return `any`, containing the value of the attribute, or an empty `any` if the referenced type does not have such attribute. */
+		[[nodiscard]] SEK_CORE_PUBLIC any attribute(type_info type) const;
+
+		/** Returns value of the specified constant.
+		 * @param name Name of the constant.
+		 * @return `any`, containing the value of the constant, or an empty `any` if the referenced type does not have such constant. */
+		[[nodiscard]] SEK_CORE_PUBLIC any constant(std::string_view name) const;
+
+		/** @brief Constructs an instance of the referenced type using the provided arguments.
+		 * @param args Span of `any`, containing arguments passed to the constructor.
+		 * @return `any` instance, containing the instantiated object, or an empty `any`
+		 * if the specified constructor overload does not exist. */
+		[[nodiscard]] SEK_CORE_PUBLIC any construct(std::span<any> args) const;
+		/** @copybrief construct
+		 * @param args Arguments passed to the constructor of the type.
+		 * @return `any` instance, containing the instantiated object, or an empty `any`
+		 * if the specified constructor overload does not exist. */
+		template<typename... Args>
+		[[nodiscard]] inline any construct(std::in_place_t, Args &&...args) const;
+
+		[[nodiscard]] constexpr bool operator==(const type_info &other) const noexcept
+		{
+			/* If data is different, types might still be the same, but declared in different binaries. */
+			return m_data == other.m_data || name() == other.name();
+		}
+
+		constexpr void swap(type_info &other) noexcept { std::swap(m_data, other.m_data); }
+		friend constexpr void swap(type_info &a, type_info &b) noexcept { a.swap(b); }
+
+	private:
+		data_t *m_data = nullptr;
+	};
+
+	namespace detail
+	{
+		template<typename T>
+		constexpr type_handle_t::type_handle_t(type_selector_t<T>) noexcept : get(type_info::get<T>)
+		{
+		}
+		constexpr type_info type_handle_t::operator()() const noexcept { return get(); }
+
+		constexpr bool func_overload::operator==(const func_overload &other) const noexcept
+		{
+			return is_const == other.is_const && std::ranges::equal(args, other.args);
+		}
+		constexpr bool func_arg::operator==(const func_arg &other) const noexcept
+		{
+			return is_const == other.is_const && type() == other.type();
+		}
+
 		template<typename Value, typename Container>
 		class type_info_view : public type_info_view_defs<Value, Container>
 		{
@@ -51,15 +310,18 @@ namespace sek
 		public:
 			constexpr type_info_view() noexcept = default;
 
-			constexpr explicit type_info_view(const Container &container) noexcept : m_container(&container) {}
+			constexpr type_info_view(const Container &container, type_info parent) noexcept
+				: m_container(&container), m_parent(parent)
+			{
+			}
 
 			[[nodiscard]] constexpr auto begin() const noexcept
 			{
-				return m_container ? typename defs::iterator{m_container->begin()} : typename defs::iterator{};
+				return m_container ? typename defs::iterator{m_container->begin(), m_parent} : typename defs::iterator{};
 			}
 			[[nodiscard]] constexpr auto end() const noexcept
 			{
-				return m_container ? typename defs::iterator{m_container->end()} : typename defs::iterator{};
+				return m_container ? typename defs::iterator{m_container->end(), m_parent} : typename defs::iterator{};
 			}
 			[[nodiscard]] constexpr auto cbegin() const noexcept { return begin(); }
 			[[nodiscard]] constexpr auto cend() const noexcept { return end(); }
@@ -102,8 +364,8 @@ namespace sek
 
 		private:
 			const Container *m_container = nullptr;
+			type_info m_parent;
 		};
-
 		template<typename Value, typename Iter>
 		class type_info_iterator
 		{
@@ -114,8 +376,7 @@ namespace sek
 
 		public:
 			typedef Value value_type;
-			typedef const Value *pointer;
-			typedef const Value &reference;
+			typedef type_info_ptr<Value> pointer;
 
 			typedef typename traits_t::iterator_category iterator_category;
 			typedef typename traits_t::difference_type difference_type;
@@ -125,7 +386,7 @@ namespace sek
 			constexpr static bool is_bidirectional = std::is_base_of_v<std::bidirectional_iterator_tag, iterator_category>;
 			constexpr static bool is_random_access = std::is_base_of_v<std::random_access_iterator_tag, iterator_category>;
 
-			constexpr explicit type_info_iterator(Iter iter) noexcept : m_iter(iter) {}
+			constexpr type_info_iterator(Iter iter, type_info parent) noexcept : m_iter(iter), m_parent(parent) {}
 
 		public:
 			constexpr type_info_iterator() noexcept = default;
@@ -182,299 +443,72 @@ namespace sek
 			}
 			// clang-format on
 
-			[[nodiscard]] constexpr pointer get() const noexcept
-			{
-				return static_cast<pointer>(std::to_address(m_iter));
-			}
+			[[nodiscard]] constexpr pointer get() const noexcept { return pointer{*m_iter, m_parent}; }
 			[[nodiscard]] constexpr pointer operator->() const noexcept { return get(); }
-			[[nodiscard]] constexpr reference operator*() const noexcept { return *get(); }
+			[[nodiscard]] constexpr auto operator*() const noexcept { return *get(); }
 
 			[[nodiscard]] constexpr auto operator<=>(const type_info_iterator &) const noexcept = default;
 			[[nodiscard]] constexpr bool operator==(const type_info_iterator &) const noexcept = default;
 
 		private:
 			Iter m_iter;
+			type_info m_parent;
 		};
 	}	 // namespace detail
 
-	/** @brief Structure used to describe a reflected attribute. */
-	class attribute_info;
-	/** @brief Structure used to describe a reflected type constant. */
-	class constant_info;
-	/** @brief Structure used to describe a conversion cast between reflected types. */
-	class conversion_info;
-
-	/** @brief Handle to information about a reflected type. */
-	class type_info
+	class attribute_info
 	{
-		friend class any;
-		friend class any_range;
-		friend class any_table;
-		friend class any_tuple;
-		friend class any_string;
 		template<typename>
-		friend class type_factory;
-		friend class type_database;
+		friend class detail::type_info_ptr;
 
-		friend class attribute_info;
-		friend class constant_info;
-		friend class conversion_info;
-
-	public:
-		/** Returns type info for type `T`.
-		 * @note Removes any const & volatile qualifiers and decays references.
-		 * @note The returned type info is generated at compile time and may not be present within the type database. */
-		template<typename T>
-		[[nodiscard]] constexpr static type_info get()
+		constexpr attribute_info(const std::ranges::range_value_t<detail::attr_table> &entry, type_info) noexcept
+			: m_data(&entry.second)
 		{
-			return type_info{handle<T>()};
 		}
-		/** Searches for a reflected type in the type database.
-		 * @return Type info of the type, or an invalid type info if such type is not found. */
-		[[nodiscard]] inline static type_info get(std::string_view name);
-
-		/** Reflects type `T`, making it available for runtime lookup by name.
-		 * @return Type factory for type `T`, which can be used to specify additional information about the type.
-		 * @throw type_error If the type is already reflected. */
-		template<typename T>
-		inline static type_factory<T> reflect();
-		/** Resets a reflected type, removing it from the type database.
-		 * @note The type will no longer be available for runtime lookup. */
-		inline static void reset(std::string_view name);
-		/** @copydoc reset */
-		static void reset(type_info type) { reset(type.name()); }
-		/** @copydoc reset */
-		template<typename T>
-		static void reset() noexcept
-		{
-			reset(type_name_v<std::remove_cvref_t<T>>);
-		}
-
-	private:
-		using data_t = detail::type_data;
-		using handle_t = detail::type_handle;
-
-		template<typename V, typename T>
-		using data_view = detail::type_info_view<V, T>;
-		using attr_view = data_view<attribute_info, detail::attr_table>;
-		using const_view = data_view<constant_info, detail::const_table>;
-		using conv_view = data_view<conversion_info, detail::conv_table>;
-
-		template<typename T>
-		[[nodiscard]] constexpr static handle_t handle() noexcept
-		{
-			return handle_t{type_selector<std::remove_cvref_t<T>>};
-		}
-
-		static bool check_arg(const detail::func_arg_data &exp, any &value) noexcept;
-		static auto find_overload(std::vector<detail::ctor_data> &range, std::span<any> args) noexcept;
-		static auto find_overload(std::vector<detail::func_overload> &range, any &instance, std::span<any> args) noexcept;
-
-		static std::error_code convert_args(std::span<const detail::func_arg_data> expected, std::span<any> args);
-
-		constexpr explicit type_info(data_t *data) noexcept : m_data(data) {}
-		constexpr explicit type_info(handle_t handle) noexcept : m_data(handle.get ? handle.get() : nullptr) {}
-
-	public:
-		/** Initializes an invalid type info handle. */
-		constexpr type_info() noexcept = default;
-
-		/** Checks if the type info references a valid type. */
-		[[nodiscard]] constexpr bool valid() const noexcept { return m_data != nullptr; }
-		/** If the type info references a valid type, returns it's name. Otherwise, returns an empty string view. */
-		[[nodiscard]] constexpr std::string_view name() const noexcept
-		{
-			return valid() ? m_data->name : std::string_view{};
-		}
-
-		/** Checks if the referenced type is `void`. */
-		[[nodiscard]] constexpr bool is_void() const noexcept { return valid() && m_data->is_void; }
-		/** Checks if the referenced type is empty (as if via `std::is_empty_v`). */
-		[[nodiscard]] constexpr bool is_empty() const noexcept { return valid() && m_data->is_empty; }
-		/** Checks if the referenced type is `std::nullptr_t`, or can be implicitly converted to `std::nullptr_t`. */
-		[[nodiscard]] constexpr bool is_nullptr() const noexcept { return valid() && m_data->is_nullptr; }
-
-		/** Checks if the referenced type is a signed integral type or can be implicitly converted to `std::intptr_t`. */
-		[[nodiscard]] constexpr bool is_signed() const noexcept { return valid() && m_data->is_int; }
-		/** Checks if the referenced type is an unsigned integral type or can be implicitly converted to `std::uintptr_t`. */
-		[[nodiscard]] constexpr bool is_unsigned() const noexcept { return valid() && m_data->is_uint; }
-		/** Checks if the referenced type is a floating-point type or can be implicitly converted to `long double`. */
-		[[nodiscard]] constexpr bool is_floating() const noexcept { return valid() && m_data->is_float; }
-
-		/** Checks if the referenced type is an enum (as if via `std::is_enum_v`). */
-		[[nodiscard]] constexpr bool is_enum() const noexcept { return valid() && m_data->enum_type.get; }
-		/** Returns the referenced type of an enum (as if via `std::underlying_type_t`), or an invalid type info it the type is not an enum. */
-		[[nodiscard]] constexpr type_info enum_type() const noexcept
-		{
-			return valid() ? type_info{m_data->enum_type} : type_info{};
-		}
-
-		/** Returns a view of attributes of the referenced type. */
-		[[nodiscard]] constexpr attr_view attributes() const noexcept
-		{
-			if (!valid()) [[unlikely]]
-				return {};
-			return attr_view{m_data->attributes};
-		}
-
-		/** @brief Checks if the referenced type has an attribute of the specified type.
-		 * @param type Type of the attribute. */
-		[[nodiscard]] SEK_CORE_PUBLIC bool has_attribute(type_info type) const noexcept;
-		/** @copybrief has_attribute
-		 * @tparam T Type of the attribute. */
-		template<typename T>
-		[[nodiscard]] bool has_attribute() const noexcept
-		{
-			return has_attribute(get<T>());
-		}
-
-		/** @brief Returns value of the specified attribute.
-		 * @param type Type of the attribute.
-		 * @return `any`, containing the value of the attribute, or an empty `any` if the referenced type does not have such attribute. */
-		[[nodiscard]] SEK_CORE_PUBLIC any attribute(type_info type) const;
-		/** @copybrief attribute
-		 * @tparam T Type of the attribute.
-		 * @return `any`, containing the value of the attribute, or an empty `any` if the referenced type does not have such attribute. */
-		template<typename T>
-		[[nodiscard]] any attribute() const
-		{
-			return attribute(get<T>());
-		}
-
-		/** Returns a view of constants of the referenced type. */
-		[[nodiscard]] constexpr const_view constants() const noexcept
-		{
-			if (!valid()) [[unlikely]]
-				return {};
-			return const_view{m_data->constants};
-		}
-
-		/** Checks if the referenced type has a constant with the specified name.
-		 * @param name Name of the constant. */
-		[[nodiscard]] SEK_CORE_PUBLIC bool has_constant(std::string_view name) const noexcept;
-		/** @brief Checks if the referenced type has a constant with the specified name and type.
-		 * @param name Name of the constant.
-		 * @param type Type of the constant. */
-		[[nodiscard]] SEK_CORE_PUBLIC bool has_constant(std::string_view name, type_info type) const noexcept;
-		/** @copybrief has_constant
-		 * @tparam T Type of the constant.
-		 * @param name Name of the constant. */
-		template<typename T>
-		[[nodiscard]] bool has_constant(std::string_view name) const noexcept
-		{
-			return has_constant(name, get<T>());
-		}
-
-		/** @brief Returns value of the specified constant.
-		 * @param name Name of the constant.
-		 * @return `any`, containing the value of the constant, or an empty `any` if the referenced type does not have such constant. */
-		[[nodiscard]] SEK_CORE_PUBLIC any constant(std::string_view name) const;
-
-		/** Checks if the referenced type inherits another. That is, the other type is one of it's direct or inherited parents.
-		 * @note Does not check if types are the same. */
-		[[nodiscard]] SEK_CORE_PUBLIC bool inherits(type_info type) const noexcept;
-		/** @copydoc inherits */
-		template<typename T>
-		[[nodiscard]] bool inherits() const noexcept
-		{
-			return inherits(get<T>());
-		}
-
-		/** Checks if the referenced type has a defined conversion to another type.
-		 * @note Does not check if types are the same. */
-		[[nodiscard]] SEK_CORE_PUBLIC bool convertible_to(type_info type) const noexcept;
-
-		/** Returns a view of conversions of the referenced type. */
-		[[nodiscard]] constexpr conv_view conversions() const noexcept
-		{
-			if (!valid()) [[unlikely]]
-				return {};
-			return conv_view{m_data->conversions};
-		}
-
-		/** @copydoc convertible_to */
-		template<typename T>
-		[[nodiscard]] bool convertible_to() const noexcept
-		{
-			return convertible_to(get<T>());
-		}
-
-		/** Constructs an instance of the referenced type using the provided arguments.
-		 * @param args Span of `any`, containing arguments passed to the constructor.
-		 * @return `any` instance, containing the instantiated object, or an empty `any`
-		 * if the specified constructor overload does not exist. */
-		[[nodiscard]] SEK_CORE_PUBLIC any construct(std::span<any> args) const;
-		/** Constructs an instance of the referenced type using the provided arguments.
-		 * @param args Arguments passed to the constructor of the type.
-		 * @return `any` instance, containing the instantiated object, or an empty `any`
-		 * if the specified constructor overload does not exist. */
-		template<typename... Args>
-		[[nodiscard]] any construct(std::in_place_t, Args &&...args) const
-		{
-			std::array<any, sizeof...(Args)> local_args = {forward_any(std::forward<Args>(args))...};
-			return construct(std::span{local_args});
-		}
-
-		[[nodiscard]] constexpr bool operator==(const type_info &other) const noexcept
-		{
-			/* If data is different, types might still be the same, but declared in different binaries. */
-			return m_data == other.m_data || name() == other.name();
-		}
-
-		constexpr void swap(type_info &other) noexcept { std::swap(m_data, other.m_data); }
-		friend constexpr void swap(type_info &a, type_info &b) noexcept { a.swap(b); }
-
-	private:
-		data_t *m_data = nullptr;
-	};
-
-	[[nodiscard]] constexpr std::size_t hash(const type_info &type) noexcept
-	{
-		const auto name = type.name();
-		return fnv1a(name.data(), name.size());
-	}
-
-	class attribute_info : detail::attr_data
-	{
-		template<typename, typename>
-		friend class detail::type_info_iterator;
-
-		using base_t = detail::attr_data;
 
 	public:
 		attribute_info() = delete;
-		attribute_info(const attribute_info &) = delete;
-		attribute_info &operator=(const attribute_info &) = delete;
-		attribute_info(attribute_info &&) = delete;
-		attribute_info &operator=(attribute_info &&) = delete;
+
+		constexpr attribute_info(const attribute_info &) noexcept = default;
+		constexpr attribute_info &operator=(const attribute_info &) noexcept = default;
+		constexpr attribute_info(attribute_info &&) noexcept = default;
+		constexpr attribute_info &operator=(attribute_info &&) noexcept = default;
 
 		/** Returns the type of the attribute. */
-		[[nodiscard]] constexpr type_info type() const noexcept { return type_info{base_t::type}; }
+		[[nodiscard]] constexpr type_info type() const noexcept { return m_data->type(); }
 		/** Returns the value of the attribute. */
-		[[nodiscard]] any value() const noexcept { return base_t::get(); }
+		[[nodiscard]] inline any value() const noexcept;
+
+	private:
+		const detail::attr_data *m_data;
 	};
-	class constant_info : detail::const_data
+	class constant_info
 	{
-		template<typename, typename>
-		friend class detail::type_info_iterator;
+		template<typename>
+		friend class detail::type_info_ptr;
 
 		using attr_view = detail::type_info_view<attribute_info, detail::attr_table>;
-		using base_t = detail::const_data;
+
+		constexpr constant_info(const std::ranges::range_value_t<detail::const_table> &entry) noexcept
+			: m_data(&entry.second)
+		{
+		}
 
 	public:
 		constant_info() = delete;
-		constant_info(const constant_info &) = delete;
-		constant_info &operator=(const constant_info &) = delete;
-		constant_info(constant_info &&) = delete;
-		constant_info &operator=(constant_info &&) = delete;
+
+		constexpr constant_info(const constant_info &) noexcept = default;
+		constexpr constant_info &operator=(const constant_info &) noexcept = default;
+		constexpr constant_info(constant_info &&) noexcept = default;
+		constexpr constant_info &operator=(constant_info &&) noexcept = default;
 
 		/** Returns the name of the constant. */
-		[[nodiscard]] constexpr std::string_view name() const noexcept { return base_t::name; }
+		[[nodiscard]] constexpr std::string_view name() const noexcept { return m_data->name; }
 		/** Returns the type of the constant. */
-		[[nodiscard]] constexpr type_info type() const noexcept { return type_info{base_t::type}; }
+		[[nodiscard]] constexpr type_info type() const noexcept { return m_data->type(); }
 
 		/** Returns a view of attributes of the constant. */
-		[[nodiscard]] constexpr attr_view attributes() const noexcept { return attr_view{base_t::attributes}; }
+		[[nodiscard]] constexpr attr_view attributes() const noexcept { return attr_view{m_data->attributes, {}}; }
 
 		/** @brief Checks if the constant has an attribute of the specified type.
 		 * @param type Type of the attribute. */
@@ -491,34 +525,36 @@ namespace sek
 		 * @param type Type of the attribute.
 		 * @return `any`, containing the value of the attribute, or an empty `any` if the constant does not have such attribute. */
 		[[nodiscard]] SEK_CORE_PUBLIC any attribute(type_info type) const;
-		/** @copybrief attribute
-		 * @tparam T Type of the attribute.
-		 * @return `any`, containing the value of the attribute, or an empty `any` if the constant does not have such attribute. */
-		template<typename T>
-		[[nodiscard]] any attribute() const
-		{
-			return attribute(type_info::get<T>());
-		}
 
 		/** Returns the value of the constant. */
-		[[nodiscard]] any value() const noexcept { return base_t::get(); }
+		[[nodiscard]] inline any value() const noexcept;
+
+	private:
+		const detail::const_data *m_data;
 	};
-	class conversion_info : detail::conv_data
+	class conversion_info
 	{
+		template<typename>
+		friend class detail::type_info_ptr;
+
 		template<typename, typename>
 		friend class detail::type_info_iterator;
 
-		using base_t = detail::conv_data;
+		constexpr conversion_info(const std::ranges::range_value_t<detail::conv_table> &entry, type_info parent) noexcept
+			: m_data(&entry.second), m_parent(parent)
+		{
+		}
 
 	public:
 		conversion_info() = delete;
-		conversion_info(const conversion_info &) = delete;
-		conversion_info &operator=(const conversion_info &) = delete;
-		conversion_info(conversion_info &&) = delete;
-		conversion_info &operator=(conversion_info &&) = delete;
+
+		constexpr conversion_info(const conversion_info &) noexcept = default;
+		constexpr conversion_info &operator=(const conversion_info &) noexcept = default;
+		constexpr conversion_info(conversion_info &&) noexcept = default;
+		constexpr conversion_info &operator=(conversion_info &&) noexcept = default;
 
 		/** Returns the target type of the conversion. */
-		[[nodiscard]] constexpr type_info type() const noexcept { return type_info{base_t::to_type}; }
+		[[nodiscard]] constexpr type_info type() const noexcept { return m_data->type(); }
 
 		/** Converts the passed to the target type.
 		 * @throw type_error If the type of the passed object is not the same as the parent type of the conversion. */
@@ -526,82 +562,41 @@ namespace sek
 		/** Converts the passed to the target type.
 		 * @throw type_error If the type of the passed object is not the same as the parent type of the conversion. */
 		[[nodiscard]] SEK_CORE_PUBLIC any convert(any &) const;
+
+	private:
+		const detail::conv_data *m_data;
+		type_info m_parent;
 	};
 
 	template<typename T>
-	constexpr type_info type_factory<T>::type() const noexcept
+	type_info type_info::get() noexcept
 	{
-		return type_info{m_data};
+		static auto data = detail::type_data::make_instance<std::remove_cvref_t<T>>();
+		return type_info{&data};
 	}
 
-	any::any(type_info type, void *ptr) noexcept : m_type(type.m_data), m_storage(ptr, false) {}
-	any::any(type_info type, const void *ptr) noexcept : m_type(type.m_data), m_storage(ptr, true) {}
-	constexpr type_info any::type() const noexcept { return type_info{m_type}; }
-
-	template<typename T>
-	T *any::get() noexcept
+	constexpr typename type_info::attr_view type_info::attributes() const noexcept
 	{
-		if (type() != type_info::get<T>) [[unlikely]]
-			return nullptr;
-
-		if constexpr (std::is_const_v<T>)
-			return static_cast<T *>(cdata());
-		else
-			return static_cast<T *>(data());
+		return valid() ? attr_view{m_data->attributes, *this} : attr_view{};
 	}
-	template<typename T>
-	std::add_const_t<T> *any::get() const noexcept
+	constexpr typename type_info::const_view type_info::constants() const noexcept
 	{
-		if (type() != type_info::get<T>) [[unlikely]]
-			return nullptr;
-		return static_cast<T *>(data());
+		return valid() ? const_view{m_data->constants, *this} : const_view{};
+	}
+	constexpr typename type_info::conv_view type_info::conversions() const noexcept
+	{
+		return valid() ? conv_view{m_data->conversions, *this} : conv_view{};
+	}
+	constexpr typename type_info::ctor_view type_info::constructors() const noexcept
+	{
+		return valid() ? ctor_view{m_data->constructors, *this} : ctor_view{};
 	}
 
-	// clang-format off
-	template<typename T>
-	std::remove_reference_t<T> &any::as() requires std::is_lvalue_reference_v<T>
+	[[nodiscard]] constexpr std::size_t hash(const type_info &type) noexcept
 	{
-		const auto to_type = type_info::get<T>();
-		const auto result = as(to_type);
-		if (result.empty()) [[unlikely]]
-			throw_bad_cast(type(), to_type);
-		return *static_cast<T *>(result.data());
+		const auto name = type.name();
+		return fnv1a(name.data(), name.size());
 	}
-	template<typename T>
-	std::add_const_t<std::remove_reference_t<T>> &any::as() const requires std::is_lvalue_reference_v<T>
-	{
-		const auto to_type = type_info::get<T>();
-		const auto result = as(to_type);
-		if (result.empty()) [[unlikely]]
-			throw_bad_cast(type(), to_type);
-		return *static_cast<T *>(result.data());
-	}
-	// clang-format on
-
-	// clang-format off
-	template<typename T>
-	std::remove_pointer_t<T> *any::as() requires std::is_pointer_v<T>
-	{
-		return static_cast<T *>(as(type_info::get<T>()).data());
-	}
-	template<typename T>
-	std::add_const_t<std::remove_pointer_t<T>> *any::as() const requires std::is_pointer_v<T>
-	{
-		return static_cast<const T *>(as(type_info::get<T>()).data());
-	}
-	// clang-format on
-
-	/* Type names for reflection types. */
-	template<>
-	struct type_name<any>
-	{
-		constexpr static std::string_view value = "sek::any";
-	};
-	template<>
-	struct type_name<type_info>
-	{
-		constexpr static std::string_view value = "sek::type_info";
-	};
 
 	/** Returns the type info of an object's type. Equivalent to `type_info::get<T>()`. */
 	template<typename T>
@@ -618,15 +613,6 @@ namespace sek
 			return type_info::get({str, n});
 		}
 	}	 // namespace literals
-
-	/** @brief Helper type used to check if a type has been exported via `SEK_EXTERN_TYPE_INFO`. */
-	template<typename T>
-	struct is_exported_type : std::false_type
-	{
-	};
-	/** @brief Alias for `is_exported_type<T>::value`. */
-	template<typename T>
-	constexpr static auto is_exported_type_v = is_exported_type<T>::value;
 }	 // namespace sek
 
 template<>
@@ -655,7 +641,7 @@ struct std::hash<sek::type_info>
 	struct sek::is_exported_type<T> : std::true_type                                                                   \
 	{                                                                                                                  \
 	};                                                                                                                 \
-	extern template SEK_API_IMPORT sek::detail::type_data *sek::detail::type_data::instance<T>() noexcept;
+	extern template SEK_API_IMPORT sek::type_info sek::type_info::get<T>() noexcept;
 
 /** Macro used to export instance of type info for type `T`.
  * @note Type must be declared as `extern` via `SEK_EXTERN_TYPE_INFO`.
@@ -669,8 +655,7 @@ struct std::hash<sek::type_info>
  * // my_type.cpp
  * SEK_EXPORT_TYPE_INFO(my_type)
  * @endcode */
-#define SEK_EXPORT_TYPE_INFO(T)                                                                                        \
-	template SEK_API_EXPORT sek::detail::type_data *sek::detail::type_data::instance<T>() noexcept;
+#define SEK_EXPORT_TYPE_INFO(T) template SEK_API_EXPORT sek::type_info sek::type_info::get<T>() noexcept;
 
 /* Type exports for reflection types */
 SEK_EXTERN_TYPE_INFO(sek::any);

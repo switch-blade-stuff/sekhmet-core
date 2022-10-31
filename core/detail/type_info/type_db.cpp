@@ -14,34 +14,22 @@ namespace sek
 		return {&db, &db.m_mtx};
 	}
 
-	const detail::type_data *type_database::reflect_impl(detail::type_handle handle)
+	detail::type_data *type_database::reflect_impl(detail::type_handle handle)
 	{
-		if (auto *data = handle.get(); m_type_table.contains(data->name)) [[unlikely]]
-			throw type_error(make_error_code(type_errc::INVALID_TYPE), fmt::format("<{}> if already reflected", data->name));
-		else
+		auto iter = m_type_table.find(handle.name);
+		if (iter == m_type_table.end()) [[likely]]
 		{
-			const auto type = type_info{data};
-			m_type_table.insert(type);
+			const auto type = type_info{handle};
+			iter = m_type_table.insert(type).first;
 
 			/* Add the type to the attribute map. */
 			for (auto &attr : type.attributes())
 			{
-				const auto attr_type = attr.type();
-				auto attr_iter = m_attr_table.find(attr_type.name());
-
-				// clang-format off
-				if (attr_iter == m_attr_table.end()) [[likely]]
-				{
-					attr_iter = m_attr_table.emplace(std::piecewise_construct,
-					                                 std::forward_as_tuple(attr_type.name()),
-					                                 std::forward_as_tuple())
-								.first;
-				}
-				// clang-format on
+				const auto attr_iter = m_attr_table.try_emplace(attr.type().name()).first;
 				attr_iter->second.try_insert(type);
 			}
-			return data;
 		}
+		return iter->m_data;
 	}
 	type_info type_database::get(std::string_view name)
 	{

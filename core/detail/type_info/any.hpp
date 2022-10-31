@@ -9,8 +9,7 @@
 #include <utility>
 
 #include "../../expected.hpp"
-#include "type_data.hpp"
-#include "type_error.hpp"
+#include "type_info.hpp"
 
 namespace sek
 {
@@ -283,11 +282,11 @@ namespace sek
 		 * @return Reference to the managed object, converted to `T`.
 		 * @throw type_error If the specified type is not same as the managed object's type or a parent of it.
 		 * @note If the type of the managed object is the same as specified, returns reference to the managed object. */
-		template<typename T>
-		[[nodiscard]] inline std::remove_reference_t<T> &as() requires std::is_lvalue_reference_v<T>;
+		template<typename T, typename U = std::remove_reference_t<T>>
+		[[nodiscard]] inline U &as() requires std::is_lvalue_reference_v<T>;
 		/** @copydoc as */
-		template<typename T>
-		[[nodiscard]] inline std::add_const_t<std::remove_reference_t<T>> &as() const requires std::is_lvalue_reference_v<T>;
+		template<typename T, typename U = std::remove_reference_t<T>>
+		[[nodiscard]] inline std::add_const_t<U> &as() const requires std::is_lvalue_reference_v<T>;
 		// clang-format on
 
 		// clang-format off
@@ -295,11 +294,11 @@ namespace sek
 		 * @return Pointer to the managed object, converted to `T`, or `nullptr` if the
 		 * specified type is not same as the managed object's type or a parent of it.
 		 * @note If the type of the managed object is the same as specified, returns pointer to the managed object. */
-		template<typename T>
-		[[nodiscard]] inline std::remove_pointer_t<T> *as() requires std::is_pointer_v<T>;
+		template<typename T, typename U = std::remove_pointer_t<T>>
+		[[nodiscard]] inline U *as() requires std::is_pointer_v<T>;
 		/** @copydoc as */
-		template<typename T>
-		[[nodiscard]] inline std::add_const_t<std::remove_pointer_t<T>> *as() const requires std::is_pointer_v<T>;
+		template<typename T, typename U = std::remove_pointer_t<T>>
+		[[nodiscard]] inline std::add_const_t<U> *as() const requires std::is_pointer_v<T>;
 		// clang-format on
 
 		/** Converts the managed object to the specified type as-if via `static_cast<To>(value)`.
@@ -340,6 +339,53 @@ namespace sek
 		detail::type_data *m_type = nullptr;
 		storage_t m_storage = {};
 	};
+
+	template<typename T>
+	T *any::get() noexcept
+	{
+		if (type() != type_info::get<T>()) [[unlikely]]
+			return nullptr;
+
+		if constexpr (std::is_const_v<T>)
+			return static_cast<T *>(cdata());
+		else
+			return static_cast<T *>(data());
+	}
+	template<typename T>
+	std::add_const_t<T> *any::get() const noexcept
+	{
+		if (type() != type_info::get<T>()) [[unlikely]]
+			return nullptr;
+		return static_cast<std::add_const_t<T> *>(data());
+	}
+
+	// clang-format off
+	template<typename T, typename U>
+	U &any::as() requires std::is_lvalue_reference_v<T>
+	{
+		const auto to_type = type_info::get<T>();
+		const auto result = as(to_type);
+		if (result.empty()) [[unlikely]]
+			throw_bad_cast(type(), to_type);
+		return *static_cast<U *>(result.data());
+	}
+	template<typename T, typename U>
+	std::add_const_t<U> &any::as() const requires std::is_lvalue_reference_v<T>
+	{
+		const auto to_type = type_info::get<T>();
+		const auto result = as(to_type);
+		if (result.empty()) [[unlikely]]
+			throw_bad_cast(type(), to_type);
+		return *static_cast<U *>(result.data());
+	}
+	// clang-format on
+
+	// clang-format off
+	template<typename T, typename U>
+	U *any::as() requires std::is_pointer_v<T> { return static_cast<U *>(as(type_info::get<T>()).data()); }
+	template<typename T, typename U>
+	std::add_const_t<U> *any::as() const requires std::is_pointer_v<T> { return static_cast<const U *>(as(type_info::get<T>()).data()); }
+	// clang-format on
 
 	/** If `value` is a non-rvalue instance of `any`, creates an `any` instance referencing the managed object.
 	 * Otherwise, equivalent to `any(std::forward<T>(value))`. */
@@ -464,4 +510,14 @@ namespace sek
 			return result;
 		}
 	}	 // namespace detail
+
+	template<typename... Args>
+	any type_info::construct(std::in_place_t, Args &&...args) const
+	{
+		std::array<any, sizeof...(Args)> local_args = {forward_any(std::forward<Args>(args))...};
+		return construct(std::span{local_args});
+	}
+
+	any attribute_info::value() const noexcept { return m_data->get(); }
+	any constant_info::value() const noexcept { return m_data->get(); }
 }	 // namespace sek

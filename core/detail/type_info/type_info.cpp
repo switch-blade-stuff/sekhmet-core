@@ -143,6 +143,22 @@ namespace sek
 		return false;
 	}
 
+	bool type_info::has_constructor(std::span<const type_info> args) const noexcept
+	{
+		return
+
+		if (valid()) [[likely]]
+		{
+			const auto iter = find_overload(m_data->constructors, args);
+			if (iter != m_data->constructors.end()) [[likely]]
+			{
+				/* No need to check the error code, since the overload is already compatible. */
+				convert_args(iter->args, args);
+				return iter->invoke(args);
+			}
+		}
+	}
+
 	any type_info::attribute(type_info type) const
 	{
 		if (valid()) [[likely]]

@@ -6,7 +6,7 @@
 
 #include "../../access_guard.hpp"
 #include "../../delegate.hpp"
-#include "type_data.hpp"
+#include "any.hpp"
 
 namespace sek
 {
@@ -18,7 +18,7 @@ namespace sek
 			attr_data result;
 			result.template init<T>(std::forward<Args>(args)...);
 			result.get_func = +[](const void *data) { return forward_any(*static_cast<const T *>(data)); };
-			result.type = type_handle{type_selector<T>};
+			result.type = type_handle<T>;
 			return result;
 		}
 
@@ -31,7 +31,7 @@ namespace sek
 				auto *obj = static_cast<const T *>(ptr);
 				return static_cast<const P *>(obj);
 			};
-			result.type = type_handle{type_selector<P>};
+			result.type = type_handle<P>;
 			return result;
 		}
 		template<typename From, typename To, typename Conv>
@@ -51,17 +51,15 @@ namespace sek
 					return forward_any(Conv{}(*obj));
 				}
 			};
-			result.from_type = type_handle{type_selector<From>};
-			result.to_type = type_handle{type_selector<To>};
+			result.type = type_handle<To>;
 			return result;
 		}
 		template<typename F>
 		constexpr const_data const_data::make_instance(std::string_view name) noexcept
 		{
-			const_data result;
+			auto result = const_data{name};
 			result.get = +[]() { return forward_any(F{}()); };
-			result.type = type_handle{type_selector<std::remove_cvref_t<std::invoke_result_t<F>>>};
-			result.name = name;
+			result.type = type_handle<std::remove_cvref_t<std::invoke_result_t<F>>>;
 			return result;
 		}
 		template<auto V>
@@ -108,7 +106,7 @@ namespace sek
 				auto ctor = static_cast<any (*)(Args && ...)>(make_any<T, Args...>);
 				return invoke_impl(arg_types{}, ctor, args);
 			};
-			result.args = arg_types_array<arg_types>;
+			result.args = func_args<arg_types>;
 			return result;
 		}
 		template<typename T, auto F, typename... Args>
@@ -124,7 +122,7 @@ namespace sek
 				return invoke_impl(arg_types{}, ctor, args);
 				// clang-format on
 			};
-			result.args = arg_types_array<arg_types>;
+			result.args = func_args<arg_types>;
 			return result;
 		}
 		template<typename T, typename F, typename... Args, typename... FArgs>
@@ -151,7 +149,7 @@ namespace sek
 				};
 				return invoke_impl(arg_types{}, ctor, args);
 			};
-			result.args = arg_types_array<arg_types>;
+			result.args = func_args<arg_types>;
 			return result;
 		}
 
@@ -229,7 +227,7 @@ namespace sek
 			return invoke_impl<Args...>(std::index_sequence<sizeof...(Args)>{}, std::forward<F>(func), args);
 		}
 
-		template<typename T, auto F>
+		template<auto F>
 		constexpr func_overload func_overload::make_instance() noexcept
 		{
 			using traits = func_traits<F>;
@@ -255,7 +253,7 @@ namespace sek
 					};
 					result.is_const = true;
 				}
-				result.instance_type = type_handle{type_selector<instance_type>};
+				result.inst = type_handle<instance_type>;
 			}
 			else
 			{
@@ -266,11 +264,11 @@ namespace sek
 				};
 				// clang-format on
 			}
-			result.args = arg_types_array<arg_types>;
-			result.ret = type_handle{type_selector<return_type>};
+			result.args = func_args<arg_types>;
+			result.ret = type_handle<return_type>;
 			return result;
 		}
-		template<typename T, typename F, typename... FArgs>
+		template<typename F, typename... FArgs>
 		func_overload func_overload::make_instance(FArgs &&...f_args)
 		{
 			using traits = callable_traits<decltype(&F::operator())>;
@@ -307,20 +305,18 @@ namespace sek
 					};
 					result.is_const = true;
 				}
-				result.instance_type = type_handle{type_selector<instance_type>};
+				result.inst = type_handle<instance_type>;
 			}
 			else
 			{
-				// clang-format off
 				result.invoke_func = +[](const void *data, const void *, std::span<any> args)
 				{
 					auto *func = cast_func(data);
 					return forward_any(invoke_impl(arg_types{}, *func, args));
 				};
-				// clang-format on
 			}
-			result.args = arg_types_array<arg_types>;
-			result.ret = type_handle{type_selector<return_type>};
+			result.args = func_args<arg_types>;
+			result.ret = type_handle<return_type>;
 			return result;
 		}
 
@@ -333,7 +329,6 @@ namespace sek
 
 			result.is_void = std::is_void_v<T>;
 			result.is_empty = std::is_empty_v<T>;
-			result.is_nullptr = std::same_as<T, std::nullptr_t>;
 
 			/* For all operations that require an `any`-wrapped object to work, the type must be destructible. */
 			if constexpr (std::is_destructible_v<T> && !std::same_as<T, any>)
@@ -348,9 +343,8 @@ namespace sek
 				/* Add default conversions. */
 				if constexpr (std::is_enum_v<T>)
 				{
-					using underlying_t = std::underlying_type_t<T>;
-					result.conversions.insert(conv_data::make_instance<T, underlying_t>());
-					result.enum_type = type_handle{type_selector<underlying_t>};
+					result.conversions.insert(conv_data::make_instance<T, std::underlying_type_t<T>>());
+					result.enum_type = type_handle<std::underlying_type_t<T>>;
 				}
 				if constexpr (std::signed_integral<T> || std::convertible_to<T, std::intmax_t>)
 					result.conversions.insert(conv_data::make_instance<T, std::intmax_t>());
@@ -387,7 +381,7 @@ namespace sek
 		type_factory &operator=(type_factory &&) = delete;
 
 		/** Returns the parent `type_info` of this factory. */
-		[[nodiscard]] constexpr type_info type() const noexcept;
+		[[nodiscard]] constexpr type_info type() const noexcept { return type_info{m_data}; }
 
 		/** @brief Adds or overwrites an attribute for the current attribute target (type, constant, function or property).
 		 *
@@ -558,12 +552,12 @@ namespace sek
 			/* Create the function entry. */
 			auto func = m_data->functions.find(name);
 			if (func == m_data->functions.end()) [[unlikely]]
-				func = m_data->functions.emplace(name).first;
+				func = m_data->functions.emplace(name, detail::func_data{}).first;
 
 			/* Create or replace the function overload. */
-			auto target = std::ranges::find(func->overloads, overload);
-			if (target == func->overloads.end()) [[likely]]
-				target = func->overloads.emplace(func->overloads.end(), std::move(overload));
+			auto target = std::ranges::find(func->second.overloads, overload);
+			if (target == func->second.overloads.end()) [[likely]]
+				target = func->second.overloads.emplace(func->second.overloads.end(), std::move(overload));
 			else
 				*target = std::move(overload);
 

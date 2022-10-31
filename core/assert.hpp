@@ -43,7 +43,7 @@ namespace sek::detail
 	SEK_CORE_PUBLIC void print_assert(const char *file, std::size_t line, const char *func, const char *cstr, const char *msg) noexcept;
 	SEK_CORE_PUBLIC void print_unreachable(const char *file, std::size_t line, const char *func) noexcept;
 
-	[[noreturn]] inline void assert_fail_constexpr(const char *msg) { throw msg; }
+	[[noreturn]] inline void assert_fail_constexpr() { throw 0; }
 	[[noreturn]] SEK_CORE_PUBLIC void assert_fail() noexcept;
 
 	[[noreturn]] SEK_FORCE_INLINE void unreachable([[maybe_unused]] const char *file,
@@ -52,6 +52,7 @@ namespace sek::detail
 	{
 #ifdef SEK_DEBUG
 		print_unreachable(file, line, func);
+		SEK_DEBUG_TRAP_ALWAYS();
 #endif
 
 #if defined(__cpp_lib_unreachable)
@@ -81,7 +82,7 @@ namespace sek::detail
 				assert_fail();
 			}
 			else
-				assert_fail_constexpr(msg);
+				assert_fail_constexpr();
 		}
 	}
 }	 // namespace sek::detail
@@ -92,7 +93,7 @@ namespace sek::detail
 /** Same as regular SEK_ASSERT, except applies even when SEK_NO_DEBUG_ASSERT is defined. */
 #define SEK_ASSERT_ALWAYS(...) SEK_GET_MACRO_2(__VA_ARGS__, SEK_ASSERT_2, SEK_ASSERT_1)(__VA_ARGS__)
 /** Asserts that the code should never be reached. */
-#define SEK_NEVER_REACHED sek::detail::unreachable((SEK_FILE), (SEK_LINE), (SEK_PRETTY_FUNC))
+#define SEK_UNREACHABLE sek::detail::unreachable((SEK_FILE), (SEK_LINE), (SEK_PRETTY_FUNC))
 
 #if !defined(SEK_NO_DEBUG_ASSERT) && defined(SEK_DEBUG)
 /** Assert that supports an optional message, prints the enclosing function name and terminates using exit(1).

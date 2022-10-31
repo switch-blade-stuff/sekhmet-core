@@ -47,8 +47,8 @@ namespace sek
 			constexpr R operator()(Args... args) const noexcept { return callback(std::forward<Args>(args)...); }
 			constexpr bool operator==(const delegate_t &d) const noexcept { return callback == d; }
 
+			event_subscriber id = event_placeholder;
 			delegate_t callback;
-			event_subscriber id;
 		};
 
 		using sub_alloc_t = typename std::allocator_traits<Alloc>::template rebind_alloc<subscriber>;
@@ -448,8 +448,8 @@ namespace sek
 			return std::find(begin(), end(), subscriber);
 		}
 
-		/** Returns iterator to the subscriber delegate bound to the specified data instance, or an end range_type_iterator
-		 * if such subscriber is not found. */
+		/** Returns iterator to the subscriber delegate bound to the specified data instance, or an end
+		 * range_type_iterator if such subscriber is not found. */
 		template<typename T>
 		[[nodiscard]] constexpr iterator find(T *value) const noexcept
 		{

@@ -7,7 +7,7 @@
 #include <functional>
 #include <memory>
 
-#include "../../dense_set.hpp"
+#include "../../dense_map.hpp"
 #include "../../property.hpp"
 #include "../../type_name.hpp"
 #include "fwd.hpp"
@@ -22,34 +22,20 @@ namespace sek::detail
 		[[nodiscard]] constexpr To operator()(const From &value) const { return static_cast<To>(value); }
 	};
 
-	/* Data references are lazy-evaluated to allow dependency loops between types. */
-	struct type_handle
+	/* Data references are lazy-evaluated to enable dependency cycles. */
+	struct type_handle_t
 	{
-		constexpr type_handle() noexcept = default;
+		constexpr type_handle_t() noexcept = default;
 		template<typename T>
-		constexpr explicit type_handle(type_selector_t<T>) noexcept;
+		constexpr explicit type_handle_t(type_selector_t<T>) noexcept;
 
-		[[nodiscard]] constexpr type_data *operator->() const noexcept { return get(); }
-		[[nodiscard]] constexpr type_data &operator*() const noexcept { return *get(); }
+		[[nodiscard]] constexpr type_info operator()() const noexcept;
 
-		type_data *(*get)() noexcept = nullptr;
+		type_info (*get)() noexcept = nullptr;
 	};
 
-	struct type_data_hash
-	{
-		typedef std::true_type is_transparent;
-
-		[[nodiscard]] constexpr std::size_t operator()(std::string_view type) const noexcept;
-		[[nodiscard]] constexpr std::size_t operator()(const type_data *type) const noexcept;
-	};
-	struct type_data_cmp
-	{
-		typedef std::true_type is_transparent;
-
-		[[nodiscard]] constexpr bool operator()(const type_data *a, const type_data *b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(const type_data *a, std::string_view b) const noexcept;
-		[[nodiscard]] constexpr bool operator()(std::string_view a, const type_data *b) const noexcept;
-	};
+	template<typename T>
+	constexpr static auto type_handle = type_handle_t{type_selector<T>};
 
 	/* Simple type-erased object wrapper. */
 	struct generic_type_data
@@ -116,44 +102,8 @@ namespace sek::detail
 		[[nodiscard]] inline any get() const;
 
 		any (*get_func)(const void *) = nullptr;
-		type_handle type;
+		type_handle_t type;
 	};
-	struct attr_hash : type_data_hash
-	{
-		using type_data_hash::operator();
-
-		[[nodiscard]] constexpr std::size_t operator()(const attr_data &data) const noexcept
-		{
-			return operator()(data.type.get());
-		}
-	};
-	struct attr_cmp : type_data_cmp
-	{
-		using type_data_cmp::operator();
-
-		[[nodiscard]] constexpr bool operator()(const attr_data &a, const attr_data &b) const noexcept
-		{
-			return &a == &b || operator()(a.type.get(), b.type.get());
-		}
-		[[nodiscard]] constexpr bool operator()(const type_data *a, const attr_data &b) const noexcept
-		{
-			return operator()(a, b.type.get());
-		}
-		[[nodiscard]] constexpr bool operator()(const attr_data &a, const type_data *b) const noexcept
-		{
-			return operator()(a.type.get(), b);
-		}
-		[[nodiscard]] constexpr bool operator()(const attr_data &a, std::string_view b) const noexcept
-		{
-			return operator()(a.type.get(), b);
-		}
-		[[nodiscard]] constexpr bool operator()(std::string_view a, const attr_data &b) const noexcept
-		{
-			return operator()(a, b.type.get());
-		}
-	};
-	using attr_table = dense_set<attr_data, attr_hash, attr_cmp>;
-
 	struct base_data
 	{
 		template<typename T, typename P>
@@ -174,44 +124,8 @@ namespace sek::detail
 		}
 
 		const void *(*cast)(const void *) = nullptr;
-		type_handle type;
+		type_handle_t type;
 	};
-	struct base_hash : type_data_hash
-	{
-		using type_data_hash::operator();
-
-		[[nodiscard]] constexpr std::size_t operator()(const base_data &data) const noexcept
-		{
-			return operator()(data.type.get());
-		}
-	};
-	struct base_cmp : type_data_cmp
-	{
-		using type_data_cmp::operator();
-
-		[[nodiscard]] constexpr bool operator()(const base_data &a, const base_data &b) const noexcept
-		{
-			return &a == &b || operator()(a.type.get(), b.type.get());
-		}
-		[[nodiscard]] constexpr bool operator()(const type_data *a, const base_data &b) const noexcept
-		{
-			return operator()(a, b.type.get());
-		}
-		[[nodiscard]] constexpr bool operator()(const base_data &a, const type_data *b) const noexcept
-		{
-			return operator()(a.type.get(), b);
-		}
-		[[nodiscard]] constexpr bool operator()(const base_data &a, std::string_view b) const noexcept
-		{
-			return operator()(a.type.get(), b);
-		}
-		[[nodiscard]] constexpr bool operator()(std::string_view a, const base_data &b) const noexcept
-		{
-			return operator()(a, b.type.get());
-		}
-	};
-	using base_table = dense_set<base_data, base_hash, base_cmp>;
-
 	struct conv_data
 	{
 		template<typename From, typename To, typename Conv = default_conv<From, To>>
@@ -228,78 +142,45 @@ namespace sek::detail
 		constexpr void swap(conv_data &other) noexcept
 		{
 			std::swap(convert, other.convert);
-			std::swap(from_type, other.from_type);
-			std::swap(to_type, other.to_type);
+			std::swap(type, other.type);
 		}
 
 		any (*convert)(const any &) = nullptr;
-		type_handle from_type;
-		type_handle to_type;
+		type_handle_t type;
 	};
-	struct conv_hash : type_data_hash
-	{
-		using type_data_hash::operator();
 
-		[[nodiscard]] constexpr std::size_t operator()(const conv_data &data) const noexcept
-		{
-			return operator()(data.to_type.get());
-		}
-	};
-	struct conv_cmp : type_data_cmp
-	{
-		using type_data_cmp::operator();
+	using attr_table = dense_map<std::string_view, attr_data>;
+	using base_table = dense_map<std::string_view, base_data>;
+	using conv_table = dense_map<std::string_view, conv_data>;
 
-		[[nodiscard]] constexpr bool operator()(const conv_data &a, const conv_data &b) const noexcept
-		{
-			return &a == &b || operator()(a.to_type.get(), b.to_type.get());
-		}
-		[[nodiscard]] constexpr bool operator()(const type_data *a, const conv_data &b) const noexcept
-		{
-			return operator()(a, b.to_type.get());
-		}
-		[[nodiscard]] constexpr bool operator()(const conv_data &a, const type_data *b) const noexcept
-		{
-			return operator()(a.to_type.get(), b);
-		}
-		[[nodiscard]] constexpr bool operator()(const conv_data &a, std::string_view b) const noexcept
-		{
-			return operator()(a.to_type.get(), b);
-		}
-		[[nodiscard]] constexpr bool operator()(std::string_view a, const conv_data &b) const noexcept
-		{
-			return operator()(a, b.to_type.get());
-		}
-	};
-	using conv_table = dense_set<conv_data, conv_hash, conv_cmp>;
-
-	struct func_arg_data
+	struct func_arg
 	{
 		template<typename T>
-		constexpr explicit func_arg_data(type_selector_t<T>) noexcept
+		constexpr explicit func_arg(type_selector_t<T>) noexcept
 		{
-			type = type_handle{type_selector<std::remove_cv_t<T>>};
+			type = type_handle<std::remove_cv_t<T>>;
 			is_const = std::is_const_v<T>;
 		}
 
-		[[nodiscard]] constexpr bool operator==(const func_arg_data &other) const noexcept;
+		[[nodiscard]] constexpr bool operator==(const func_arg &other) const noexcept;
 
-		type_handle type; /* Actual type of the argument. */
-		bool is_const;	  /* Is the argument type const-qualified. */
+		type_handle_t type; /* Actual type of the argument. */
+		bool is_const;		/* Is the argument type const-qualified. */
 	};
 
 	template<typename... Args>
-	[[nodiscard]] constexpr auto make_args_array(type_seq_t<Args...>) noexcept
+	[[nodiscard]] constexpr auto make_func_args(type_seq_t<Args...>) noexcept
 	{
-		using array_t = std::array<func_arg_data, sizeof...(Args)>;
-		return array_t{func_arg_data(type_selector<std::remove_reference_t<Args>>)...};
+		using array_t = std::array<func_arg, sizeof...(Args)>;
+		return func_arg{func_arg(type_selector<std::remove_reference_t<Args>>)...};
 	}
 	template<template_instance<type_seq_t> Args>
-	[[nodiscard]] constexpr auto make_args_array() noexcept
+	[[nodiscard]] constexpr auto make_func_args() noexcept
 	{
-		return make_args_array(Args{});
+		return make_func_args(Args{});
 	}
 	template<template_instance<type_seq_t> Args>
-	constexpr static auto arg_types_array = make_args_array<Args>();
+	constexpr static auto func_args = make_func_args<Args>();
 
 	struct dtor_data : generic_type_data
 	{
@@ -338,9 +219,9 @@ namespace sek::detail
 		[[nodiscard]] static ctor_data make_instance(type_seq_t<Args...>, FArgs &&...);
 
 		template<typename... Args, typename F, std::size_t... Is>
-		static any invoke_impl(std::index_sequence<Is...>, F &&, std::span<any>);
+		[[nodiscard]] static any invoke_impl(std::index_sequence<Is...>, F &&, std::span<any>);
 		template<typename... Args, typename F>
-		static any invoke_impl(type_seq_t<Args...>, F &&, std::span<any>);
+		[[nodiscard]] static any invoke_impl(type_seq_t<Args...>, F &&, std::span<any>);
 
 		constexpr ctor_data() noexcept = default;
 		constexpr ctor_data(ctor_data &&other) noexcept { swap(other); }
@@ -360,50 +241,10 @@ namespace sek::detail
 		[[nodiscard]] inline any invoke(std::span<any>) const;
 
 		any (*invoke_func)(const void *, std::span<any>) = nullptr;
-		std::span<const func_arg_data> args;
+		std::span<const func_arg> args;
 	};
 
-	struct type_member_data
-	{
-		constexpr type_member_data() noexcept = default;
-		constexpr type_member_data(std::string_view name) noexcept : name(name) {}
-
-		constexpr void swap(type_member_data &other) noexcept { std::swap(name, other.name); }
-
-		std::string_view name;
-	};
-	struct member_hash
-	{
-		typedef std::true_type is_transparent;
-
-		[[nodiscard]] constexpr std::size_t operator()(std::string_view name) const noexcept
-		{
-			return fnv1a(name.data(), name.size());
-		}
-		[[nodiscard]] constexpr std::size_t operator()(const type_member_data &data) const noexcept
-		{
-			return operator()(data.name);
-		}
-	};
-	struct member_cmp
-	{
-		typedef std::true_type is_transparent;
-
-		[[nodiscard]] constexpr bool operator()(const type_member_data &a, const type_member_data &b) const noexcept
-		{
-			return &a == &b || a.name == b.name;
-		}
-		[[nodiscard]] constexpr bool operator()(const type_member_data &a, std::string_view b) const noexcept
-		{
-			return a.name == b;
-		}
-		[[nodiscard]] constexpr bool operator()(std::string_view a, const type_member_data &b) const noexcept
-		{
-			return a == b.name;
-		}
-	};
-
-	struct const_data : type_member_data
+	struct const_data
 	{
 		template<auto V>
 		[[nodiscard]] constexpr static const_data make_instance(std::string_view name) noexcept;
@@ -411,6 +252,8 @@ namespace sek::detail
 		[[nodiscard]] constexpr static const_data make_instance(std::string_view name) noexcept;
 
 		constexpr const_data() noexcept = default;
+		constexpr const_data(std::string_view name) noexcept : name(name) {}
+
 		constexpr const_data(const_data &&other) noexcept { swap(other); }
 		constexpr const_data &operator=(const_data &&other) noexcept
 		{
@@ -420,42 +263,23 @@ namespace sek::detail
 
 		constexpr void swap(const_data &other) noexcept
 		{
-			type_member_data::swap(other);
-
 			using std::swap;
-			swap(attributes, other.attributes);
 			swap(get, other.get);
 			swap(type, other.type);
+			swap(name, other.name);
+			swap(attributes, other.attributes);
 		}
 
-		mutable attr_table attributes;
 		any (*get)() = nullptr;
-		type_handle type;
+		type_handle_t type;
+		std::string_view name;
+		attr_table attributes;
 	};
-	using const_table = dense_set<const_data, member_hash, member_cmp>;
-
-	struct signature_data
+	struct func_overload : generic_type_data
 	{
-		constexpr void swap(signature_data &other) noexcept
-		{
-			using std::swap;
-			swap(args, other.args);
-			swap(instance_type, other.instance_type);
-			swap(is_const, other.is_const);
-		}
-
-		[[nodiscard]] constexpr bool operator==(const signature_data &other) const noexcept;
-
-		std::span<const func_arg_data> args;
-
-		type_handle instance_type;
-		bool is_const = false;
-	};
-	struct func_overload : generic_type_data, signature_data
-	{
-		template<typename T, auto F>
+		template<auto F>
 		[[nodiscard]] constexpr static func_overload make_instance() noexcept;
-		template<typename T, typename F, typename... FArgs>
+		template<typename F, typename... FArgs>
 		[[nodiscard]] static func_overload make_instance(FArgs &&...);
 
 		template<typename I, typename... Args, typename F, std::size_t... Is>
@@ -475,30 +299,38 @@ namespace sek::detail
 			return *this;
 		}
 
-		inline any invoke(const void *, std::span<any>) const;
+		[[nodiscard]] inline any invoke(const void *, std::span<any>) const;
+
+		[[nodiscard]] constexpr bool operator==(const func_overload &other) const noexcept;
 
 		constexpr void swap(func_overload &other) noexcept
 		{
 			generic_type_data::swap(other);
-			signature_data::swap(other);
 
 			using std::swap;
-			swap(invoke_func, other.invoke_func);
-			swap(ret, other.ret);
 			swap(attributes, other.attributes);
+			swap(invoke_func, other.invoke_func);
+			swap(is_const, other.is_const);
+			swap(args, other.args);
+			swap(inst, other.inst);
+			swap(ret, other.ret);
 		}
 
 		any (*invoke_func)(const void *, const void *, std::span<any>) = nullptr;
-		type_handle ret;
 
-		mutable attr_table attributes;
+		bool is_const = false;
+		std::span<const func_arg> args;
+		type_handle_t inst;
+		type_handle_t ret;
+
+		attr_table attributes;
 	};
-	struct func_data : type_member_data
+	struct func_data
 	{
 		using overloads_t = std::vector<func_overload>;
 
 		constexpr func_data() noexcept = default;
-		constexpr func_data(std::string_view name) noexcept : type_member_data(name) {}
+		constexpr func_data(std::string_view name) noexcept : name(name) {}
 
 		constexpr func_data(func_data &&other) noexcept { swap(other); }
 		constexpr func_data &operator=(func_data &&other) noexcept
@@ -509,7 +341,7 @@ namespace sek::detail
 
 		constexpr void swap(func_data &other) noexcept
 		{
-			type_member_data::swap(other);
+			std::swap(name, other.name);
 			std::swap(overloads, other.overloads);
 		}
 
@@ -524,11 +356,10 @@ namespace sek::detail
 			return std::ranges::find_if(overloads, std::forward<P>(pred));
 		}
 
-		mutable overloads_t overloads;
+		std::string_view name;
+		overloads_t overloads;
 	};
-	using func_table = dense_set<func_data, member_hash, member_cmp>;
-
-	struct prop_data : generic_type_data, type_member_data
+	struct prop_data : generic_type_data
 	{
 		template<typename T, typename G, typename S, typename... GArgs, typename... SArgs>
 		[[nodiscard]] static func_data make_instance(std::tuple<GArgs &&...> g_args, std::tuple<SArgs &&...> s_args);
@@ -546,24 +377,27 @@ namespace sek::detail
 		constexpr void swap(prop_data &other) noexcept
 		{
 			generic_type_data::swap(other);
-			type_member_data::swap(other);
 
 			using std::swap;
-			swap(attributes, other.attributes);
 			swap(get_func, other.get_func);
 			swap(set_func, other.set_func);
+			swap(name, other.name);
+			swap(attributes, other.attributes);
 		}
 
 		[[nodiscard]] inline any get() const;
 		inline void set(const any &) const;
 
-		mutable attr_table attributes;
 		any (*get_func)(const void *) = nullptr;
 		void (*set_func)(void *, const any &) = nullptr;
-	};
-	using prop_table = dense_set<prop_data, member_hash, member_cmp>;
 
-	/* TODO: Implement generic range, table, tuple & string type proxies. */
+		std::string_view name;
+		attr_table attributes;
+	};
+
+	using const_table = dense_map<std::string_view, const_data>;
+	using func_table = dense_map<std::string_view, func_data>;
+	using prop_table = dense_map<std::string_view, prop_data>;
 
 	struct any_vtable
 	{
@@ -580,26 +414,23 @@ namespace sek::detail
 		bool (*cmp_ge)(const void *, const void *) = nullptr;
 	};
 
+	/* TODO: Implement generic range, table, tuple & string type proxies. */
+
 	struct type_data
 	{
 		template<typename T>
 		[[nodiscard]] static type_data make_instance() noexcept;
-		template<typename T>
-		static type_data *instance() noexcept;
 
 		void reset() noexcept { reset_func(this); }
 
 		void (*reset_func)(type_data *) noexcept;
-
 		std::string_view name;
 
 		bool is_void = false;
 		bool is_empty = false;
-		bool is_nullptr = false;
-
-		bool is_int = false;
-		bool is_uint = false;
-		bool is_float = false;
+		bool is_signed = false;
+		bool is_unsigned = false;
+		bool is_floating = false;
 
 		attr_table attributes;
 		const_table constants;
@@ -611,52 +442,9 @@ namespace sek::detail
 		func_table functions;
 		prop_table properties;
 
-		type_handle enum_type;
+		type_handle_t enum_type;
 		conv_table conversions;
 
 		any_vtable any_funcs;
 	};
-
-	template<typename T>
-	constexpr type_handle::type_handle(type_selector_t<T>) noexcept : get(type_data::instance<T>)
-	{
-	}
-	template<typename T>
-	type_data *type_data::instance() noexcept
-	{
-		static type_data value = make_instance<T>();
-		return &value;
-	}
-
-	constexpr std::size_t type_data_hash::operator()(std::string_view type) const noexcept
-	{
-		return fnv1a(type.data(), type.size());
-	}
-	constexpr std::size_t type_data_hash::operator()(const type_data *type) const noexcept
-	{
-		return operator()(type->name);
-	}
-
-	constexpr bool type_data_cmp::operator()(const type_data *a, const type_data *b) const noexcept
-	{
-		return a == b || a->name == b->name;
-	}
-	constexpr bool type_data_cmp::operator()(const type_data *a, std::string_view b) const noexcept
-	{
-		return a->name == b;
-	}
-	constexpr bool type_data_cmp::operator()(std::string_view a, const type_data *b) const noexcept
-	{
-		return a == b->name;
-	}
-
-	constexpr bool func_arg_data::operator==(const func_arg_data &other) const noexcept
-	{
-		return is_const == other.is_const && (type.get == other.type.get || type->name == other.type->name);
-	}
-	constexpr bool signature_data::operator==(const signature_data &other) const noexcept
-	{
-		return (instance_type.get == other.instance_type.get || instance_type->name == other.instance_type->name) &&
-			   is_const == other.is_const && std::ranges::equal(args, other.args);
-	}
 }	 // namespace sek::detail

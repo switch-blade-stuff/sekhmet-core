@@ -6,6 +6,7 @@
 
 #include "../../dense_map.hpp"
 #include "../../dense_set.hpp"
+#include "type_factory.hpp"
 #include "type_info.hpp"
 
 namespace sek
@@ -67,7 +68,7 @@ namespace sek
 		[[nodiscard]] type_factory<T> reflect()
 		{
 			static_assert(is_exported_type_v<T>, "Reflected type must be exported via `SEK_EXTERN_TYPE_INFO`");
-			return type_factory<T>{{this, &m_mtx}, type_info::handle<T>()};
+			return type_factory<T>{{this, &m_mtx}, reflect_impl(detail::type_handle<std::remove_cvref_t<T>)};
 		}
 
 		/** Returns type info for the specified reflected type. */
@@ -89,7 +90,7 @@ namespace sek
 		[[nodiscard]] constexpr const type_table_t &types() const noexcept { return m_type_table; }
 
 	private:
-		SEK_CORE_PUBLIC const detail::type_data *reflect_impl(detail::type_handle);
+		SEK_CORE_PUBLIC detail::type_data *reflect_impl(detail::type_handle);
 
 		mutable std::shared_mutex m_mtx;
 		type_table_t m_type_table;
@@ -158,7 +159,7 @@ namespace sek
 
 	// clang-format off
 	template<typename T>
-	type_factory<T> type_info::reflect() { return type_database::instance()->template reflect<T>(); }
+	type_factory<T> type_info::reflect() { return type_database::instance().pointer()->template reflect<T>(); }
 	type_info type_info::get(std::string_view name) { return type_database::instance()->get(name); }
 	void type_info::reset(std::string_view name) { type_database::instance()->reset(name); }
 	// clang-format on
